@@ -32,6 +32,8 @@ this structure:
     "FieldName": {"content": "generated content", "type": "text"},
     "OtherField": {"content": "text to be spoken aloud", "type": "audio"},
     "ImageField": {"content": "image generation prompt", "type": "image"},
+    "RichField": {"content": "text with definition", "type": "text", \
+"image_prompt": "a helpful illustration of the concept"},
     "SkippedField": null
   }
 }
@@ -41,7 +43,13 @@ RULES:
 - For "text" type: provide the actual text/HTML content for the field
 - For "audio" type: provide the exact text that should be spoken aloud \
 for TTS synthesis
-- For "image" type: provide a descriptive prompt for image generation
+- For "image" type: provide a descriptive prompt for image generation \
+(the entire field will be an image)
+- Any field of type "text" may OPTIONALLY include an "image_prompt" key. \
+If you believe a small illustration would significantly help the learner \
+understand or remember the content, include an "image_prompt" with a \
+descriptive prompt for image generation. The image will be appended below \
+the text in the same field. Only add an image when it genuinely adds value.
 - Set a field to null if you cannot meaningfully fill it or it seems \
 irrelevant given the context
 - Use the filled fields and field instructions as context to generate \
@@ -49,7 +57,8 @@ appropriate content
 - Match the language and style appropriate for the note type and content
 - Be concise and accurate — this is for flashcards, not essays
 - If a field's type hint is "auto", decide the best content type based \
-on the field name and instruction"""
+on the field name and instruction
+- Use line breaks in text content where appropriate for readability"""
 
 
 class FieldFiller:
@@ -113,7 +122,7 @@ class FieldFiller:
                                 audio_bytes, field_name
                             )
                         else:
-                            results[field_name] = content
+                            results[field_name] = self._to_html(content)
                     elif ftype == "image":
                         img_config = self._config.get_active_image_provider()
                         if img_config:
@@ -125,7 +134,19 @@ class FieldFiller:
                         else:
                             results[field_name] = None
                     else:
-                        results[field_name] = content
+                        html = self._to_html(content)
+                        # Handle optional inline image for text fields
+                        image_prompt = field_data.get("image_prompt", "")
+                        if image_prompt:
+                            img_config = self._config.get_active_image_provider()
+                            if img_config:
+                                img_prov = create_image_provider(img_config)
+                                img_bytes = img_prov.generate_image(image_prompt)
+                                img_tag = MediaHandler.save_image(
+                                    img_bytes, field_name
+                                )
+                                html = f"{html}<br><br>{img_tag}"
+                        results[field_name] = html
 
                 def apply() -> None:
                     self._apply_results(editor, results)
@@ -253,6 +274,20 @@ class FieldFiller:
                 )
 
         return data.get("fields", data)
+
+    @staticmethod
+    def _to_html(text: str) -> str:
+        """Convert plain text to Anki-compatible HTML.
+
+        Converts newlines to <br> tags, but leaves content that already
+        contains HTML tags untouched.
+        """
+        if not text:
+            return text
+        # If the content already has HTML block/br tags, assume it's HTML
+        if "<br" in text or "<p>" in text or "<div>" in text:
+            return text
+        return text.replace("\n", "<br>")
 
     @staticmethod
     def _apply_results(
