@@ -105,6 +105,8 @@ class ProviderSettingsTab(QWidget):
         super().__init__()
         self._config = config
         self._current_provider = "openai"
+        # Cache fetched models per provider: {"openai": {"text": [...], "tts": [...], ...}}
+        self._model_cache: dict[str, dict[str, List[str]]] = {}
         self._setup_ui()
         self._load_provider("openai")
 
@@ -311,8 +313,19 @@ class ProviderSettingsTab(QWidget):
         self._url_edit.setText(cfg.api_url)
         self._key_edit.setText(cfg.api_key)
         self._show_key_check.setChecked(False)
-        self._text_model_combo.setCurrentText(cfg.text_model)
         self._max_tokens_spin.setValue(cfg.max_tokens)
+
+        # Restore cached model lists (or clear if none were fetched)
+        cached = self._model_cache.get(ptype, {})
+        for capability, combo in [
+            ("text", self._text_model_combo),
+            ("tts", self._tts_model_combo),
+            ("image", self._image_model_combo),
+        ]:
+            combo.setModels(cached.get(capability, []))
+
+        # Set the configured model values (may be custom / not in the list)
+        self._text_model_combo.setCurrentText(cfg.text_model)
         self._tts_model_combo.setCurrentText(cfg.tts_model)
         self._image_model_combo.setCurrentText(cfg.image_model)
 
@@ -369,7 +382,8 @@ class ProviderSettingsTab(QWidget):
 
     def _fetch_models(self, capability: str) -> None:
         self._save_current_provider()
-        cfg = self._config.get_provider_config(self._current_provider)
+        ptype = self._current_provider
+        cfg = self._config.get_provider_config(ptype)
         if not cfg.api_key:
             showInfo(
                 "Please enter an API key first.",
@@ -394,19 +408,25 @@ class ProviderSettingsTab(QWidget):
                 from aqt import mw
 
                 mw.taskman.run_on_main(
-                    lambda: self._on_models_fetched(target, models, None)
+                    lambda: self._on_models_fetched(
+                        ptype, capability, target, models, None
+                    )
                 )
             except Exception as e:
                 from aqt import mw
 
                 mw.taskman.run_on_main(
-                    lambda: self._on_models_fetched(target, [], str(e))
+                    lambda: self._on_models_fetched(
+                        ptype, capability, target, [], str(e)
+                    )
                 )
 
         threading.Thread(target=do_fetch, daemon=True).start()
 
     def _on_models_fetched(
         self,
+        ptype: str,
+        capability: str,
         combo: ModelComboWithRefresh,
         models: List[str],
         error: Optional[str],
@@ -415,6 +435,10 @@ class ProviderSettingsTab(QWidget):
         if error:
             tooltip(f"Failed to fetch models: {error}", parent=self)
         elif models:
+            # Cache the results for this provider + capability
+            if ptype not in self._model_cache:
+                self._model_cache[ptype] = {}
+            self._model_cache[ptype][capability] = models
             combo.setModels(models)
             tooltip(f"Loaded {len(models)} model(s).", parent=self)
         else:
