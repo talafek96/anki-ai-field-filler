@@ -4,18 +4,23 @@ An Anki addon that uses AI (LLM-based) to intelligently auto-fill blank note fie
 
 ## Features
 
-- **Multi-provider AI support** — OpenAI, Anthropic (Claude), Google (Gemini), and any OpenAI-compatible API
+- **Multi-provider AI support** — OpenAI, Anthropic (Claude), Google (Gemini / Nano Banana), and any OpenAI-compatible API
 - **Smart field filling** — The AI decides what content type fits each field (text, audio, image) and leaves irrelevant fields empty
+- **Optional inline images** — For text fields, the AI can include a generated illustration when it would help the learner, appended below the text in the same field
 - **Per-field instructions** — Configure what each field should contain per note type, giving the AI rich context
-- **Flexible activation** — Fill all blank fields at once or target specific fields
+- **Flexible activation** — Fill all blank fields at once or target a specific field
+- **Context-sensitive dialogs**:
+  - **Fill All**: full dialog with field checkboxes (already-filled fields are disabled), optional prompt, select/deselect all
+  - **Fill Field**: lightweight prompt-only dialog — just the field name and an optional instruction
 - **Multiple activation methods**:
   - Editor toolbar buttons ("AI Fill All", "AI Fill")
   - Right-click context menu on fields
   - Configurable keyboard shortcuts
+- **Dynamic model selection** — Model dropdowns with a refresh button that fetches available models from the provider's API, cached per provider
 - **Comfortable settings UI** — Tabbed settings dialog with provider config, note type instructions, and general settings
 - **Inline configuration** — Right-click any field to quickly set its AI instructions
-- **Text-to-speech** — Automatically generates audio files for audio fields (OpenAI TTS)
-- **Image generation** — Automatically generates images for image fields (OpenAI DALL-E)
+- **Text-to-speech** — Automatically generates audio files for audio fields (OpenAI TTS, Google Gemini TTS)
+- **Image generation** — Automatically generates images for image fields (OpenAI DALL-E, Google Nano Banana)
 
 ## Installation
 
@@ -37,10 +42,11 @@ An Anki addon that uses AI (LLM-based) to intelligently auto-fill blank note fie
 1. Open **Tools → AI Field Filler → Settings...**
 2. Go to the **AI Providers** tab
 3. Enter your API key for your preferred provider (OpenAI, Anthropic, or Google)
-4. Click **Test Connection** to verify
-5. Go to the **Note Types** tab
-6. Select a note type and describe what each field should contain
-7. Click **OK** to save
+4. Click the refresh icon next to a model dropdown to fetch available models
+5. Click **Test Connection** to verify
+6. Go to the **Note Types** tab
+7. Select a note type and describe what each field should contain
+8. Click **OK** to save
 
 ### AI Providers Tab
 
@@ -50,9 +56,12 @@ Configure credentials and models for each supported provider:
 |----------|------|-----|-------|-------|
 | OpenAI | Yes | Yes | Yes | Also works with Azure OpenAI and other compatible APIs |
 | Anthropic | Yes | No | No | Claude models |
-| Google | Yes | No | No | Gemini models |
+| Google | Yes | Yes | Yes | Gemini text, Nano Banana image gen, Gemini TTS |
 
-You can select which provider to use for each capability (text generation, TTS, image generation) independently. For example, use Anthropic for text but OpenAI for TTS/images.
+- **Model dropdowns** are editable combo boxes with a refresh icon button that fetches available models from the provider's API. Fetched models are cached per provider — switching between providers restores each one's model list.
+- **API key** field has a "Show" checkbox to toggle visibility.
+- **Active provider** can be set independently for each capability (text, TTS, image). For example, use Anthropic for text but OpenAI for TTS and Google for images.
+- **TTS voices** are pre-populated per provider (OpenAI: alloy, nova, shimmer, etc. / Google: Kore, Puck, Charon, etc.) but the field is editable for custom voices.
 
 **Using OpenAI-compatible APIs**: Change the API URL to point to your endpoint (e.g., Azure OpenAI, local LLM server, or any OpenAI-compatible API).
 
@@ -68,7 +77,7 @@ For each field you can configure:
 ### General Tab
 
 - **Keyboard shortcuts**: Customize shortcuts for fill actions (default: `Ctrl+Shift+G` for all, `Ctrl+Shift+F` for current field)
-- **Show confirmation dialog**: When enabled, shows a dialog to review and customize each fill operation
+- **Show confirmation dialog**: When enabled, shows a dialog before filling (full field selection for Fill All, prompt-only for Fill Field)
 - **Default user prompt**: Additional instructions included with every AI request
 
 ## Usage
@@ -80,6 +89,11 @@ Fill all empty fields in the current note at once:
 - Or right-click in the editor → **"AI: Fill all blank fields"**
 - Or press `Ctrl+Shift+G` (configurable)
 
+When the confirmation dialog is enabled, you'll see:
+- Checkboxes for each blank field (already-filled fields are grayed out and disabled)
+- An optional text area for additional one-time instructions
+- Select All / Deselect All buttons for convenience
+
 ### Fill a Specific Field
 
 Fill just the field you're working on:
@@ -87,16 +101,15 @@ Fill just the field you're working on:
 - Or right-click on a field → **"AI: Fill '{field name}'"**
 - Or press `Ctrl+Shift+F` (configurable)
 
+When the confirmation dialog is enabled, you'll see a lightweight popup with just the field name and an optional prompt — no field selection needed since you already chose the field.
+
 ### Quick Field Configuration
 
 Right-click on any field in the editor → **"AI: Configure instructions for '{field name}'..."** to quickly set or edit the AI instruction for that field without opening the full settings dialog.
 
-### Fill Dialog
+### Inline Images
 
-When the confirmation dialog is enabled (default), you'll see:
-- Checkboxes for each field (pre-selected based on which are blank and auto-fill settings)
-- An optional text area for additional one-time instructions
-- Select All / Deselect All buttons for convenience
+For text fields, the AI can optionally include a generated illustration when it believes it would significantly help the learner. The image is appended below the text in the same field. To encourage this, add something like *"Include a helpful illustration when the concept is visual or concrete"* to the field's instruction.
 
 ## How It Works
 
@@ -104,38 +117,39 @@ When the confirmation dialog is enabled (default), you'll see:
    - All field names and their current values
    - Per-field instructions you've configured for this note type
    - Any additional user prompt
-2. This context is sent to your configured AI provider
-3. The AI returns structured content for each requested field
-4. For text fields: content is inserted directly
-5. For audio fields: text is sent to the TTS provider, audio is saved to Anki's media folder, and a `[sound:filename.mp3]` tag is inserted
-6. For image fields: a generation prompt is sent to the image provider, the image is saved, and an `<img>` tag is inserted
+2. This context is sent to your configured AI provider as a structured prompt
+3. The AI returns a JSON response with content for each requested field, including content type decisions
+4. For text fields: content is converted to HTML (newlines → `<br>`) and inserted. If the AI included an `image_prompt`, the image is generated and appended below the text.
+5. For audio fields: text is sent to the TTS provider (OpenAI or Google Gemini), audio is saved to Anki's media folder (MP3 or WAV auto-detected), and a `[sound:filename]` tag is inserted
+6. For image fields: a generation prompt is sent to the image provider (DALL-E or Nano Banana), the image is saved, and an `<img>` tag is inserted
 7. Fields the AI deems irrelevant are left empty
 
 ## File Structure
 
 ```
 ai_field_filler/
-├── __init__.py              # Addon entry point
-├── config.json              # Default configuration
-├── config.md                # Configuration documentation
-├── config_manager.py        # Typed config wrapper (singleton)
-├── field_filler.py          # Core orchestrator
-├── media_handler.py         # Audio/image media management
-├── editor_hooks.py          # Editor toolbar + context menu
+├── __init__.py                # Addon entry point
+├── config.json                # Default configuration
+├── config.md                  # Configuration documentation
+├── config_manager.py          # Typed config wrapper (singleton)
+├── field_filler.py            # Core orchestrator
+├── media_handler.py           # Audio/image media management
+├── editor_hooks.py            # Editor toolbar + context menu
 ├── providers/
-│   ├── __init__.py          # Provider factory
-│   ├── base.py              # Abstract base classes
-│   ├── openai_provider.py   # OpenAI (text + TTS + image)
-│   ├── anthropic_provider.py # Anthropic (text)
-│   └── google_provider.py   # Google Gemini (text)
+│   ├── __init__.py            # Provider factory + model fetching
+│   ├── base.py                # Abstract base classes
+│   ├── openai_provider.py     # OpenAI (text + TTS + image)
+│   ├── anthropic_provider.py  # Anthropic (text)
+│   └── google_provider.py     # Google Gemini (text + TTS + image)
 └── ui/
     ├── __init__.py
-    ├── settings_dialog.py         # Main tabbed settings dialog
-    ├── provider_settings_tab.py   # Provider credentials tab
-    ├── note_type_settings_tab.py  # Per-field instructions tab
-    ├── general_settings_tab.py    # General settings tab
-    ├── fill_dialog.py             # Fill activation dialog
-    └── field_instruction_dialog.py # Quick field instruction editor
+    ├── settings_dialog.py           # Main tabbed settings dialog
+    ├── provider_settings_tab.py     # Provider credentials tab
+    ├── note_type_settings_tab.py    # Per-field instructions tab
+    ├── general_settings_tab.py      # General settings tab
+    ├── fill_dialog.py               # Fill All activation dialog
+    ├── quick_prompt_dialog.py       # Single-field prompt dialog
+    └── field_instruction_dialog.py  # Quick field instruction editor
 ```
 
 ## Requirements
@@ -161,7 +175,12 @@ ai_field_filler/
 ### Audio/Image not generating
 - Ensure TTS/Image is not set to "Disabled" in the Active Providers section
 - For OpenAI: verify the TTS Model and Image Model fields are filled in
+- For Google: verify the Image Model is set (e.g., `gemini-2.5-flash-image`)
 - Check that the field's Content Type is set to "Audio" or "Image" (or "Auto")
+
+### Model dropdown empty after fetching
+- Make sure you've entered an API key before clicking the refresh icon
+- The fetched models are cached per provider — switching providers shows that provider's cached models (or an empty list if not yet fetched)
 
 ## License
 
