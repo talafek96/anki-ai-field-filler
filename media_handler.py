@@ -13,11 +13,12 @@ class MediaHandler:
 
     @staticmethod
     def save_audio(audio_bytes: bytes, field_name: str) -> str:
-        """Save audio bytes as an MP3 file in Anki's media folder.
+        """Save audio bytes to Anki's media folder (auto-detects format).
 
         Returns an Anki sound tag like [sound:ai_filler_xyz.mp3].
         """
-        filename = MediaHandler._generate_filename(field_name, "mp3")
+        ext = "wav" if audio_bytes[:4] == b"RIFF" else "mp3"
+        filename = MediaHandler._generate_filename(field_name, ext)
         mw.col.media.write_data(filename, audio_bytes)
         return f"[sound:{filename}]"
 

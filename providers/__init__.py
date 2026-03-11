@@ -29,20 +29,28 @@ def create_text_provider(config: ProviderConfig) -> TextProvider:
 
 
 def create_tts_provider(config: ProviderConfig) -> TTSProvider:
-    """Create a TTS provider from config. Currently only OpenAI is supported."""
+    """Create a TTS provider from config."""
     if config.provider_type == "openai":
         from .openai_provider import OpenAITTSProvider
 
         return OpenAITTSProvider(config)
+    elif config.provider_type == "google":
+        from .google_provider import GoogleTTSProvider
+
+        return GoogleTTSProvider(config)
     raise ProviderError(f"No TTS support for provider: {config.provider_type}")
 
 
 def create_image_provider(config: ProviderConfig) -> ImageProvider:
-    """Create an image provider from config. Currently only OpenAI is supported."""
+    """Create an image provider from config."""
     if config.provider_type == "openai":
         from .openai_provider import OpenAIImageProvider
 
         return OpenAIImageProvider(config)
+    elif config.provider_type == "google":
+        from .google_provider import GoogleImageProvider
+
+        return GoogleImageProvider(config)
     raise ProviderError(f"No image support for provider: {config.provider_type}")
 
 
@@ -82,7 +90,7 @@ def fetch_available_models(
     elif config.provider_type == "anthropic":
         return _fetch_anthropic_models(config)
     elif config.provider_type == "google":
-        return _fetch_google_models(config)
+        return _fetch_google_models(config, capability)
     return []
 
 
@@ -134,10 +142,12 @@ def _fetch_anthropic_models(config: ProviderConfig) -> List[str]:
     return sorted(m["id"] for m in data.get("data", []))
 
 
-def _fetch_google_models(config: ProviderConfig) -> List[str]:
+def _fetch_google_models(
+    config: ProviderConfig, capability: str = "text"
+) -> List[str]:
     """Fetch models from the Google Gemini /models endpoint."""
     base = config.api_url.rstrip("/")
-    url = f"{base}/models?key={config.api_key}"
+    url = f"{base}/models?key={config.api_key}&pageSize=1000"
     req = urllib.request.Request(url)
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
@@ -154,6 +164,13 @@ def _fetch_google_models(config: ProviderConfig) -> List[str]:
         if "/" in name:
             name = name.split("/", 1)[1]
         methods = m.get("supportedGenerationMethods", [])
-        if "generateContent" in methods:
+        if "generateContent" not in methods:
+            continue
+        nl = name.lower()
+        if capability == "image" and "image" in nl:
+            models.append(name)
+        elif capability == "tts" and ("tts" in nl or "flash" in nl):
+            models.append(name)
+        elif capability == "text" and "image" not in nl and "tts" not in nl:
             models.append(name)
     return sorted(models)

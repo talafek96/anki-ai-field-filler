@@ -18,7 +18,10 @@
         "google": {
             "api_url": "https://generativelanguage.googleapis.com/v1beta",
             "api_key": "",
-            "text_model": "gemini-2.0-flash",
+            "text_model": "gemini-2.5-flash",
+            "tts_model": "",
+            "tts_voice": "Kore",
+            "image_model": "gemini-2.5-flash-image",
             "max_tokens": 4096
         }
     },
