@@ -51,10 +51,11 @@ class FillDialog(QDialog):
 
             if value:
                 cb.setChecked(False)
+                cb.setEnabled(False)
                 preview = value[:80].replace("\n", " ")
                 if len(value) > 80:
                     preview += "..."
-                cb.setToolTip(f"Current value: {preview}")
+                cb.setToolTip(f"Already filled: {preview}")
                 cb.setStyleSheet("color: gray;")
             else:
                 is_pre_selected = (
@@ -125,11 +126,13 @@ class FillDialog(QDialog):
 
     def _select_all(self) -> None:
         for cb in self._checkboxes.values():
-            cb.setChecked(True)
+            if cb.isEnabled():
+                cb.setChecked(True)
 
     def _deselect_all(self) -> None:
         for cb in self._checkboxes.values():
-            cb.setChecked(False)
+            if cb.isEnabled():
+                cb.setChecked(False)
 
     def _on_fill(self) -> None:
         selected = [
