@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import threading
+from typing import List, Optional
 
 from aqt.qt import *
 from aqt.utils import showInfo, tooltip
 
 from ..config_manager import ConfigManager, ProviderConfig
-from ..providers import test_provider_connection
+from ..providers import fetch_available_models, test_provider_connection
+from ..providers.base import ProviderError
 
 PROVIDER_CAPABILITIES = {
     "openai": {"text": True, "tts": True, "image": True},
@@ -21,6 +23,65 @@ PROVIDER_LABELS = {
     "anthropic": "Anthropic",
     "google": "Google (Gemini)",
 }
+
+OPENAI_TTS_VOICES = ["alloy", "ash", "ballad", "coral", "echo", "fable",
+                      "nova", "onyx", "sage", "shimmer"]
+
+
+class ModelComboWithRefresh(QWidget):
+    """Editable combo box with a refresh button for fetching models."""
+
+    def __init__(
+        self,
+        placeholder: str = "",
+        tool_tip: str = "",
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        self._combo = QComboBox()
+        self._combo.setEditable(True)
+        self._combo.lineEdit().setPlaceholderText(placeholder)
+        self._combo.setToolTip(tool_tip)
+        self._combo.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        layout.addWidget(self._combo)
+
+        self._refresh_btn = QPushButton("Fetch")
+        self._refresh_btn.setFixedWidth(52)
+        self._refresh_btn.setToolTip("Fetch available models from the API")
+        layout.addWidget(self._refresh_btn)
+
+        self.setLayout(layout)
+
+    def currentText(self) -> str:
+        return self._combo.currentText()
+
+    def setCurrentText(self, text: str) -> None:
+        idx = self._combo.findText(text)
+        if idx >= 0:
+            self._combo.setCurrentIndex(idx)
+        else:
+            self._combo.setCurrentText(text)
+
+    def setModels(self, models: List[str]) -> None:
+        """Populate the dropdown, preserving the current selection."""
+        current = self._combo.currentText()
+        self._combo.clear()
+        self._combo.addItems(models)
+        if current:
+            self.setCurrentText(current)
+
+    def refreshButton(self) -> QPushButton:
+        return self._refresh_btn
+
+    def setRefreshing(self, busy: bool) -> None:
+        self._refresh_btn.setEnabled(not busy)
+        self._refresh_btn.setText("..." if busy else "Fetch")
 
 
 class ProviderSettingsTab(QWidget):
@@ -101,9 +162,16 @@ class ProviderSettingsTab(QWidget):
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
         )
 
-        self._text_model_edit = QLineEdit()
-        self._text_model_edit.setToolTip("Model name for text generation.")
-        models_layout.addRow("Text Model:", self._text_model_edit)
+        self._text_model_combo = ModelComboWithRefresh(
+            placeholder="e.g. gpt-4o",
+            tool_tip="Model name for text generation.\n"
+            "Click Fetch to load available models from the API.",
+        )
+        qconnect(
+            self._text_model_combo.refreshButton().clicked,
+            lambda: self._fetch_models("text"),
+        )
+        models_layout.addRow("Text Model:", self._text_model_combo)
 
         self._max_tokens_spin = QSpinBox()
         self._max_tokens_spin.setRange(256, 32768)
@@ -114,34 +182,39 @@ class ProviderSettingsTab(QWidget):
         models_layout.addRow("Max Tokens:", self._max_tokens_spin)
 
         self._tts_model_label = QLabel("TTS Model:")
-        self._tts_model_edit = QLineEdit()
-        self._tts_model_edit.setPlaceholderText(
-            "e.g. tts-1 (leave empty to disable)"
+        self._tts_model_combo = ModelComboWithRefresh(
+            placeholder="e.g. tts-1 (leave empty to disable)",
+            tool_tip="Model for text-to-speech audio generation.\n"
+            "Click Fetch to load available TTS models from the API.",
         )
-        self._tts_model_edit.setToolTip(
-            "Model for text-to-speech audio generation."
+        qconnect(
+            self._tts_model_combo.refreshButton().clicked,
+            lambda: self._fetch_models("tts"),
         )
-        models_layout.addRow(self._tts_model_label, self._tts_model_edit)
+        models_layout.addRow(self._tts_model_label, self._tts_model_combo)
 
         self._tts_voice_label = QLabel("TTS Voice:")
-        self._tts_voice_edit = QLineEdit()
-        self._tts_voice_edit.setPlaceholderText(
-            "alloy, echo, fable, onyx, nova, shimmer"
-        )
-        self._tts_voice_edit.setToolTip(
+        self._tts_voice_combo = QComboBox()
+        self._tts_voice_combo.setEditable(True)
+        self._tts_voice_combo.setToolTip(
             "Voice to use for text-to-speech synthesis."
         )
-        models_layout.addRow(self._tts_voice_label, self._tts_voice_edit)
+        self._tts_voice_combo.addItems(OPENAI_TTS_VOICES)
+        models_layout.addRow(self._tts_voice_label, self._tts_voice_combo)
 
         self._image_model_label = QLabel("Image Model:")
-        self._image_model_edit = QLineEdit()
-        self._image_model_edit.setPlaceholderText(
-            "e.g. dall-e-3 (leave empty to disable)"
+        self._image_model_combo = ModelComboWithRefresh(
+            placeholder="e.g. dall-e-3 (leave empty to disable)",
+            tool_tip="Model for image generation.\n"
+            "Click Fetch to load available image models from the API.",
         )
-        self._image_model_edit.setToolTip(
-            "Model for image generation."
+        qconnect(
+            self._image_model_combo.refreshButton().clicked,
+            lambda: self._fetch_models("image"),
         )
-        models_layout.addRow(self._image_model_label, self._image_model_edit)
+        models_layout.addRow(
+            self._image_model_label, self._image_model_combo
+        )
 
         models_group.setLayout(models_layout)
         layout.addWidget(models_group)
@@ -190,6 +263,8 @@ class ProviderSettingsTab(QWidget):
 
         self._load_active_providers()
 
+    # --- Provider switching ---
+
     def _on_provider_changed(self, _index: int) -> None:
         self._save_current_provider()
         ptype = self._provider_combo.currentData()
@@ -200,20 +275,27 @@ class ProviderSettingsTab(QWidget):
         cfg = self._config.get_provider_config(ptype)
         self._url_edit.setText(cfg.api_url)
         self._key_edit.setText(cfg.api_key)
-        self._text_model_edit.setText(cfg.text_model)
+        self._text_model_combo.setCurrentText(cfg.text_model)
         self._max_tokens_spin.setValue(cfg.max_tokens)
-        self._tts_model_edit.setText(cfg.tts_model)
-        self._tts_voice_edit.setText(cfg.tts_voice)
-        self._image_model_edit.setText(cfg.image_model)
+        self._tts_model_combo.setCurrentText(cfg.tts_model)
+        self._image_model_combo.setCurrentText(cfg.image_model)
 
+        # Set TTS voice
+        idx = self._tts_voice_combo.findText(cfg.tts_voice)
+        if idx >= 0:
+            self._tts_voice_combo.setCurrentIndex(idx)
+        else:
+            self._tts_voice_combo.setCurrentText(cfg.tts_voice)
+
+        # Show/hide TTS and image fields based on provider capabilities
         caps = PROVIDER_CAPABILITIES.get(ptype, {})
         has_tts = caps.get("tts", False)
         has_image = caps.get("image", False)
 
-        for w in (self._tts_model_label, self._tts_model_edit,
-                  self._tts_voice_label, self._tts_voice_edit):
+        for w in (self._tts_model_label, self._tts_model_combo,
+                  self._tts_voice_label, self._tts_voice_combo):
             w.setVisible(has_tts)
-        for w in (self._image_model_label, self._image_model_edit):
+        for w in (self._image_model_label, self._image_model_combo):
             w.setVisible(has_image)
 
     def _save_current_provider(self) -> None:
@@ -222,11 +304,11 @@ class ProviderSettingsTab(QWidget):
             provider_type=ptype,
             api_url=self._url_edit.text().strip(),
             api_key=self._key_edit.text().strip(),
-            text_model=self._text_model_edit.text().strip(),
+            text_model=self._text_model_combo.currentText().strip(),
             max_tokens=self._max_tokens_spin.value(),
-            tts_model=self._tts_model_edit.text().strip(),
-            tts_voice=self._tts_voice_edit.text().strip(),
-            image_model=self._image_model_edit.text().strip(),
+            tts_model=self._tts_model_combo.currentText().strip(),
+            tts_voice=self._tts_voice_combo.currentText().strip(),
+            image_model=self._image_model_combo.currentText().strip(),
         )
         self._config.set_provider_config(ptype, cfg)
 
@@ -241,6 +323,70 @@ class ProviderSettingsTab(QWidget):
             if idx >= 0:
                 combo.setCurrentIndex(idx)
 
+    # --- Model fetching ---
+
+    def _fetch_models(self, capability: str) -> None:
+        """Fetch models for the given capability in a background thread."""
+        self._save_current_provider()
+        cfg = self._config.get_provider_config(self._current_provider)
+        if not cfg.api_key:
+            showInfo(
+                "Please enter an API key first.",
+                title="AI Field Filler",
+            )
+            return
+
+        combo_map = {
+            "text": self._text_model_combo,
+            "tts": self._tts_model_combo,
+            "image": self._image_model_combo,
+        }
+        target_combo = combo_map.get(capability)
+        if not target_combo:
+            return
+
+        target_combo.setRefreshing(True)
+
+        def do_fetch() -> None:
+            try:
+                models = fetch_available_models(cfg, capability)
+                from aqt import mw
+
+                mw.taskman.run_on_main(
+                    lambda: self._on_models_fetched(
+                        target_combo, models, None
+                    )
+                )
+            except Exception as e:
+                from aqt import mw
+
+                mw.taskman.run_on_main(
+                    lambda: self._on_models_fetched(
+                        target_combo, [], str(e)
+                    )
+                )
+
+        threading.Thread(target=do_fetch, daemon=True).start()
+
+    def _on_models_fetched(
+        self,
+        combo: ModelComboWithRefresh,
+        models: List[str],
+        error: Optional[str],
+    ) -> None:
+        combo.setRefreshing(False)
+        if error:
+            tooltip(f"Failed to fetch models: {error}", parent=self)
+        elif models:
+            combo.setModels(models)
+            tooltip(
+                f"Loaded {len(models)} model(s).", parent=self
+            )
+        else:
+            tooltip("No models found for this capability.", parent=self)
+
+    # --- Key visibility ---
+
     def _toggle_key_visibility(self, checked: bool) -> None:
         if checked:
             self._key_edit.setEchoMode(QLineEdit.EchoMode.Normal)
@@ -248,6 +394,8 @@ class ProviderSettingsTab(QWidget):
         else:
             self._key_edit.setEchoMode(QLineEdit.EchoMode.Password)
             self._show_key_btn.setText("Show")
+
+    # --- Connection test ---
 
     def _test_connection(self) -> None:
         self._save_current_provider()
@@ -282,6 +430,8 @@ class ProviderSettingsTab(QWidget):
                 f"Connection failed:\n\n{message}",
                 title="AI Field Filler",
             )
+
+    # --- Save ---
 
     def save(self) -> None:
         """Save all provider settings to the config manager."""
