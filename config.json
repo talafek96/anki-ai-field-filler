@@ -1,0 +1,37 @@
+{
+    "providers": {
+        "openai": {
+            "api_url": "https://api.openai.com/v1",
+            "api_key": "",
+            "text_model": "gpt-4o",
+            "tts_model": "tts-1",
+            "tts_voice": "alloy",
+            "image_model": "dall-e-3",
+            "max_tokens": 4096
+        },
+        "anthropic": {
+            "api_url": "https://api.anthropic.com/v1",
+            "api_key": "",
+            "text_model": "claude-sonnet-4-20250514",
+            "max_tokens": 4096
+        },
+        "google": {
+            "api_url": "https://generativelanguage.googleapis.com/v1beta",
+            "api_key": "",
+            "text_model": "gemini-2.0-flash",
+            "max_tokens": 4096
+        }
+    },
+    "active_providers": {
+        "text": "openai",
+        "tts": "openai",
+        "image": "openai"
+    },
+    "note_type_field_instructions": {},
+    "general": {
+        "fill_all_shortcut": "Ctrl+Shift+G",
+        "fill_field_shortcut": "Ctrl+Shift+F",
+        "default_user_prompt": "",
+        "show_fill_dialog": true
+    }
+}
