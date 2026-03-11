@@ -13,6 +13,7 @@ from .config_manager import ConfigManager, FieldInstruction
 from .field_filler import FieldFiller
 from .ui.fill_dialog import FillDialog
 from .ui.field_instruction_dialog import FieldInstructionDialog
+from .ui.quick_prompt_dialog import QuickPromptDialog
 
 
 class EditorIntegration:
@@ -143,31 +144,16 @@ class EditorIntegration:
         general = config.get_general_settings()
         note = editor.note
         field_name = note.keys()[editor.currentField]
-        note_type_name = note.note_type()["name"]
-        field_instructions = config.get_field_instructions(note_type_name)
 
         if general.show_fill_dialog:
-            field_names = list(note.keys())
-            field_values = {name: note[name] for name in field_names}
-
-            dialog = FillDialog(
-                field_names=field_names,
-                field_values=field_values,
-                field_instructions=field_instructions,
-                pre_selected=[field_name],
-                parent=editor.widget,
-            )
+            dialog = QuickPromptDialog(field_name, parent=editor.widget)
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 return
-            result = dialog.get_result()
-            if not result:
-                return
-            target_fields, user_prompt = result
+            user_prompt = dialog.get_user_prompt() or ""
         else:
-            target_fields = [field_name]
             user_prompt = general.default_user_prompt
 
-        cls._run_fill(editor, target_fields, user_prompt)
+        cls._run_fill(editor, [field_name], user_prompt)
 
     @classmethod
     def _on_configure_field(cls, editor: Editor, field_name: str) -> None:
