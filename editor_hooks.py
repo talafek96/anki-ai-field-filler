@@ -6,7 +6,7 @@ from typing import List
 
 from aqt import gui_hooks, mw
 from aqt.editor import Editor, EditorWebView
-from aqt.qt import QMenu, qconnect
+from aqt.qt import QDialog, QMenu, qconnect
 from aqt.utils import showWarning, tooltip
 
 from .config_manager import ConfigManager, FieldInstruction
