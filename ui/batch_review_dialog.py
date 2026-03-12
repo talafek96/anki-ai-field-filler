@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Dict, List
 
 from aqt.qt import *
@@ -35,6 +36,19 @@ _FIELD_ERROR_STYLE = "color: #B45309; font-size: 12px; padding: 2px 0;"
 _EMPTY_HTML = '<span style="color: #9CA3AF; font-style: italic; font-size: 12px;">(empty)</span>'
 
 _INITIAL_CONTENT_HEIGHT = 80
+
+_BODY_RE = re.compile(r"<body[^>]*>(.*)</body>", re.DOTALL)
+
+
+def _extract_body_html(qt_html: str) -> str:
+    """Extract body content from QTextEdit.toHtml() output.
+
+    Qt wraps edited content in a full HTML document with doctype, head,
+    and verbose inline styles.  We only want the inner body content so
+    the stored value stays close to what the AI originally produced.
+    """
+    m = _BODY_RE.search(qt_html)
+    return m.group(1).strip() if m else qt_html
 
 
 class _PairedResizeHandle(QWidget):
@@ -111,8 +125,9 @@ class BatchReviewDialog(QDialog):
         self._dry_run = dry_run
         self._approved: List[BatchProposedChange] = []
         self._checks: List[QCheckBox] = []
-        # Map (proposal index, field_name) -> QPlainTextEdit for editable new values
-        self._edits: Dict[tuple, QPlainTextEdit] = {}
+        # Map (proposal index, field_name) -> widgets
+        self._edits: Dict[tuple, QPlainTextEdit] = {}  # raw HTML editors
+        self._rendered_edits: Dict[tuple, QTextEdit] = {}  # WYSIWYG editors
         # Stacked widgets for rendered/raw toggle
         self._old_stacks: List[QStackedWidget] = []
         self._new_stacks: List[QStackedWidget] = []
@@ -314,15 +329,15 @@ class BatchReviewDialog(QDialog):
         arrow.setFixedWidth(28)
         grid.addWidget(arrow, 1, 1, Qt.AlignmentFlag.AlignCenter)
 
-        # --- New side (stacked: rendered / editable raw) ---
+        # --- New side (stacked: rendered+editable / raw editable) ---
         new_stack = QStackedWidget()
         new_stack.setFixedHeight(_INITIAL_CONTENT_HEIGHT)
 
-        # Page 0: rendered HTML (read-only)
-        new_rendered = QTextBrowser()
-        new_rendered.setOpenExternalLinks(False)
+        # Page 0: rendered HTML (editable WYSIWYG)
+        new_rendered = QTextEdit()
         new_rendered.setStyleSheet(_RENDERED_NEW_STYLE)
         new_rendered.setHtml(new_value if new_value.strip() else _EMPTY_HTML)
+        new_rendered.document().setModified(False)
         new_stack.addWidget(new_rendered)
 
         # Page 1: raw text (editable)
@@ -334,6 +349,7 @@ class BatchReviewDialog(QDialog):
         new_stack.setCurrentIndex(0)
         grid.addWidget(new_stack, 1, 2)
 
+        self._rendered_edits[(prop_idx, field_name)] = new_rendered
         self._edits[(prop_idx, field_name)] = edit
         self._old_stacks.append(old_stack)
         self._new_stacks.append(new_stack)
@@ -351,13 +367,20 @@ class BatchReviewDialog(QDialog):
         page = 1 if raw else 0
         for old_stack in self._old_stacks:
             old_stack.setCurrentIndex(page)
+        if raw:
+            # Switching to raw: sync WYSIWYG edits into the raw editors
+            for key, rendered in self._rendered_edits.items():
+                if rendered.document().isModified():
+                    self._edits[key].setPlainText(_extract_body_html(rendered.toHtml()))
+                    rendered.document().setModified(False)
+        else:
+            # Switching to rendered: refresh WYSIWYG from raw editors
+            for key, edit in self._edits.items():
+                rendered = self._rendered_edits[key]
+                text = edit.toPlainText()
+                rendered.setHtml(text if text.strip() else _EMPTY_HTML)
+                rendered.document().setModified(False)
         for new_stack in self._new_stacks:
-            if not raw:
-                # Sync edits back to the rendered view
-                edit = new_stack.widget(1)
-                rendered = new_stack.widget(0)
-                text = edit.toPlainText()  # type: ignore[union-attr]
-                rendered.setHtml(text if text.strip() else _EMPTY_HTML)  # type: ignore[union-attr]
             new_stack.setCurrentIndex(page)
 
     # --- Select / deselect ---
@@ -373,6 +396,12 @@ class BatchReviewDialog(QDialog):
                 cb.setChecked(False)
 
     def _on_apply(self) -> None:
+        # If in rendered mode, sync any WYSIWYG edits to the raw editors
+        if not self._raw_mode:
+            for key, rendered in self._rendered_edits.items():
+                if rendered.document().isModified():
+                    self._edits[key].setPlainText(_extract_body_html(rendered.toHtml()))
+
         # Write edited values back into proposals before returning
         for (prop_idx, field_name), edit in self._edits.items():
             self._proposals[prop_idx].changes[field_name] = edit.toPlainText()
