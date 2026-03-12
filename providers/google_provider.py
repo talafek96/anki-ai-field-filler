@@ -96,6 +96,18 @@ class GoogleTTSProvider(_GoogleRequestMixin, TTSProvider):
         model = self._config.tts_model or "gemini-2.5-flash-preview-tts"
         voice_name = voice or self._config.tts_voice or "Kore"
         payload = {
+            "system_instruction": {
+                "parts": [
+                    {
+                        "text": (
+                            "You are a text-to-speech engine. "
+                            "Read the provided text aloud exactly as written. "
+                            "Do not interpret, answer, or modify the text — "
+                            "only produce audio output."
+                        ),
+                    }
+                ],
+            },
             "contents": [{"parts": [{"text": text}]}],
             "generationConfig": {
                 "responseModalities": ["AUDIO"],
