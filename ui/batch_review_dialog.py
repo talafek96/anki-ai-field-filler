@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 from aqt.qt import *
 
@@ -23,10 +23,6 @@ _DIFF_LABEL_NEW = "color: #16A34A; font-weight: 600; font-size: 11px;"
 _RENDERED_OLD_STYLE = (
     "background: #FEF2F2; border: 1px solid #FECACA; border-radius: 4px; "
     "color: #991B1B; font-size: 12px;"
-)
-_RENDERED_NEW_STYLE = (
-    "background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 4px; "
-    "color: #166534; font-size: 12px;"
 )
 
 _EMPTY_HTML = '<span style="color: #9CA3AF; font-style: italic; font-size: 12px;">(empty)</span>'
@@ -110,8 +106,8 @@ class BatchReviewDialog(QDialog):
         self._checks: List[QCheckBox] = []
         # Map (proposal index, field_name) -> QPlainTextEdit for editable new values
         self._edits: Dict[tuple, QPlainTextEdit] = {}
-        # Stacked widgets for rendered/raw toggle: list of (old_stack, new_stack)
-        self._stacks: List[Tuple[QStackedWidget, QStackedWidget]] = []
+        # Stacked widgets for rendered/raw toggle on the Before side only
+        self._old_stacks: List[QStackedWidget] = []
         self._raw_mode = False
         self._setup_ui()
 
@@ -140,7 +136,10 @@ class BatchReviewDialog(QDialog):
 
         if not self._dry_run:
             hint_row = QHBoxLayout()
-            hint = QLabel("Toggle <b>Show raw HTML</b> to edit the generated values.")
+            hint = QLabel(
+                "Edit the generated values below before applying."
+                " Toggle <b>Show raw HTML</b> to see the original HTML on the Before side."
+            )
             hint.setStyleSheet(MUTED_LABEL_STYLE)
             hint_row.addWidget(hint)
             hint_row.addStretch()
@@ -302,33 +301,20 @@ class BatchReviewDialog(QDialog):
         arrow.setFixedWidth(28)
         grid.addWidget(arrow, 1, 1, Qt.AlignmentFlag.AlignCenter)
 
-        # --- New side ---
-        new_stack = QStackedWidget()
-        new_stack.setFixedHeight(_INITIAL_CONTENT_HEIGHT)
-
-        # Page 0: rendered HTML preview (read-only)
-        new_rendered = QTextBrowser()
-        new_rendered.setOpenExternalLinks(False)
-        new_rendered.setStyleSheet(_RENDERED_NEW_STYLE)
-        new_rendered.setHtml(new_value if new_value.strip() else _EMPTY_HTML)
-        new_stack.addWidget(new_rendered)
-
-        # Page 1: raw editable text
+        # --- New side (always editable) ---
         edit = QPlainTextEdit()
         edit.setPlainText(new_value)
         edit.setStyleSheet(_DIFF_NEW_STYLE)
-        new_stack.addWidget(edit)
-
-        new_stack.setCurrentIndex(0)
-        grid.addWidget(new_stack, 1, 2)
+        edit.setFixedHeight(_INITIAL_CONTENT_HEIGHT)
+        grid.addWidget(edit, 1, 2)
 
         self._edits[(prop_idx, field_name)] = edit
-        self._stacks.append((old_stack, new_stack))
+        self._old_stacks.append(old_stack)
 
         parent_layout.addLayout(grid)
 
-        # Resize handle — drags both old and new stacks together
-        handle = _PairedResizeHandle(old_stack, new_stack)
+        # Resize handle — drags both old and new panels together
+        handle = _PairedResizeHandle(old_stack, edit)
         parent_layout.addWidget(handle)
 
     # --- Toggle rendered / raw ---
@@ -336,16 +322,8 @@ class BatchReviewDialog(QDialog):
     def _on_toggle_raw(self, raw: bool) -> None:
         self._raw_mode = raw
         page = 1 if raw else 0
-        for old_stack, new_stack in self._stacks:
-            # When switching back to rendered, update the preview from the edit
-            if not raw:
-                edit = new_stack.widget(1)
-                rendered = new_stack.widget(0)
-                if isinstance(edit, QPlainTextEdit) and isinstance(rendered, QTextBrowser):
-                    text = edit.toPlainText()
-                    rendered.setHtml(text if text.strip() else _EMPTY_HTML)
+        for old_stack in self._old_stacks:
             old_stack.setCurrentIndex(page)
-            new_stack.setCurrentIndex(page)
 
     # --- Select / deselect ---
 
