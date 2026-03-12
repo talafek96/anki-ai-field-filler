@@ -7,6 +7,7 @@ speech synthesis via the Gemini generateContent API.
 from __future__ import annotations
 
 import base64
+from typing import List
 
 from ..config_manager import ProviderConfig
 from .base import ImageProvider, ProviderError, TextProvider, TTSProvider
@@ -24,6 +25,29 @@ class _GoogleRequestMixin:
         url = f"{self._config.base_url}/models/{model}:generateContent?key={self._config.api_key}"
         return http_post_json(url, {}, payload, timeout=timeout, label=_LABEL)
 
+    @staticmethod
+    def _extract_parts(result: dict) -> List[dict]:
+        """Extract parts from the first candidate, with clear error messages."""
+        candidates = result.get("candidates")
+        if not candidates:
+            # Check for prompt-level blocking
+            feedback = result.get("promptFeedback", {})
+            block_reason = feedback.get("blockReason", "unknown")
+            raise ProviderError(
+                f"Google API returned no candidates (prompt blocked: {block_reason})"
+            )
+
+        candidate = candidates[0]
+        content = candidate.get("content")
+        if not content or "parts" not in content:
+            finish = candidate.get("finishReason", "unknown")
+            raise ProviderError(
+                f"Google API returned no content (finishReason: {finish}). "
+                "The response may have been blocked by safety filters."
+            )
+
+        return content["parts"]
+
 
 class GoogleTextProvider(_GoogleRequestMixin, TextProvider):
     """Google Gemini text generation."""
@@ -38,11 +62,12 @@ class GoogleTextProvider(_GoogleRequestMixin, TextProvider):
                 "temperature": 0.7,
             },
         }
-        try:
-            result = self._generate_content(model, payload)
-            return result["candidates"][0]["content"]["parts"][0]["text"]
-        except (KeyError, IndexError) as e:
-            raise ProviderError(f"Unexpected Google API response format: {e}") from e
+        result = self._generate_content(model, payload)
+        parts = self._extract_parts(result)
+        text = parts[0].get("text", "")
+        if not text:
+            raise ProviderError("Google API returned empty text in response")
+        return text
 
 
 class GoogleImageProvider(_GoogleRequestMixin, ImageProvider):
@@ -56,14 +81,12 @@ class GoogleImageProvider(_GoogleRequestMixin, ImageProvider):
                 "responseModalities": ["IMAGE", "TEXT"],
             },
         }
-        try:
-            result = self._generate_content(model, payload, timeout=180)
-            for part in result["candidates"][0]["content"]["parts"]:
-                if "inlineData" in part:
-                    return base64.b64decode(part["inlineData"]["data"])
-            raise ProviderError("No image data in Google API response")
-        except (KeyError, IndexError) as e:
-            raise ProviderError(f"Unexpected Google API response format: {e}") from e
+        result = self._generate_content(model, payload, timeout=180)
+        parts = self._extract_parts(result)
+        for part in parts:
+            if "inlineData" in part:
+                return base64.b64decode(part["inlineData"]["data"])
+        raise ProviderError("No image data in Google API response")
 
 
 class GoogleTTSProvider(_GoogleRequestMixin, TTSProvider):
@@ -85,11 +108,9 @@ class GoogleTTSProvider(_GoogleRequestMixin, TTSProvider):
                 },
             },
         }
-        try:
-            result = self._generate_content(model, payload)
-            for part in result["candidates"][0]["content"]["parts"]:
-                if "inlineData" in part:
-                    return base64.b64decode(part["inlineData"]["data"])
-            raise ProviderError("No audio data in Google API response")
-        except (KeyError, IndexError) as e:
-            raise ProviderError(f"Unexpected Google API response format: {e}") from e
+        result = self._generate_content(model, payload)
+        parts = self._extract_parts(result)
+        for part in parts:
+            if "inlineData" in part:
+                return base64.b64decode(part["inlineData"]["data"])
+        raise ProviderError("No audio data in Google API response")

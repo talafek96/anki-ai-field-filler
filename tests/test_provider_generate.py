@@ -196,10 +196,37 @@ class TestGoogleTextProvider:
         assert result == "Gemini says hi"
 
     @patch(_HTTP_POST_JSON)
-    def test_generate_bad_format(self, mock_urlopen) -> None:
+    def test_generate_no_candidates(self, mock_urlopen) -> None:
         mock_urlopen.return_value = _mock_urlopen(json.dumps({"candidates": []}))
         provider = GoogleTextProvider(_GOOGLE_CFG)
-        with pytest.raises(ProviderError, match="Unexpected Google"):
+        with pytest.raises(ProviderError, match="returned no candidates"):
+            provider.generate("system", "user")
+
+    @patch(_HTTP_POST_JSON)
+    def test_generate_prompt_blocked(self, mock_urlopen) -> None:
+        mock_urlopen.return_value = _mock_urlopen(
+            json.dumps({"promptFeedback": {"blockReason": "SAFETY"}})
+        )
+        provider = GoogleTextProvider(_GOOGLE_CFG)
+        with pytest.raises(ProviderError, match="prompt blocked: SAFETY"):
+            provider.generate("system", "user")
+
+    @patch(_HTTP_POST_JSON)
+    def test_generate_no_content(self, mock_urlopen) -> None:
+        mock_urlopen.return_value = _mock_urlopen(
+            json.dumps({"candidates": [{"finishReason": "SAFETY"}]})
+        )
+        provider = GoogleTextProvider(_GOOGLE_CFG)
+        with pytest.raises(ProviderError, match="finishReason: SAFETY"):
+            provider.generate("system", "user")
+
+    @patch(_HTTP_POST_JSON)
+    def test_generate_empty_text(self, mock_urlopen) -> None:
+        mock_urlopen.return_value = _mock_urlopen(
+            json.dumps({"candidates": [{"content": {"parts": [{"text": ""}]}}]})
+        )
+        provider = GoogleTextProvider(_GOOGLE_CFG)
+        with pytest.raises(ProviderError, match="empty text"):
             provider.generate("system", "user")
 
 
