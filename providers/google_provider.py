@@ -90,7 +90,13 @@ class GoogleImageProvider(_GoogleRequestMixin, ImageProvider):
 
 
 class GoogleTTSProvider(_GoogleRequestMixin, TTSProvider):
-    """Google Gemini native speech synthesis."""
+    """Google Gemini native speech synthesis.
+
+    The Gemini TTS models do NOT support ``system_instruction``.  All
+    pronunciation / style guidance must be embedded directly in the
+    ``contents`` text, following the prompting structure described in
+    https://ai.google.dev/gemini-api/docs/speech-generation.
+    """
 
     def synthesize(
         self, text: str, language: str = "", voice: str = "", context: str = ""
@@ -98,23 +104,20 @@ class GoogleTTSProvider(_GoogleRequestMixin, TTSProvider):
         model = self._config.tts_model or "gemini-2.5-flash-preview-tts"
         voice_name = voice or self._config.tts_voice or "Kore"
 
-        instruction_parts = [
-            "You are a text-to-speech engine. "
-            "Read the provided text aloud exactly as written. "
-            "Do not interpret, answer, or modify the text — "
-            "only produce audio output.",
-        ]
+        # Build the prompt text.  The TTS model treats the entire contents
+        # as direction + transcript, so we prepend any context as Director's
+        # Notes and mark the actual text as the Transcript.
+        prompt_parts: list[str] = []
         if context:
-            instruction_parts.append(
-                "\nUse the following note context to determine the correct "
+            prompt_parts.append(
+                "Use the following context to determine the correct "
                 "language, pronunciation, intonation, and speaking style:\n" + context
             )
+        prompt_parts.append("Read the following text aloud exactly as written:\n" + text)
+        prompt = "\n\n".join(prompt_parts)
 
         payload = {
-            "system_instruction": {
-                "parts": [{"text": "\n".join(instruction_parts)}],
-            },
-            "contents": [{"parts": [{"text": text}]}],
+            "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
                 "responseModalities": ["AUDIO"],
                 "speechConfig": {
