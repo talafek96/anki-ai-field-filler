@@ -113,7 +113,7 @@ class EditorIntegration:
             func=lambda ed: cls._on_fill_field(ed),
             tip=f"AI: Fill current field ({general.fill_field_shortcut})",
             keys=general.fill_field_shortcut or None,
-            label="\U0001f9e0 Fill",
+            label="\U0001f9e0 Fill Current",
         )
         buttons.append(btn_field)
 
