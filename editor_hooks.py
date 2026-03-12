@@ -60,6 +60,37 @@ class EditorIntegration:
         cls._filler = FieldFiller()
         gui_hooks.editor_did_init_buttons.append(cls._add_toolbar_buttons)
         gui_hooks.editor_will_show_context_menu.append(cls._add_context_menu)
+        gui_hooks.editor_did_init.append(cls._inject_button_style)
+
+    @classmethod
+    def _inject_button_style(cls, editor: Editor) -> None:
+        """Inject CSS into the editor webview to style our toolbar buttons."""
+        css = """
+        (function() {
+            if (document.getElementById('ai-filler-style')) return;
+            var s = document.createElement('style');
+            s.id = 'ai-filler-style';
+            s.textContent = `
+                button[title^="AI:"] {
+                    background: linear-gradient(135deg, #6366F1, #8B5CF6) !important;
+                    color: white !important;
+                    border: none !important;
+                    border-radius: 6px !important;
+                    padding: 3px 10px !important;
+                    font-weight: 600 !important;
+                    font-size: 12px !important;
+                    letter-spacing: 0.3px !important;
+                    transition: opacity 0.15s !important;
+                    margin: 0 2px !important;
+                }
+                button[title^="AI:"]:hover {
+                    opacity: 0.85 !important;
+                }
+            `;
+            document.head.appendChild(s);
+        })();
+        """
+        editor.web.eval(css)
 
     @classmethod
     def _add_toolbar_buttons(cls, buttons: List[str], editor: Editor) -> None:
@@ -72,7 +103,7 @@ class EditorIntegration:
             func=lambda ed: cls._on_fill_all(ed),
             tip=f"AI: Fill all blank fields ({general.fill_all_shortcut})",
             keys=general.fill_all_shortcut or None,
-            label="AI Fill All",
+            label="\u2728 Fill All",
         )
         buttons.append(btn_all)
 
@@ -82,7 +113,7 @@ class EditorIntegration:
             func=lambda ed: cls._on_fill_field(ed),
             tip=f"AI: Fill current field ({general.fill_field_shortcut})",
             keys=general.fill_field_shortcut or None,
-            label="AI Fill",
+            label="\U0001f9e0 Fill",
         )
         buttons.append(btn_field)
 
