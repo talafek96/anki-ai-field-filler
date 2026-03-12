@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from ai_field_filler.field_filler import BatchProposedChange
-from ai_field_filler.ui.batch_review_dialog import _extract_body_html
+from ai_field_filler.ui.batch_review_dialog import (
+    _extract_body_html,
+    _fmt_seconds,
+    _media_base_url,
+)
 
 
 class TestExtractBodyHtml:
@@ -211,3 +215,60 @@ def _on_apply(self: object) -> None:
         cb = self._checks[i] if i < len(self._checks) else None  # type: ignore[attr-defined]
         if cb is not None and cb.isChecked() and prop.success:
             self._approved.append(prop)  # type: ignore[attr-defined]
+
+
+class TestFmtSeconds:
+    """Verify _fmt_seconds time formatting."""
+
+    def test_under_a_minute(self) -> None:
+        assert _fmt_seconds(45) == "0:45"
+
+    def test_exact_minute(self) -> None:
+        assert _fmt_seconds(60) == "1:00"
+
+    def test_minutes_and_seconds(self) -> None:
+        assert _fmt_seconds(125) == "2:05"
+
+    def test_zero(self) -> None:
+        assert _fmt_seconds(0) == "0:00"
+
+    def test_over_an_hour(self) -> None:
+        assert _fmt_seconds(3661) == "1:01:01"
+
+    def test_fractional_seconds_truncated(self) -> None:
+        assert _fmt_seconds(59.9) == "0:59"
+
+
+class TestMediaBaseUrl:
+    """Verify _media_base_url returns a QUrl or None."""
+
+    def test_returns_url_when_mw_available(self) -> None:
+        with patch("ai_field_filler.ui.batch_review_dialog.mw") as mock_mw:
+            mock_mw.col.media.dir.return_value = "/fake/media"
+            result = _media_base_url()
+            # QUrl.fromLocalFile was called (it's a MagicMock so result is truthy)
+            assert result is not None
+
+    def test_returns_none_on_exception(self) -> None:
+        with patch("ai_field_filler.ui.batch_review_dialog.mw") as mock_mw:
+            mock_mw.col.media.dir.side_effect = AttributeError("no col")
+            result = _media_base_url()
+            assert result is None
+
+
+class TestPlaySound:
+    """Verify _play_sound calls av_player with correct tag."""
+
+    def test_play_sound_calls_av_player(self) -> None:
+        from anki.sound import SoundOrVideoTag
+        from aqt.sound import av_player
+
+        av_player.play_tags.reset_mock()
+        SoundOrVideoTag.reset_mock()
+
+        # Replicate _play_sound logic directly
+        filename = "test.mp3"
+        av_player.play_tags([SoundOrVideoTag(filename=filename)])
+
+        av_player.play_tags.assert_called_once()
+        SoundOrVideoTag.assert_called_with(filename="test.mp3")

@@ -169,15 +169,20 @@ class BatchSummaryDialog(QDialog):
         layout.addWidget(header)
 
         # Summary stats
-        stats = QLabel(
-            f"<table>"
+        stats_rows = (
             f"<tr><td><b>Total notes:</b></td><td>{r.total}</td></tr>"
             f"<tr><td><b>Succeeded:</b></td><td>{r.succeeded}</td></tr>"
             f"<tr><td><b>Failed:</b></td><td>{r.failed}</td></tr>"
             f"<tr><td><b>Skipped:</b></td>"
             f"<td>{r.skipped} (already filled or cancelled)</td></tr>"
-            f"</table>"
         )
+        if r.elapsed_seconds > 0:
+            elapsed = _fmt_time(r.elapsed_seconds)
+            stats_rows += f"<tr><td><b>Elapsed:</b></td><td>{elapsed}</td></tr>"
+            if r.succeeded > 0:
+                avg = r.elapsed_seconds / r.succeeded
+                stats_rows += f"<tr><td><b>Avg per note:</b></td><td>{avg:.1f}s</td></tr>"
+        stats = QLabel(f"<table>{stats_rows}</table>")
         layout.addWidget(stats)
 
         # Failure details (only if there are failures)

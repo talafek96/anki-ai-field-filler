@@ -69,6 +69,7 @@ def _install_aqt_mocks() -> None:
         "QTimer",
         "QSizeGrip",
         "QSplitter",
+        "QUrl",
         "Qt",
         "qconnect",
         "pyqtSignal",
@@ -92,6 +93,13 @@ def _install_aqt_mocks() -> None:
     aqt_browser = types.ModuleType("aqt.browser")
     aqt_browser.Browser = MagicMock()
 
+    aqt_sound = types.ModuleType("aqt.sound")
+    aqt_sound.av_player = MagicMock()
+
+    anki = types.ModuleType("anki")
+    anki_sound = types.ModuleType("anki.sound")
+    anki_sound.SoundOrVideoTag = MagicMock()
+
     sys.modules["aqt"] = aqt
     sys.modules["aqt.qt"] = aqt_qt
     sys.modules["aqt.utils"] = aqt_utils
@@ -99,6 +107,9 @@ def _install_aqt_mocks() -> None:
     sys.modules["aqt.webview"] = aqt_webview
     sys.modules["aqt.browser"] = aqt_browser
     sys.modules["aqt.gui_hooks"] = aqt.gui_hooks
+    sys.modules["aqt.sound"] = aqt_sound
+    sys.modules["anki"] = anki
+    sys.modules["anki.sound"] = anki_sound
 
 
 _install_aqt_mocks()

@@ -373,6 +373,7 @@ class BatchResult:
     succeeded: int = 0
     failed: int = 0
     skipped: int = 0
+    elapsed_seconds: float = 0.0
     failures: List[BatchNoteResult] = field(default_factory=list)
     proposals: List[BatchProposedChange] = field(default_factory=list)
     dry_run: bool = False
@@ -502,6 +503,7 @@ class BatchFiller:
 
             self._report_progress(on_progress, idx + 1, result.total, note, start)
 
+        result.elapsed_seconds = time.monotonic() - start
         return result
 
     def apply_proposals(

@@ -107,6 +107,7 @@ class BrowserIntegration:
         review = BatchReviewDialog(
             proposals=batch_result.proposals,
             dry_run=dry_run,
+            elapsed_seconds=batch_result.elapsed_seconds,
             parent=browser,
         )
         if review.exec() != QDialog.DialogCode.Accepted:

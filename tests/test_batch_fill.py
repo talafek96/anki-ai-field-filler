@@ -99,6 +99,7 @@ class TestBatchFiller:
         assert result.total == 2
         assert result.succeeded == 2
         assert result.failed == 0
+        assert result.elapsed_seconds > 0
 
     @patch(_HTTP_URLOPEN)
     @patch("ai_field_filler.field_filler.mw")
@@ -226,6 +227,7 @@ class TestBatchDataclasses:
         assert r.succeeded == 0
         assert r.failed == 0
         assert r.skipped == 0
+        assert r.elapsed_seconds == 0.0
         assert r.failures == []
         assert r.dry_run is False
 

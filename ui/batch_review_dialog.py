@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import re
-from typing import Dict, List
+from typing import Dict, List, Optional
 
+from anki.sound import SoundOrVideoTag
+from aqt import mw
 from aqt.qt import *
+from aqt.sound import av_player
 
 from ..field_filler import BatchProposedChange
 from .styles import GLOBAL_STYLE, HEADER_STYLE, MUTED_LABEL_STYLE
@@ -38,6 +42,29 @@ _EMPTY_HTML = '<span style="color: #9CA3AF; font-style: italic; font-size: 12px;
 _INITIAL_CONTENT_HEIGHT = 80
 
 _BODY_RE = re.compile(r"<body[^>]*>(.*)</body>", re.DOTALL)
+_SOUND_RE = re.compile(r"\[sound:([^\]]+)\]")
+
+_PLAY_BTN_STYLE = (
+    "font-size: 11px; padding: 2px 8px; border: 1px solid #D1D5DB; "
+    "border-radius: 4px; background: #F9FAFB;"
+)
+
+
+def _fmt_seconds(seconds: float) -> str:
+    """Format seconds as 'm:ss'."""
+    s = int(seconds)
+    if s < 3600:
+        return f"{s // 60}:{s % 60:02d}"
+    return f"{s // 3600}:{(s % 3600) // 60:02d}:{s % 60:02d}"
+
+
+def _media_base_url() -> Optional[QUrl]:
+    """Return a file:// QUrl pointing to Anki's media folder, or None."""
+    try:
+        media_dir = mw.col.media.dir()
+        return QUrl.fromLocalFile(media_dir + os.sep)
+    except Exception:
+        return None
 
 
 def _extract_body_html(qt_html: str) -> str:
@@ -118,11 +145,13 @@ class BatchReviewDialog(QDialog):
         self,
         proposals: List[BatchProposedChange],
         dry_run: bool = False,
+        elapsed_seconds: float = 0.0,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._proposals = proposals
         self._dry_run = dry_run
+        self._elapsed_seconds = elapsed_seconds
         self._approved: List[BatchProposedChange] = []
         self._checks: List[QCheckBox] = []
         # Map (proposal index, field_name) -> widgets
@@ -132,6 +161,7 @@ class BatchReviewDialog(QDialog):
         self._old_stacks: List[QStackedWidget] = []
         self._new_stacks: List[QStackedWidget] = []
         self._raw_mode = False
+        self._base_url: Optional[QUrl] = _media_base_url()
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -158,6 +188,16 @@ class BatchReviewDialog(QDialog):
         header = QLabel(", ".join(parts))
         header.setStyleSheet(HEADER_STYLE)
         layout.addWidget(header)
+
+        # Generation stats
+        if self._elapsed_seconds > 0 and successful:
+            avg = self._elapsed_seconds / len(successful)
+            stats_text = (
+                f"Generated in {_fmt_seconds(self._elapsed_seconds)}  \u2022  {avg:.1f}s per note"
+            )
+            stats_label = QLabel(stats_text)
+            stats_label.setStyleSheet(MUTED_LABEL_STYLE)
+            layout.addWidget(stats_label)
 
         if not self._dry_run:
             hint_row = QHBoxLayout()
@@ -306,6 +346,8 @@ class BatchReviewDialog(QDialog):
         old_rendered = QTextBrowser()
         old_rendered.setOpenExternalLinks(False)
         old_rendered.setStyleSheet(_RENDERED_OLD_STYLE)
+        if self._base_url:
+            old_rendered.document().setBaseUrl(self._base_url)
         if old_value.strip():
             old_rendered.setHtml(old_value)
         else:
@@ -336,6 +378,8 @@ class BatchReviewDialog(QDialog):
         # Page 0: rendered HTML (editable WYSIWYG)
         new_rendered = QTextEdit()
         new_rendered.setStyleSheet(_RENDERED_NEW_STYLE)
+        if self._base_url:
+            new_rendered.document().setBaseUrl(self._base_url)
         new_rendered.setHtml(new_value if new_value.strip() else _EMPTY_HTML)
         new_rendered.document().setModified(False)
         new_stack.addWidget(new_rendered)
@@ -359,6 +403,41 @@ class BatchReviewDialog(QDialog):
         # Resize handle — drags both old and new panels together
         handle = _PairedResizeHandle(old_stack, new_stack)
         parent_layout.addWidget(handle)
+
+        # Audio play buttons (for [sound:...] tags)
+        old_sounds = _SOUND_RE.findall(old_value)
+        new_sounds = _SOUND_RE.findall(new_value)
+        if old_sounds or new_sounds:
+            audio_grid = QGridLayout()
+            audio_grid.setSpacing(4)
+            audio_grid.setColumnStretch(0, 1)
+            audio_grid.setColumnStretch(1, 0)
+            audio_grid.setColumnStretch(2, 1)
+            if old_sounds:
+                old_audio = QHBoxLayout()
+                for fname in old_sounds:
+                    btn = QPushButton(f"\u25b6 {fname}")
+                    btn.setStyleSheet(_PLAY_BTN_STYLE)
+                    btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                    qconnect(btn.clicked, lambda _c=False, f=fname: self._play_sound(f))
+                    old_audio.addWidget(btn)
+                old_audio.addStretch()
+                old_audio_w = QWidget()
+                old_audio_w.setLayout(old_audio)
+                audio_grid.addWidget(old_audio_w, 0, 0)
+            if new_sounds:
+                new_audio = QHBoxLayout()
+                for fname in new_sounds:
+                    btn = QPushButton(f"\u25b6 {fname}")
+                    btn.setStyleSheet(_PLAY_BTN_STYLE)
+                    btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                    qconnect(btn.clicked, lambda _c=False, f=fname: self._play_sound(f))
+                    new_audio.addWidget(btn)
+                new_audio.addStretch()
+                new_audio_w = QWidget()
+                new_audio_w.setLayout(new_audio)
+                audio_grid.addWidget(new_audio_w, 0, 2)
+            parent_layout.addLayout(audio_grid)
 
     # --- Toggle rendered / raw ---
 
@@ -394,6 +473,14 @@ class BatchReviewDialog(QDialog):
         for cb in self._checks:
             if cb is not None:
                 cb.setChecked(False)
+
+    # --- Audio playback ---
+
+    def _play_sound(self, filename: str) -> None:
+        """Play an audio file via Anki's av_player."""
+        av_player.play_tags([SoundOrVideoTag(filename=filename)])
+
+    # --- Apply ---
 
     def _on_apply(self) -> None:
         # If in rendered mode, sync any WYSIWYG edits to the raw editors
