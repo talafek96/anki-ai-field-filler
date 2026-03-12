@@ -26,7 +26,7 @@ https://github.com/talafek96/anki-ai-field-filler/issues
 
 ---
 
-## Features
+# Features
 
 - **Multi-provider support** — OpenAI (GPT-5, GPT-4o, DALL-E, TTS), Anthropic (Claude), Google (Gemini, Nano Banana, Gemini TTS), and any OpenAI-compatible API
 - **Smart field filling** — The AI decides the best content type for each field (text, audio, or image) and skips irrelevant ones
@@ -39,7 +39,7 @@ https://github.com/talafek96/anki-ai-field-filler/issues
 - **Multiple activation methods** — Editor toolbar buttons, right-click context menu, or configurable keyboard shortcuts
 - **Comfortable settings UI** — Tabbed settings dialog for providers, note type instructions, and general settings
 
-## Supported Providers
+# Supported Providers
 
 <table>
   <tr><th>Provider</th><th>Text</th><th>TTS</th><th>Image</th></tr>
@@ -50,7 +50,7 @@ https://github.com/talafek96/anki-ai-field-filler/issues
 
 Works with any OpenAI-compatible API (Azure OpenAI, local LLMs, etc.) by changing the API URL.
 
-## Quick Start
+# Quick Start
 
 1. Open **Tools → AI Field Filler → Settings...**
 2. Enter your API key for your preferred provider
@@ -58,7 +58,7 @@ Works with any OpenAI-compatible API (Azure OpenAI, local LLMs, etc.) by changin
 4. Go to the **Note Types** tab and describe what each field should contain
 5. Open a note in the editor and click **AI Fill All** or press `Ctrl+Shift+G`
 
-## How It Works
+# How It Works
 
 1. When you trigger a fill action, the addon gathers all field values, per-field instructions, and your optional prompt
 2. This context is sent to your AI provider as a structured prompt
@@ -68,18 +68,18 @@ Works with any OpenAI-compatible API (Azure OpenAI, local LLMs, etc.) by changin
 6. **Image fields:** a generation prompt is sent to the image provider and saved as an image
 7. Fields the AI deems irrelevant are left empty
 
-## Usage
+# Usage
 
 - **Fill All Blank Fields:** toolbar button, right-click menu, or `Ctrl+Shift+G`
 - **Fill Current Field:** toolbar button, right-click menu, or `Ctrl+Shift+F`
 - **Quick Configure:** right-click any field → "AI: Configure instructions..." to set instructions inline
 
-## Requirements
+# Requirements
 
 - Anki 2.1.50 or later (Qt6 recommended)
 - An API key for at least one supported provider (OpenAI, Anthropic, or Google)
 - Internet connection
 
-## Support
+# Support
 
 Bug reports, feature requests, and contributions are welcome on [GitHub](https://github.com/talafek96/anki-ai-field-filler).
