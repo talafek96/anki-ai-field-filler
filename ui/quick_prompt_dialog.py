@@ -36,7 +36,7 @@ class QuickPromptDialog(QDialog):
         layout.setSpacing(14)
         layout.setContentsMargins(18, 18, 18, 18)
 
-        header = QLabel(f"\u2728  Fill <b>{self._field_name}</b> with AI")
+        header = QLabel(f"\U0001f9e0  Fill <b>{self._field_name}</b> with AI")
         header.setStyleSheet(HEADER_STYLE)
         layout.addWidget(header)
 

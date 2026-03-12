@@ -45,7 +45,7 @@ class FillDialog(QDialog):
         layout.setContentsMargins(18, 18, 18, 18)
 
         # --- Header ---
-        header = QLabel("\U0001f9e0  Select Fields to Fill")
+        header = QLabel("\u2728  Select Fields to Fill")
         header.setStyleSheet(HEADER_STYLE)
         layout.addWidget(header)
 
