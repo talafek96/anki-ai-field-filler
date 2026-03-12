@@ -5,6 +5,8 @@ Opened from the editor's right-click context menu for inline configuration.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from aqt.qt import *
 
 from ..config_manager import ConfigManager, FieldInstruction
@@ -19,12 +21,14 @@ class FieldInstructionDialog(QDialog):
         self,
         note_type_name: str,
         field_name: str,
+        deck_name: Optional[str] = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._config = ConfigManager()
         self._note_type_name = note_type_name
         self._field_name = field_name
+        self._deck_name = deck_name
         self._setup_ui()
         self._load()
 
@@ -38,12 +42,27 @@ class FieldInstructionDialog(QDialog):
         layout.setSpacing(14)
         layout.setContentsMargins(18, 18, 18, 18)
 
+        # Header with optional deck scope indicator
+        scope = f" [{self._deck_name}]" if self._deck_name else ""
         header = QLabel(
             f"\U0001f4dd  <b>{self._field_name}</b>"
-            f"<span style='color: #6B7280;'> \u2014 {self._note_type_name}</span>"
+            f"<span style='color: #6B7280;'>"
+            f" \u2014 {self._note_type_name}{scope}</span>"
         )
         header.setStyleSheet(HEADER_STYLE)
         layout.addWidget(header)
+
+        # Scope selector
+        scope_row = QHBoxLayout()
+        scope_row.addWidget(QLabel("Scope:"))
+        self._scope_combo = QComboBox()
+        self._scope_combo.addItem("All Decks (Global)", "")
+        if self._deck_name:
+            self._scope_combo.addItem(f"Deck: {self._deck_name}", self._deck_name)
+            self._scope_combo.setCurrentIndex(1)
+        scope_row.addWidget(self._scope_combo)
+        scope_row.addStretch()
+        layout.addLayout(scope_row)
 
         layout.addWidget(QLabel("Instruction for AI:"))
         self._instruction_edit = QPlainTextEdit()
@@ -81,8 +100,18 @@ class FieldInstructionDialog(QDialog):
 
         self.setLayout(layout)
 
+        qconnect(self._scope_combo.currentIndexChanged, self._on_scope_changed)
+
+    def _selected_deck(self) -> Optional[str]:
+        """Return the deck name for the selected scope, or None for global."""
+        return self._scope_combo.currentData() or None
+
+    def _on_scope_changed(self, _index: int) -> None:
+        self._load()
+
     def _load(self) -> None:
-        instructions = self._config.get_field_instructions(self._note_type_name)
+        deck = self._selected_deck()
+        instructions = self._config.get_field_instructions(self._note_type_name, deck_name=deck)
         instr = instructions.get(self._field_name, FieldInstruction())
         self._instruction_edit.setPlainText(instr.instruction)
         idx = self._type_combo.findData(instr.field_type)
@@ -96,6 +125,9 @@ class FieldInstructionDialog(QDialog):
             field_type=self._type_combo.currentData(),
             auto_fill=self._auto_fill_check.isChecked(),
         )
-        self._config.set_field_instruction(self._note_type_name, self._field_name, instruction)
+        deck = self._selected_deck()
+        self._config.set_field_instruction(
+            self._note_type_name, self._field_name, instruction, deck_name=deck
+        )
         self._config.write()
         self.accept()

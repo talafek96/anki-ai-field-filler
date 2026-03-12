@@ -152,16 +152,9 @@ GLOBAL_STYLE = f"""
         background: white;
         outline: none;
     }}
-    QListWidget::item {{
-        padding: 6px 10px;
-        border-radius: 4px;
-    }}
     QListWidget::item:selected {{
         background: {_ACCENT};
         color: white;
-    }}
-    QListWidget::item:hover:!selected {{
-        background: #F0F2F5;
     }}
 
     QScrollArea {{
