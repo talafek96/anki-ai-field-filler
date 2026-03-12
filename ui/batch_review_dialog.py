@@ -44,10 +44,9 @@ _INITIAL_CONTENT_HEIGHT = 80
 _BODY_RE = re.compile(r"<body[^>]*>(.*)</body>", re.DOTALL)
 _SOUND_RE = re.compile(r"\[sound:([^\]]+)\]")
 
-_PLAY_BTN_STYLE = (
-    "font-size: 11px; padding: 2px 8px; border: 1px solid #D1D5DB; "
-    "border-radius: 4px; background: #F9FAFB;"
-)
+# Display-only CSS applied via setDefaultStyleSheet so images scale to fit
+# the diff panel.  Not embedded in toHtml() output.
+_IMG_DISPLAY_CSS = "img { max-width: 100%; height: auto; }"
 
 
 def _fmt_seconds(seconds: float) -> str:
@@ -317,8 +316,23 @@ class BatchReviewDialog(QDialog):
         new_value: str,
     ) -> None:
         """Add a before/after diff block for a single field."""
+        # Field label row — play buttons sit next to the name when audio tags
+        # are present so they're easy to find and don't shift the layout.
+        label_row = QHBoxLayout()
         field_label = QLabel(f"<b>{field_name}</b>")
-        parent_layout.addWidget(field_label)
+        label_row.addWidget(field_label)
+
+        all_sounds = list(
+            dict.fromkeys(_SOUND_RE.findall(old_value) + _SOUND_RE.findall(new_value))
+        )
+        for fname in all_sounds:
+            btn = QPushButton(f"\u25b6 {fname}")
+            btn.setFixedHeight(22)
+            qconnect(btn.clicked, lambda _c=False, f=fname: self._play_sound(f))
+            label_row.addWidget(btn)
+
+        label_row.addStretch()
+        parent_layout.addLayout(label_row)
 
         grid = QGridLayout()
         grid.setSpacing(6)
@@ -346,6 +360,7 @@ class BatchReviewDialog(QDialog):
         old_rendered = QTextBrowser()
         old_rendered.setOpenExternalLinks(False)
         old_rendered.setStyleSheet(_RENDERED_OLD_STYLE)
+        old_rendered.document().setDefaultStyleSheet(_IMG_DISPLAY_CSS)
         if self._base_url:
             old_rendered.document().setBaseUrl(self._base_url)
         if old_value.strip():
@@ -378,6 +393,7 @@ class BatchReviewDialog(QDialog):
         # Page 0: rendered HTML (editable WYSIWYG)
         new_rendered = QTextEdit()
         new_rendered.setStyleSheet(_RENDERED_NEW_STYLE)
+        new_rendered.document().setDefaultStyleSheet(_IMG_DISPLAY_CSS)
         if self._base_url:
             new_rendered.document().setBaseUrl(self._base_url)
         new_rendered.setHtml(new_value if new_value.strip() else _EMPTY_HTML)
@@ -403,41 +419,6 @@ class BatchReviewDialog(QDialog):
         # Resize handle — drags both old and new panels together
         handle = _PairedResizeHandle(old_stack, new_stack)
         parent_layout.addWidget(handle)
-
-        # Audio play buttons (for [sound:...] tags)
-        old_sounds = _SOUND_RE.findall(old_value)
-        new_sounds = _SOUND_RE.findall(new_value)
-        if old_sounds or new_sounds:
-            audio_grid = QGridLayout()
-            audio_grid.setSpacing(4)
-            audio_grid.setColumnStretch(0, 1)
-            audio_grid.setColumnStretch(1, 0)
-            audio_grid.setColumnStretch(2, 1)
-            if old_sounds:
-                old_audio = QHBoxLayout()
-                for fname in old_sounds:
-                    btn = QPushButton(f"\u25b6 {fname}")
-                    btn.setStyleSheet(_PLAY_BTN_STYLE)
-                    btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                    qconnect(btn.clicked, lambda _c=False, f=fname: self._play_sound(f))
-                    old_audio.addWidget(btn)
-                old_audio.addStretch()
-                old_audio_w = QWidget()
-                old_audio_w.setLayout(old_audio)
-                audio_grid.addWidget(old_audio_w, 0, 0)
-            if new_sounds:
-                new_audio = QHBoxLayout()
-                for fname in new_sounds:
-                    btn = QPushButton(f"\u25b6 {fname}")
-                    btn.setStyleSheet(_PLAY_BTN_STYLE)
-                    btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                    qconnect(btn.clicked, lambda _c=False, f=fname: self._play_sound(f))
-                    new_audio.addWidget(btn)
-                new_audio.addStretch()
-                new_audio_w = QWidget()
-                new_audio_w.setLayout(new_audio)
-                audio_grid.addWidget(new_audio_w, 0, 2)
-            parent_layout.addLayout(audio_grid)
 
     # --- Toggle rendered / raw ---
 
