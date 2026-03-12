@@ -13,6 +13,7 @@ from .config_manager import ConfigManager, FieldInstruction
 from .field_filler import FieldFiller
 from .ui.field_instruction_dialog import FieldInstructionDialog
 from .ui.fill_dialog import FillDialog
+from .ui.generating_dialog import GeneratingDialog
 from .ui.quick_prompt_dialog import QuickPromptDialog
 
 
@@ -160,7 +161,7 @@ class EditorIntegration:
         target_fields: List[str],
         user_prompt: str,
     ) -> None:
-        """Execute the AI fill operation."""
+        """Execute the AI fill operation with a blocking progress dialog."""
         config = ConfigManager()
         general = config.get_general_settings()
 
@@ -171,16 +172,26 @@ class EditorIntegration:
             prompts.append(user_prompt.strip())
         combined_prompt = "\n\n".join(prompts)
 
-        tooltip("AI is generating content...", parent=editor.widget)
+        progress = GeneratingDialog(parent=editor.widget)
+
+        def on_success() -> None:
+            progress.finish()
+            tooltip("Fields filled successfully!", parent=editor.widget)
+
+        def on_error(msg: str) -> None:
+            progress.finish_with_error(msg)
+            showWarning(
+                f"AI Field Filler error:\n\n{msg}",
+                title="AI Field Filler",
+                parent=editor.widget,
+            )
 
         cls._filler.fill_fields(
             editor=editor,
             target_fields=target_fields,
             user_prompt=combined_prompt,
-            on_success=lambda: tooltip("Fields filled successfully!", parent=editor.widget),
-            on_error=lambda msg: showWarning(
-                f"AI Field Filler error:\n\n{msg}",
-                title="AI Field Filler",
-                parent=editor.widget,
-            ),
+            on_success=on_success,
+            on_error=on_error,
         )
+
+        progress.exec()

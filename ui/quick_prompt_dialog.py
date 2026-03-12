@@ -1,6 +1,6 @@
 """Lightweight prompt dialog for single-field fill.
 
-Shows just the field name and an optional prompt text area — no field
+Shows just the field name and an optional prompt text area -- no field
 selection checkboxes. Used when the user explicitly targets one field.
 """
 
@@ -9,6 +9,8 @@ from __future__ import annotations
 from typing import Optional
 
 from aqt.qt import *
+
+from .styles import GLOBAL_STYLE, HEADER_STYLE
 
 
 class QuickPromptDialog(QDialog):
@@ -26,13 +28,16 @@ class QuickPromptDialog(QDialog):
 
     def _setup_ui(self) -> None:
         self.setWindowTitle("AI Field Filler")
-        self.setMinimumWidth(380)
+        self.setMinimumWidth(400)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.setStyleSheet(GLOBAL_STYLE)
 
         layout = QVBoxLayout()
-        layout.setSpacing(10)
+        layout.setSpacing(14)
+        layout.setContentsMargins(18, 18, 18, 18)
 
-        header = QLabel(f"Fill <b>{self._field_name}</b> with AI")
+        header = QLabel(f"\u2728  Fill <b>{self._field_name}</b> with AI")
+        header.setStyleSheet(HEADER_STYLE)
         layout.addWidget(header)
 
         layout.addWidget(QLabel("Additional instructions (optional):"))
@@ -50,7 +55,7 @@ class QuickPromptDialog(QDialog):
         qconnect(cancel_btn.clicked, self.reject)
         btn_layout.addWidget(cancel_btn)
 
-        fill_btn = QPushButton("Fill")
+        fill_btn = QPushButton("  \u2728  Fill  ")
         fill_btn.setDefault(True)
         qconnect(fill_btn.clicked, self._on_fill)
         btn_layout.addWidget(fill_btn)

@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Tuple
 from aqt.qt import *
 
 from ..config_manager import FieldInstruction
+from .styles import GLOBAL_STYLE, HEADER_STYLE, MUTED_LABEL_STYLE
 
 
 class FillDialog(QDialog):
@@ -35,15 +36,23 @@ class FillDialog(QDialog):
 
     def _setup_ui(self) -> None:
         self.setWindowTitle("AI Field Filler")
-        self.setMinimumWidth(420)
+        self.setMinimumWidth(440)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.setStyleSheet(GLOBAL_STYLE)
 
         layout = QVBoxLayout()
-        layout.setSpacing(10)
+        layout.setSpacing(14)
+        layout.setContentsMargins(18, 18, 18, 18)
+
+        # --- Header ---
+        header = QLabel("\U0001f9e0  Select Fields to Fill")
+        header.setStyleSheet(HEADER_STYLE)
+        layout.addWidget(header)
 
         # --- Field selection ---
-        fields_group = QGroupBox("Fields to Fill")
+        fields_group = QGroupBox("Fields")
         fields_layout = QVBoxLayout()
+        fields_layout.setSpacing(6)
 
         for name in self._field_names:
             value = self._field_values.get(name, "").strip()
@@ -56,7 +65,7 @@ class FillDialog(QDialog):
                 if len(value) > 80:
                     preview += "..."
                 cb.setToolTip(f"Already filled: {preview}")
-                cb.setStyleSheet("color: gray;")
+                cb.setStyleSheet(MUTED_LABEL_STYLE)
             else:
                 is_pre_selected = not self._pre_selected or name in self._pre_selected
                 instr = self._field_instructions.get(name)
@@ -95,13 +104,6 @@ class FillDialog(QDialog):
         prompt_group.setLayout(prompt_layout)
         layout.addWidget(prompt_group)
 
-        # --- Progress label (hidden by default) ---
-        self._progress_label = QLabel("Generating content with AI...")
-        self._progress_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._progress_label.setStyleSheet("color: #4a86c8; font-style: italic; padding: 8px;")
-        self._progress_label.setVisible(False)
-        layout.addWidget(self._progress_label)
-
         # --- Buttons ---
         button_layout = QHBoxLayout()
         button_layout.addStretch()
@@ -110,7 +112,7 @@ class FillDialog(QDialog):
         qconnect(cancel_btn.clicked, self.reject)
         button_layout.addWidget(cancel_btn)
 
-        self._fill_btn = QPushButton("Fill Fields")
+        self._fill_btn = QPushButton("  \u2728  Fill Fields  ")
         self._fill_btn.setDefault(True)
         qconnect(self._fill_btn.clicked, self._on_fill)
         button_layout.addWidget(self._fill_btn)
@@ -138,13 +140,3 @@ class FillDialog(QDialog):
     def get_result(self) -> Optional[Tuple[List[str], str]]:
         """Get the dialog result: (selected_fields, user_prompt) or None."""
         return self._result
-
-    def show_progress(self) -> None:
-        """Show progress indicator and disable the fill button."""
-        self._fill_btn.setEnabled(False)
-        self._progress_label.setVisible(True)
-
-    def hide_progress(self) -> None:
-        """Hide progress indicator and re-enable the fill button."""
-        self._fill_btn.setEnabled(True)
-        self._progress_label.setVisible(False)

@@ -9,6 +9,7 @@ from aqt.qt import *
 
 from ..config_manager import ConfigManager, FieldInstruction
 from . import create_auto_fill_checkbox, create_field_type_combo
+from .styles import GLOBAL_STYLE, HEADER_STYLE
 
 
 class FieldInstructionDialog(QDialog):
@@ -28,16 +29,20 @@ class FieldInstructionDialog(QDialog):
         self._load()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle(f"AI Instructions — {self._field_name}")
-        self.setMinimumWidth(420)
+        self.setWindowTitle(f"AI Instructions \u2014 {self._field_name}")
+        self.setMinimumWidth(440)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self.setStyleSheet(GLOBAL_STYLE)
 
         layout = QVBoxLayout()
-        layout.setSpacing(10)
+        layout.setSpacing(14)
+        layout.setContentsMargins(18, 18, 18, 18)
 
         header = QLabel(
-            f"<b>{self._field_name}</b><span style='color: gray;'> — {self._note_type_name}</span>"
+            f"\U0001f4dd  <b>{self._field_name}</b>"
+            f"<span style='color: #6B7280;'> \u2014 {self._note_type_name}</span>"
         )
+        header.setStyleSheet(HEADER_STYLE)
         layout.addWidget(header)
 
         layout.addWidget(QLabel("Instruction for AI:"))
