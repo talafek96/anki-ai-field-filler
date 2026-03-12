@@ -3,9 +3,24 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import time
+import wave
 
 from aqt import mw
+
+
+def _pcm_to_wav(
+    pcm: bytes, *, channels: int = 1, rate: int = 24000, sample_width: int = 2
+) -> bytes:
+    """Wrap raw PCM audio in a WAV container."""
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(sample_width)
+        wf.setframerate(rate)
+        wf.writeframes(pcm)
+    return buf.getvalue()
 
 
 class MediaHandler:
@@ -15,9 +30,21 @@ class MediaHandler:
     def save_audio(audio_bytes: bytes, field_name: str) -> str:
         """Save audio bytes to Anki's media folder (auto-detects format).
 
-        Returns an Anki sound tag like [sound:ai_filler_xyz.mp3].
+        Handles MP3, WAV, and raw PCM (linear16 24 kHz mono, as returned
+        by Google Gemini TTS).  Returns an Anki sound tag like
+        [sound:ai_filler_xyz.mp3].
         """
-        ext = "wav" if audio_bytes[:4] == b"RIFF" else "mp3"
+        if audio_bytes[:4] == b"RIFF":
+            ext = "wav"
+        elif audio_bytes[:3] == b"ID3" or audio_bytes[:2] in (
+            b"\xff\xfb", b"\xff\xf3", b"\xff\xf2", b"\xff\xe2",
+        ):
+            ext = "mp3"
+        else:
+            # Assume raw PCM (linear16, 24 kHz, mono) — wrap in WAV
+            audio_bytes = _pcm_to_wav(audio_bytes)
+            ext = "wav"
+
         filename = MediaHandler._generate_filename(field_name, ext)
         mw.col.media.write_data(filename, audio_bytes)
         return f"[sound:{filename}]"
