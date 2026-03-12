@@ -8,11 +8,18 @@ from __future__ import annotations
 
 import base64
 import json
+import ssl
 import urllib.error
 import urllib.request
 
 from ..config_manager import ProviderConfig
 from .base import ImageProvider, ProviderError, TextProvider, TTSProvider
+
+# Use the system certificate store on Windows; fall back to default context
+try:
+    _ssl_ctx = ssl.create_default_context()
+except ssl.SSLError:
+    _ssl_ctx = None
 
 
 class _OpenAIRequestMixin:
@@ -29,8 +36,10 @@ class _OpenAIRequestMixin:
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+            with urllib.request.urlopen(
+                req, timeout=timeout, context=_ssl_ctx
+            ) as resp:
+                raw = resp.read().decode("utf-8")
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")
             raise ProviderError(
@@ -38,6 +47,16 @@ class _OpenAIRequestMixin:
             ) from e
         except urllib.error.URLError as e:
             raise ProviderError(f"Connection error: {e.reason}") from e
+
+        if not raw.strip():
+            raise ProviderError("Empty response from API")
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise ProviderError(
+                f"Invalid JSON response from API: {e}\n"
+                f"Response was: {raw[:300]}"
+            ) from e
 
     def _request_raw(self, url: str, payload: dict, timeout: int = 120) -> bytes:
         """Make a JSON request and return raw response bytes."""
@@ -48,7 +67,9 @@ class _OpenAIRequestMixin:
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with urllib.request.urlopen(
+                req, timeout=timeout, context=_ssl_ctx
+            ) as resp:
                 return resp.read()
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")
