@@ -52,6 +52,19 @@ def _install_aqt_mocks() -> None:
         "QSize",
         "QStyle",
         "QApplication",
+        "QProgressBar",
+        "QRadioButton",
+        "QStandardItem",
+        "QStandardItemModel",
+        "QStyleOptionComboBox",
+        "QStylePainter",
+        "QPainter",
+        "QPen",
+        "QColor",
+        "QPropertyAnimation",
+        "QTimer",
+        "QSizeGrip",
+        "QSplitter",
         "Qt",
         "qconnect",
         "pyqtSignal",
@@ -72,11 +85,15 @@ def _install_aqt_mocks() -> None:
     aqt_webview = types.ModuleType("aqt.webview")
     aqt_webview.AnkiWebView = MagicMock()
 
+    aqt_browser = types.ModuleType("aqt.browser")
+    aqt_browser.Browser = MagicMock()
+
     sys.modules["aqt"] = aqt
     sys.modules["aqt.qt"] = aqt_qt
     sys.modules["aqt.utils"] = aqt_utils
     sys.modules["aqt.editor"] = aqt_editor
     sys.modules["aqt.webview"] = aqt_webview
+    sys.modules["aqt.browser"] = aqt_browser
     sys.modules["aqt.gui_hooks"] = aqt.gui_hooks
 
 

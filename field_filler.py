@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 import re
 import threading
+import time
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from aqt import mw
@@ -303,3 +305,215 @@ class FieldFiller:
 
         if changed:
             editor.loadNoteKeepingFocus()
+
+
+# ---------------------------------------------------------------------------
+# Batch fill
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class BatchNoteResult:
+    """Result of processing a single note in a batch."""
+
+    note_id: int
+    success: bool
+    fields_filled: int = 0
+    error: str = ""
+
+
+@dataclass
+class BatchProgress:
+    """Snapshot of batch progress, passed to the UI callback."""
+
+    completed: int
+    total: int
+    current_note_preview: str = ""
+    elapsed_seconds: float = 0.0
+    eta_seconds: float = 0.0
+
+
+@dataclass
+class BatchResult:
+    """Final result of a batch fill operation."""
+
+    total: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    skipped: int = 0
+    failures: List[BatchNoteResult] = field(default_factory=list)
+    dry_run: bool = False
+
+
+@dataclass
+class BatchNoteItem:
+    """A note to process in a batch, paired with its deck context."""
+
+    note_id: int
+    deck_name: Optional[str] = None
+
+
+class BatchFiller:
+    """Processes multiple notes sequentially with progress reporting."""
+
+    def __init__(self) -> None:
+        self._config = ConfigManager()
+        self._filler = FieldFiller()
+        self._cancelled = False
+
+    def cancel(self) -> None:
+        """Request cancellation (takes effect after the current note)."""
+        self._cancelled = True
+
+    @property
+    def is_cancelled(self) -> bool:
+        return self._cancelled
+
+    def run(
+        self,
+        items: List[BatchNoteItem],
+        target_fields: List[str],
+        user_prompt: str = "",
+        dry_run: bool = False,
+        on_progress: Optional[Callable[[BatchProgress], None]] = None,
+    ) -> BatchResult:
+        """Process notes sequentially. Call from a background thread.
+
+        *on_progress* is called (on the calling thread) after each note.
+        The caller must schedule UI updates via ``mw.taskman.run_on_main``.
+        """
+        self._cancelled = False
+        result = BatchResult(total=len(items), dry_run=dry_run)
+        start = time.monotonic()
+
+        for idx, item in enumerate(items):
+            if self._cancelled:
+                result.skipped = result.total - idx
+                break
+
+            note = mw.col.get_note(item.note_id)
+            note_type_name = note.note_type()["name"]
+
+            # Determine which target fields are actually blank for this note
+            blank_targets = [f for f in target_fields if not note[f].strip()]
+            if not blank_targets:
+                result.skipped += 1
+                self._report_progress(on_progress, idx + 1, result.total, note, start)
+                continue
+
+            field_instructions = self._config.get_field_instructions(
+                note_type_name, deck_name=item.deck_name
+            )
+
+            if dry_run:
+                result.succeeded += 1
+                self._report_progress(on_progress, idx + 1, result.total, note, start)
+                continue
+
+            # Generate and apply
+            try:
+                field_values = {name: note[name] for name in note.keys()}
+                user_message = self._filler._build_user_prompt(
+                    note_type_name,
+                    field_values,
+                    field_instructions,
+                    blank_targets,
+                    user_prompt,
+                )
+                parsed = self._filler._generate_and_parse(SYSTEM_PROMPT, user_message)
+                filled = self._apply_to_note(note, parsed, blank_targets)
+                note.flush()
+                result.succeeded += 1
+                nr = BatchNoteResult(note_id=item.note_id, success=True, fields_filled=filled)
+            except Exception as e:
+                nr = BatchNoteResult(note_id=item.note_id, success=False, error=str(e))
+                result.failed += 1
+                result.failures.append(nr)
+
+            self._report_progress(on_progress, idx + 1, result.total, note, start)
+
+        return result
+
+    def _apply_to_note(
+        self,
+        note: Any,
+        parsed: Dict[str, Any],
+        target_fields: List[str],
+    ) -> int:
+        """Apply parsed AI results to a note. Returns number of fields filled."""
+        filled = 0
+        for field_name in target_fields:
+            field_data = parsed.get(field_name)
+            if field_data is None:
+                continue
+
+            content = field_data.get("content", "")
+            ftype = field_data.get("type", "text")
+
+            if ftype == "audio":
+                tts_config = self._config.get_active_tts_provider()
+                if tts_config:
+                    tts = create_tts_provider(tts_config)
+                    audio_bytes = tts.synthesize(content)
+                    note[field_name] = MediaHandler.save_audio(audio_bytes, field_name)
+                    filled += 1
+                else:
+                    html = FieldFiller._to_html(content)
+                    if html:
+                        note[field_name] = html
+                        filled += 1
+            elif ftype == "image":
+                img_config = self._config.get_active_image_provider()
+                if img_config:
+                    img_prov = create_image_provider(img_config)
+                    img_bytes = img_prov.generate_image(content)
+                    note[field_name] = MediaHandler.save_image(img_bytes, field_name)
+                    filled += 1
+            else:
+                html = FieldFiller._to_html(content)
+                image_prompt = field_data.get("image_prompt", "")
+                if image_prompt:
+                    img_config = self._config.get_active_image_provider()
+                    if img_config:
+                        img_prov = create_image_provider(img_config)
+                        img_bytes = img_prov.generate_image(image_prompt)
+                        img_tag = MediaHandler.save_image(img_bytes, field_name)
+                        html = f"{html}<br><br>{img_tag}"
+                if html:
+                    note[field_name] = html
+                    filled += 1
+
+        return filled
+
+    @staticmethod
+    def _report_progress(
+        callback: Optional[Callable[[BatchProgress], None]],
+        completed: int,
+        total: int,
+        note: Any,
+        start_time: float,
+    ) -> None:
+        if not callback:
+            return
+        elapsed = time.monotonic() - start_time
+        rate = completed / elapsed if elapsed > 0 else 0
+        remaining = total - completed
+        eta = remaining / rate if rate > 0 else 0.0
+        # Use the first non-empty field as a preview
+        preview = ""
+        for name in note.keys():
+            val = note[name].strip()
+            if val:
+                preview = val[:60]
+                if len(note[name].strip()) > 60:
+                    preview += "..."
+                break
+        callback(
+            BatchProgress(
+                completed=completed,
+                total=total,
+                current_note_preview=preview,
+                elapsed_seconds=elapsed,
+                eta_seconds=eta,
+            )
+        )

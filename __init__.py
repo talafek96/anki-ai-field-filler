@@ -17,11 +17,12 @@ def start_addon() -> None:
     """Initialize the addon: register hooks, menus, and config actions."""
     from aqt.qt import QAction, QMenu, qconnect
 
-    from . import editor_hooks
+    from . import browser_hooks, editor_hooks
     from .config_manager import ConfigManager
     from .ui.settings_dialog import SettingsDialog
 
     editor_hooks.EditorIntegration.init()
+    browser_hooks.BrowserIntegration.init()
 
     menu = QMenu("AI Field Filler", mw)
     settings_action = QAction("Settings...", menu)
