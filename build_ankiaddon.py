@@ -19,11 +19,13 @@ EXCLUDE_DIRS = {
     "__pycache__",
     ".git",
     ".github",
+    ".mypy_cache",
     ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
     "tests",
     ".vscode",
     ".idea",
-    ".venv",
     "venv",
     "env",
     "node_modules",
@@ -35,6 +37,7 @@ EXCLUDE_FILES = {
     "build_ankiaddon.py",
     "ankiweb_listing.md",
     "pyproject.toml",
+    "uv.lock",
     "meta.json",
     ".env",
     ".DS_Store",
@@ -60,8 +63,8 @@ def should_include(path: Path) -> bool:
     rel = path.relative_to(ADDON_ROOT)
     parts = rel.parts
 
-    # Skip excluded directories
-    if any(p in EXCLUDE_DIRS for p in parts):
+    # Skip excluded directories (and egg-info dirs)
+    if any(p in EXCLUDE_DIRS or p.endswith(".egg-info") for p in parts):
         return False
 
     # Skip excluded files

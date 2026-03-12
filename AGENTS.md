@@ -1,13 +1,29 @@
 # AI Field Filler - Development Notes
 
-## Build & Test
+## Dev Setup (uv)
 
 ```bash
-# Run all tests (from addons21/ directory)
-python -m pytest ai_field_filler/tests/ -v
+# Install uv (if not already installed)
+pip install uv
 
-# Run a specific test file
-python -m pytest ai_field_filler/tests/test_config.py -v
+# Install dev dependencies + package in editable mode
+uv sync --group dev
+
+# Run tests
+uv run pytest tests/ -v
+
+# Run linters
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy .
+
+# Auto-fix lint issues
+uv run ruff check . --fix
+uv run ruff format .
+
+# Build .ankiaddon package
+python build_ankiaddon.py
+python build_ankiaddon.py --check  # dry-run
 ```
 
 ## Project Structure
@@ -34,3 +50,9 @@ python -m pytest ai_field_filler/tests/test_config.py -v
 - Use `create_field_type_combo()` / `create_auto_fill_checkbox()` from `ui/` for consistent UI widgets
 - Tests use shared fixtures from `conftest.py`: `provider_config`, `filler`, `mock_mw`
 - ConfigManager is a singleton — tests must reset `ConfigManager._instance = None` before creating new instances
+
+## CI
+
+GitHub Actions runs on every push/PR to `main`:
+- **Lint**: ruff check, ruff format, mypy (Python 3.12)
+- **Test**: pytest on Python 3.9, 3.12, 3.13

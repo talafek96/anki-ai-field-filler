@@ -1,3 +1,32 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-field-filler"
+version = "0.1.0"
+requires-python = ">=3.9"
+description = "Anki addon for AI-powered note field auto-fill"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.4",
+    "mypy>=1.0",
+]
+
+# The repo root IS the ai_field_filler package.  Map it explicitly
+# so editable installs work even when the repo dir has a different name.
+[tool.setuptools.package-dir]
+"ai_field_filler" = "."
+
+[tool.setuptools.packages]
+find = {}
+
+# --------------------------------------------------------------------------
+# Ruff
+# --------------------------------------------------------------------------
+
 [tool.ruff]
 target-version = "py39"
 line-length = 100
@@ -16,6 +45,10 @@ ignore = [
 known-first-party = ["ai_field_filler"]
 known-third-party = ["aqt", "anki", "pytest"]
 
+# --------------------------------------------------------------------------
+# Mypy
+# --------------------------------------------------------------------------
+
 [tool.mypy]
 python_version = "3.9"
 ignore_missing_imports = true
@@ -31,6 +64,10 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = "ai_field_filler.editor_hooks"
 ignore_errors = true
+
+# --------------------------------------------------------------------------
+# Pytest
+# --------------------------------------------------------------------------
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
