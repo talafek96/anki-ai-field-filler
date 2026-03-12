@@ -25,6 +25,8 @@ _RENDERED_OLD_STYLE = (
     "color: #991B1B; font-size: 12px;"
 )
 
+_FIELD_ERROR_STYLE = "color: #B45309; font-size: 12px; padding: 2px 0;"
+
 _EMPTY_HTML = '<span style="color: #9CA3AF; font-style: italic; font-size: 12px;">(empty)</span>'
 
 _INITIAL_CONTENT_HEIGHT = 80
@@ -124,13 +126,15 @@ class BatchReviewDialog(QDialog):
 
         successful = [p for p in self._proposals if p.success]
         failed = [p for p in self._proposals if not p.success]
+        partial = [p for p in successful if p.field_errors]
 
         icon = "\U0001f50d" if self._dry_run else "\u2705"
-        header = QLabel(
-            f"{icon}  {len(successful)} notes to "
-            f"{'process' if self._dry_run else 'update'}"
-            f"{f', {len(failed)} failed' if failed else ''}"
-        )
+        parts = [f"{icon}  {len(successful)} notes to {'process' if self._dry_run else 'update'}"]
+        if partial:
+            parts.append(f"{len(partial)} partially failed")
+        if failed:
+            parts.append(f"{len(failed)} failed")
+        header = QLabel(", ".join(parts))
         header.setStyleSheet(HEADER_STYLE)
         layout.addWidget(header)
 
@@ -236,6 +240,12 @@ class BatchReviewDialog(QDialog):
             for field_name, new_value in prop.changes.items():
                 old_value = prop.original_values.get(field_name, "")
                 self._add_field_diff(group_layout, idx, field_name, old_value, new_value)
+            # Show per-field errors as warnings
+            for field_name, err_msg in prop.field_errors.items():
+                fe_label = QLabel(f"\u26a0\ufe0f <b>{field_name}</b>: {err_msg[:200]}")
+                fe_label.setStyleSheet(_FIELD_ERROR_STYLE)
+                fe_label.setWordWrap(True)
+                group_layout.addWidget(fe_label)
 
         group.setLayout(group_layout)
         return group

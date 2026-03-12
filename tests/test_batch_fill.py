@@ -15,6 +15,7 @@ from ai_field_filler.field_filler import (
     BatchProposedChange,
     BatchResult,
 )
+from ai_field_filler.providers.base import ProviderError
 
 _HTTP_URLOPEN = "ai_field_filler.providers.http.urllib.request.urlopen"
 
@@ -393,3 +394,144 @@ class TestProposalsAndApply:
         assert applied == 1
         assert raw["Back"] == "user edited value"
         note.flush.assert_called_once()
+
+
+class TestPartialFieldFailure:
+    """Image/audio failures should not lose successfully generated text fields."""
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_image_failure_keeps_text_fields(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
+        """When image generation fails, text fields are still returned."""
+        fields = {"Front": "hello", "Back": "", "Image": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response(
+            {
+                "Back": {"content": "answer text", "type": "text"},
+                "Image": {"content": "a cute cat", "type": "image"},
+            }
+        )
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        # Enable image provider so the code actually tries to generate
+        img_cfg = ProviderConfig(
+            provider_type="openai",
+            api_url="https://fake.test/v1",
+            api_key="test-key",
+            text_model="gpt-4o",
+            max_tokens=4096,
+            image_model="dall-e-3",
+        )
+        filler._config.get_active_image_provider.return_value = img_cfg
+
+        # Make the image provider raise an error
+        with patch("ai_field_filler.field_filler.create_image_provider") as mock_img_factory:
+            mock_img_prov = MagicMock()
+            mock_img_prov.generate_image.side_effect = ProviderError("safety filter block")
+            mock_img_factory.return_value = mock_img_prov
+
+            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Back", "Image"])
+
+        # Note should still succeed (partial)
+        assert result.succeeded == 1
+        assert result.failed == 0
+        prop = result.proposals[0]
+        assert prop.success is True
+        # Text field was kept
+        assert "Back" in prop.changes
+        assert prop.changes["Back"] == "answer text"
+        # Image field failed
+        assert "Image" not in prop.changes
+        assert "Image" in prop.field_errors
+        assert "safety filter block" in prop.field_errors["Image"]
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_all_fields_fail_still_succeeds_with_field_errors(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
+        """Even if all fields fail in _render_fields, the note is not marked as error."""
+        fields = {"Front": "hello", "Image": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response({"Image": {"content": "a sunset", "type": "image"}})
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        img_cfg = ProviderConfig(
+            provider_type="openai",
+            api_url="https://fake.test/v1",
+            api_key="test-key",
+            text_model="gpt-4o",
+            max_tokens=4096,
+            image_model="dall-e-3",
+        )
+        filler._config.get_active_image_provider.return_value = img_cfg
+
+        with patch("ai_field_filler.field_filler.create_image_provider") as mock_img_factory:
+            mock_img_prov = MagicMock()
+            mock_img_prov.generate_image.side_effect = ProviderError("blocked")
+            mock_img_factory.return_value = mock_img_prov
+
+            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Image"])
+
+        assert result.succeeded == 1
+        prop = result.proposals[0]
+        assert prop.success is True
+        assert prop.changes == {}
+        assert "Image" in prop.field_errors
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_inline_image_failure_keeps_text(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
+        """Text field with inline image_prompt: text kept, image skipped."""
+        fields = {"Front": "hello", "Definition": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response(
+            {
+                "Definition": {
+                    "content": "a friendly greeting",
+                    "type": "text",
+                    "image_prompt": "waving hand",
+                }
+            }
+        )
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        img_cfg = ProviderConfig(
+            provider_type="openai",
+            api_url="https://fake.test/v1",
+            api_key="test-key",
+            text_model="gpt-4o",
+            max_tokens=4096,
+            image_model="dall-e-3",
+        )
+        filler._config.get_active_image_provider.return_value = img_cfg
+
+        with patch("ai_field_filler.field_filler.create_image_provider") as mock_img_factory:
+            mock_img_prov = MagicMock()
+            mock_img_prov.generate_image.side_effect = ProviderError("content policy")
+            mock_img_factory.return_value = mock_img_prov
+
+            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Definition"])
+
+        prop = result.proposals[0]
+        assert prop.success is True
+        # Text content preserved without inline image
+        assert "Definition" in prop.changes
+        assert "a friendly greeting" in prop.changes["Definition"]
+        assert "<img" not in prop.changes["Definition"]
+        # Warning about the inline image
+        assert "Definition" in prop.field_errors
+        assert "inline image failed" in prop.field_errors["Definition"]

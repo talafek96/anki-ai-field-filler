@@ -106,6 +106,7 @@ class FieldFiller:
                 parsed = self._generate_and_parse(SYSTEM_PROMPT, user_message)
 
                 results: Dict[str, Optional[str]] = {}
+                field_errors: List[str] = []
                 for field_name in target_fields:
                     field_data = parsed.get(field_name)
                     if field_data is None:
@@ -115,38 +116,49 @@ class FieldFiller:
                     content = field_data.get("content", "")
                     ftype = field_data.get("type", "text")
 
-                    if ftype == "audio":
-                        tts_config = self._config.get_active_tts_provider()
-                        if tts_config:
-                            tts = create_tts_provider(tts_config)
-                            audio_bytes = tts.synthesize(content)
-                            results[field_name] = MediaHandler.save_audio(audio_bytes, field_name)
-                        else:
-                            results[field_name] = self._to_html(content)
-                    elif ftype == "image":
-                        img_config = self._config.get_active_image_provider()
-                        if img_config:
-                            img_prov = create_image_provider(img_config)
-                            img_bytes = img_prov.generate_image(content)
-                            results[field_name] = MediaHandler.save_image(img_bytes, field_name)
-                        else:
-                            results[field_name] = None
-                    else:
-                        html = self._to_html(content)
-                        # Handle optional inline image for text fields
-                        image_prompt = field_data.get("image_prompt", "")
-                        if image_prompt:
+                    try:
+                        if ftype == "audio":
+                            tts_config = self._config.get_active_tts_provider()
+                            if tts_config:
+                                tts = create_tts_provider(tts_config)
+                                audio_bytes = tts.synthesize(content)
+                                results[field_name] = MediaHandler.save_audio(
+                                    audio_bytes, field_name
+                                )
+                            else:
+                                results[field_name] = self._to_html(content)
+                        elif ftype == "image":
                             img_config = self._config.get_active_image_provider()
                             if img_config:
                                 img_prov = create_image_provider(img_config)
-                                img_bytes = img_prov.generate_image(image_prompt)
-                                img_tag = MediaHandler.save_image(img_bytes, field_name)
-                                html = f"{html}<br><br>{img_tag}"
-                        results[field_name] = html
+                                img_bytes = img_prov.generate_image(content)
+                                results[field_name] = MediaHandler.save_image(img_bytes, field_name)
+                            else:
+                                results[field_name] = None
+                        else:
+                            html = self._to_html(content)
+                            # Handle optional inline image for text fields
+                            image_prompt = field_data.get("image_prompt", "")
+                            if image_prompt:
+                                try:
+                                    img_config = self._config.get_active_image_provider()
+                                    if img_config:
+                                        img_prov = create_image_provider(img_config)
+                                        img_bytes = img_prov.generate_image(image_prompt)
+                                        img_tag = MediaHandler.save_image(img_bytes, field_name)
+                                        html = f"{html}<br><br>{img_tag}"
+                                except Exception as img_err:
+                                    field_errors.append(f"{field_name} (inline image): {img_err}")
+                            results[field_name] = html
+                    except Exception as e:
+                        field_errors.append(f"{field_name}: {e}")
+                        results[field_name] = None
 
                 def apply() -> None:
                     self._apply_results(editor, results)
-                    if on_success:
+                    if field_errors and on_error:
+                        on_error("Some fields failed to generate:\n" + "\n".join(field_errors))
+                    elif on_success:
                         on_success()
 
                 mw.taskman.run_on_main(apply)
@@ -332,6 +344,7 @@ class BatchProposedChange:
     changes: Dict[str, str] = field(default_factory=dict)  # field → new value
     original_values: Dict[str, str] = field(default_factory=dict)  # field → old value
     error: str = ""
+    field_errors: Dict[str, str] = field(default_factory=dict)  # per-field errors
 
     @property
     def success(self) -> bool:
@@ -458,7 +471,7 @@ class BatchFiller:
                     user_prompt,
                 )
                 parsed = self._filler._generate_and_parse(SYSTEM_PROMPT, user_message)
-                changes = self._render_fields(parsed, blank_targets)
+                changes, field_errors = self._render_fields(parsed, blank_targets)
                 result.proposals.append(
                     BatchProposedChange(
                         note_id=item.note_id,
@@ -466,6 +479,7 @@ class BatchFiller:
                         blank_fields=blank_targets,
                         changes=changes,
                         original_values=orig_values,
+                        field_errors=field_errors,
                     )
                 )
                 result.succeeded += 1
@@ -514,13 +528,15 @@ class BatchFiller:
         self,
         parsed: Dict[str, Any],
         target_fields: List[str],
-    ) -> Dict[str, str]:
+    ) -> tuple[Dict[str, str], Dict[str, str]]:
         """Render parsed AI output into final field values (HTML/media).
 
-        Returns a dict of {field_name: rendered_value} without writing
-        to any note.
+        Returns a tuple of ``(changes, field_errors)`` where *changes* maps
+        field names to rendered values and *field_errors* maps field names
+        to error messages for fields whose media generation failed.
         """
         changes: Dict[str, str] = {}
+        field_errors: Dict[str, str] = {}
         for field_name in target_fields:
             field_data = parsed.get(field_name)
             if field_data is None:
@@ -529,36 +545,45 @@ class BatchFiller:
             content = field_data.get("content", "")
             ftype = field_data.get("type", "text")
 
-            if ftype == "audio":
-                tts_config = self._config.get_active_tts_provider()
-                if tts_config:
-                    tts = create_tts_provider(tts_config)
-                    audio_bytes = tts.synthesize(content)
-                    changes[field_name] = MediaHandler.save_audio(audio_bytes, field_name)
-                else:
-                    html = FieldFiller._to_html(content)
-                    if html:
-                        changes[field_name] = html
-            elif ftype == "image":
-                img_config = self._config.get_active_image_provider()
-                if img_config:
-                    img_prov = create_image_provider(img_config)
-                    img_bytes = img_prov.generate_image(content)
-                    changes[field_name] = MediaHandler.save_image(img_bytes, field_name)
-            else:
-                html = FieldFiller._to_html(content)
-                image_prompt = field_data.get("image_prompt", "")
-                if image_prompt:
+            try:
+                if ftype == "audio":
+                    tts_config = self._config.get_active_tts_provider()
+                    if tts_config:
+                        tts = create_tts_provider(tts_config)
+                        audio_bytes = tts.synthesize(content)
+                        changes[field_name] = MediaHandler.save_audio(audio_bytes, field_name)
+                    else:
+                        html = FieldFiller._to_html(content)
+                        if html:
+                            changes[field_name] = html
+                elif ftype == "image":
                     img_config = self._config.get_active_image_provider()
                     if img_config:
                         img_prov = create_image_provider(img_config)
-                        img_bytes = img_prov.generate_image(image_prompt)
-                        img_tag = MediaHandler.save_image(img_bytes, field_name)
-                        html = f"{html}<br><br>{img_tag}"
-                if html:
-                    changes[field_name] = html
+                        img_bytes = img_prov.generate_image(content)
+                        changes[field_name] = MediaHandler.save_image(img_bytes, field_name)
+                else:
+                    html = FieldFiller._to_html(content)
+                    image_prompt = field_data.get("image_prompt", "")
+                    if image_prompt:
+                        try:
+                            img_config = self._config.get_active_image_provider()
+                            if img_config:
+                                img_prov = create_image_provider(img_config)
+                                img_bytes = img_prov.generate_image(image_prompt)
+                                img_tag = MediaHandler.save_image(img_bytes, field_name)
+                                html = f"{html}<br><br>{img_tag}"
+                        except Exception as img_err:
+                            # Keep the text, just note the inline image failure
+                            field_errors[field_name] = (
+                                f"Text kept, but inline image failed: {img_err}"
+                            )
+                    if html:
+                        changes[field_name] = html
+            except Exception as e:
+                field_errors[field_name] = str(e)
 
-        return changes
+        return changes, field_errors
 
     @staticmethod
     def _note_preview(note: Any) -> str:
