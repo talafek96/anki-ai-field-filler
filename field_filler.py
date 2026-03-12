@@ -69,6 +69,18 @@ class FieldFiller:
     def __init__(self) -> None:
         self._config = ConfigManager()
 
+    @staticmethod
+    def _build_tts_context(note_type_name: str, field_values: Dict[str, str]) -> str:
+        """Build a compact context string for TTS pronunciation guidance."""
+        lines = [f"Note type: {note_type_name}"]
+        for name, value in field_values.items():
+            text = value.strip()
+            if text:
+                # Truncate long values to keep the context concise
+                preview = text[:120] + "…" if len(text) > 120 else text
+                lines.append(f"  {name}: {preview}")
+        return "\n".join(lines)
+
     def fill_fields(
         self,
         editor: Editor,
@@ -100,6 +112,7 @@ class FieldFiller:
             target_fields,
             user_prompt,
         )
+        tts_context = self._build_tts_context(note_type_name, field_values)
 
         def background() -> None:
             try:
@@ -121,7 +134,7 @@ class FieldFiller:
                             tts_config = self._config.get_active_tts_provider()
                             if tts_config:
                                 tts = create_tts_provider(tts_config)
-                                audio_bytes = tts.synthesize(content)
+                                audio_bytes = tts.synthesize(content, context=tts_context)
                                 results[field_name] = MediaHandler.save_audio(
                                     audio_bytes, field_name
                                 )
@@ -473,6 +486,7 @@ class BatchFiller:
             # Generate content (but don't write to note yet)
             try:
                 field_values = {name: note[name] for name in note.keys()}
+                tts_ctx = FieldFiller._build_tts_context(note_type_name, field_values)
                 user_message = self._filler._build_user_prompt(
                     note_type_name,
                     field_values,
@@ -481,7 +495,9 @@ class BatchFiller:
                     user_prompt,
                 )
                 parsed = self._filler._generate_and_parse(SYSTEM_PROMPT, user_message)
-                changes, field_errors = self._render_fields(parsed, blank_targets)
+                changes, field_errors = self._render_fields(
+                    parsed, blank_targets, tts_context=tts_ctx
+                )
                 result.proposals.append(
                     BatchProposedChange(
                         note_id=item.note_id,
@@ -539,6 +555,7 @@ class BatchFiller:
         self,
         parsed: Dict[str, Any],
         target_fields: List[str],
+        tts_context: str = "",
     ) -> tuple[Dict[str, str], Dict[str, str]]:
         """Render parsed AI output into final field values (HTML/media).
 
@@ -561,7 +578,7 @@ class BatchFiller:
                     tts_config = self._config.get_active_tts_provider()
                     if tts_config:
                         tts = create_tts_provider(tts_config)
-                        audio_bytes = tts.synthesize(content)
+                        audio_bytes = tts.synthesize(content, context=tts_context)
                         changes[field_name] = MediaHandler.save_audio(audio_bytes, field_name)
                     else:
                         html = FieldFiller._to_html(content)

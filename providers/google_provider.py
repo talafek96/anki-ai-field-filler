@@ -92,21 +92,27 @@ class GoogleImageProvider(_GoogleRequestMixin, ImageProvider):
 class GoogleTTSProvider(_GoogleRequestMixin, TTSProvider):
     """Google Gemini native speech synthesis."""
 
-    def synthesize(self, text: str, language: str = "", voice: str = "") -> bytes:
+    def synthesize(
+        self, text: str, language: str = "", voice: str = "", context: str = ""
+    ) -> bytes:
         model = self._config.tts_model or "gemini-2.5-flash-preview-tts"
         voice_name = voice or self._config.tts_voice or "Kore"
+
+        instruction_parts = [
+            "You are a text-to-speech engine. "
+            "Read the provided text aloud exactly as written. "
+            "Do not interpret, answer, or modify the text — "
+            "only produce audio output.",
+        ]
+        if context:
+            instruction_parts.append(
+                "\nUse the following note context to determine the correct "
+                "language, pronunciation, intonation, and speaking style:\n" + context
+            )
+
         payload = {
             "system_instruction": {
-                "parts": [
-                    {
-                        "text": (
-                            "You are a text-to-speech engine. "
-                            "Read the provided text aloud exactly as written. "
-                            "Do not interpret, answer, or modify the text — "
-                            "only produce audio output."
-                        ),
-                    }
-                ],
+                "parts": [{"text": "\n".join(instruction_parts)}],
             },
             "contents": [{"parts": [{"text": text}]}],
             "generationConfig": {
