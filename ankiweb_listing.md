@@ -8,7 +8,7 @@ with the codebase. It is excluded from the .ankiaddon package. -->
 
 # Title
 
-AI Field Filler 🧠 — Free AI Auto-Fill for Note Fields (Text, TTS, Images · Bring Your Own Key)
+AI Field Filler 🧠 Free AI Auto-Fill (Text, TTS, Images · BYOK)
 
 # Tags
 
@@ -41,11 +41,12 @@ https://github.com/talafek96/anki-ai-field-filler/issues
 
 ## Supported Providers
 
-| Provider | Text | TTS | Image |
-|---|---|---|---|
-| OpenAI | Yes | Yes | Yes |
-| Anthropic (Claude) | Yes | — | — |
-| Google (Gemini) | Yes | Yes | Yes |
+<table>
+  <tr><th>Provider</th><th>Text</th><th>TTS</th><th>Image</th></tr>
+  <tr><td>OpenAI</td><td>✓</td><td>✓</td><td>✓</td></tr>
+  <tr><td>Anthropic (Claude)</td><td>✓</td><td>—</td><td>—</td></tr>
+  <tr><td>Google (Gemini)</td><td>✓</td><td>✓</td><td>✓</td></tr>
+</table>
 
 Works with any OpenAI-compatible API (Azure OpenAI, local LLMs, etc.) by changing the API URL.
 
