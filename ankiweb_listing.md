@@ -41,12 +41,9 @@ https://github.com/talafek96/anki-ai-field-filler/issues
 
 # Supported Providers
 
-<table>
-  <tr><th>Provider</th><th>Text</th><th>TTS</th><th>Image</th></tr>
-  <tr><td>OpenAI</td><td>✓</td><td>✓</td><td>✓</td></tr>
-  <tr><td>Anthropic (Claude)</td><td>✓</td><td>—</td><td>—</td></tr>
-  <tr><td>Google (Gemini)</td><td>✓</td><td>✓</td><td>✓</td></tr>
-</table>
+- **OpenAI** — Text, TTS, Image
+- **Anthropic (Claude)** — Text
+- **Google (Gemini)** — Text, TTS, Image
 
 Works with any OpenAI-compatible API (Azure OpenAI, local LLMs, etc.) by changing the API URL.
 
