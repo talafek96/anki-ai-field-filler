@@ -35,7 +35,7 @@ jobs:
         run: ruff format --check .
 
       - name: Mypy
-        run: mypy .
+        run: cd "$GITHUB_WORKSPACE/.." && mypy ai_field_filler
 
   test:
     name: Test (Python ${{ matrix.python-version }})
