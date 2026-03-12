@@ -449,6 +449,7 @@ class TestPartialFieldFailure:
         assert "Image" not in prop.changes
         assert "Image" in prop.field_errors
         assert "safety filter block" in prop.field_errors["Image"]
+        assert "a cute cat" in prop.field_errors["Image"]
 
     @patch(_HTTP_URLOPEN)
     @patch("ai_field_filler.field_filler.mw")
@@ -535,3 +536,4 @@ class TestPartialFieldFailure:
         # Warning about the inline image
         assert "Definition" in prop.field_errors
         assert "inline image failed" in prop.field_errors["Definition"]
+        assert "waving hand" in prop.field_errors["Definition"]

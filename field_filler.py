@@ -148,10 +148,13 @@ class FieldFiller:
                                         img_tag = MediaHandler.save_image(img_bytes, field_name)
                                         html = f"{html}<br><br>{img_tag}"
                                 except Exception as img_err:
-                                    field_errors.append(f"{field_name} (inline image): {img_err}")
+                                    field_errors.append(
+                                        f"{field_name} (inline image,"
+                                        f" prompt: {image_prompt!r}): {img_err}"
+                                    )
                             results[field_name] = html
                     except Exception as e:
-                        field_errors.append(f"{field_name}: {e}")
+                        field_errors.append(f"{field_name} (prompt: {content!r}): {e}")
                         results[field_name] = None
 
                 def apply() -> None:
@@ -577,11 +580,12 @@ class BatchFiller:
                             # Keep the text, just note the inline image failure
                             field_errors[field_name] = (
                                 f"Text kept, but inline image failed: {img_err}"
+                                f" (prompt: {image_prompt!r})"
                             )
                     if html:
                         changes[field_name] = html
             except Exception as e:
-                field_errors[field_name] = str(e)
+                field_errors[field_name] = f"{e} (prompt: {content!r})"
 
         return changes, field_errors
 
