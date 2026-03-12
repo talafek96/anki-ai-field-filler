@@ -98,10 +98,7 @@ class FieldFiller:
 
         def background() -> None:
             try:
-                provider_config = self._config.get_active_text_provider()
-                provider = create_text_provider(provider_config)
-                response_text = provider.generate(SYSTEM_PROMPT, user_message)
-                parsed = self._parse_response(response_text)
+                parsed = self._generate_and_parse(SYSTEM_PROMPT, user_message)
 
                 results: Dict[str, Optional[str]] = {}
                 for field_name in target_fields:
@@ -233,6 +230,21 @@ class FieldFiller:
             parts.append(user_prompt.strip())
 
         return "\n".join(parts)
+
+    _MAX_RETRIES = 2
+
+    def _generate_and_parse(self, system_prompt: str, user_message: str) -> Dict[str, Any]:
+        """Call the AI provider and parse the response, retrying on bad JSON."""
+        provider_config = self._config.get_active_text_provider()
+        provider = create_text_provider(provider_config)
+        last_error: Exception | None = None
+        for _ in range(self._MAX_RETRIES):
+            response_text = provider.generate(system_prompt, user_message)
+            try:
+                return self._parse_response(response_text)
+            except ProviderError as e:
+                last_error = e
+        raise last_error  # type: ignore[misc]
 
     def _parse_response(self, response: str) -> Dict[str, Any]:
         """Parse the AI's JSON response into field data."""

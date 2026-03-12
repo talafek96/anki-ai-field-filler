@@ -1,8 +1,9 @@
-"""Tests for response parsing and HTML conversion in FieldFiller."""
+"""Tests for response parsing, HTML conversion, and retry logic in FieldFiller."""
 
 from __future__ import annotations
 
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -118,3 +119,48 @@ class TestToHtml:
 
     def test_no_newlines_unchanged(self) -> None:
         assert FieldFiller._to_html("just text") == "just text"
+
+
+class TestGenerateAndParse:
+    """Tests for FieldFiller._generate_and_parse retry logic."""
+
+    def _make_filler(self):
+        filler = FieldFiller.__new__(FieldFiller)
+        filler._config = MagicMock()
+        return filler
+
+    @patch("ai_field_filler.field_filler.create_text_provider")
+    def test_succeeds_first_try(self, mock_create, filler) -> None:
+        filler._config = MagicMock()
+        mock_provider = MagicMock()
+        mock_provider.generate.return_value = json.dumps(
+            {"fields": {"A": {"content": "ok", "type": "text"}}}
+        )
+        mock_create.return_value = mock_provider
+        result = filler._generate_and_parse("sys", "usr")
+        assert result["A"]["content"] == "ok"
+        assert mock_provider.generate.call_count == 1
+
+    @patch("ai_field_filler.field_filler.create_text_provider")
+    def test_retries_on_bad_json_then_succeeds(self, mock_create, filler) -> None:
+        filler._config = MagicMock()
+        mock_provider = MagicMock()
+        # First call returns truncated JSON, second returns valid
+        mock_provider.generate.side_effect = [
+            '{"fields":{"A":{"content":"val"',
+            json.dumps({"fields": {"A": {"content": "val", "type": "text"}}}),
+        ]
+        mock_create.return_value = mock_provider
+        result = filler._generate_and_parse("sys", "usr")
+        assert result["A"]["content"] == "val"
+        assert mock_provider.generate.call_count == 2
+
+    @patch("ai_field_filler.field_filler.create_text_provider")
+    def test_raises_after_all_retries_fail(self, mock_create, filler) -> None:
+        filler._config = MagicMock()
+        mock_provider = MagicMock()
+        mock_provider.generate.return_value = "not json at all"
+        mock_create.return_value = mock_provider
+        with pytest.raises(ProviderError):
+            filler._generate_and_parse("sys", "usr")
+        assert mock_provider.generate.call_count == 2
