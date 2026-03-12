@@ -160,7 +160,13 @@ class FieldFiller:
                 def apply() -> None:
                     self._apply_results(editor, results)
                     if field_errors and on_error:
-                        on_error("Some fields failed to generate:\n" + "\n".join(field_errors))
+                        filled = [f for f, v in results.items() if v is not None]
+                        parts: List[str] = []
+                        if filled:
+                            parts.append("Fields filled successfully: " + ", ".join(filled))
+                        parts.append("Failed fields:")
+                        parts.extend(f"  \u2022 {e}" for e in field_errors)
+                        on_error("\n".join(parts))
                     elif on_success:
                         on_success()
 
