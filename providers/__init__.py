@@ -183,13 +183,18 @@ def _fetch_google_models(
         if "/" in name:
             name = name.split("/", 1)[1]
         methods = m.get("supportedGenerationMethods", [])
-        if "generateContent" not in methods:
-            continue
+        can_generate = "generateContent" in methods
         nl = name.lower()
-        if capability == "image" and "image" in nl:
+        if capability == "image" and _is_google_image_model(nl):
+            # Image models may not list generateContent in methods
             models.append(name)
-        elif capability == "tts" and ("tts" in nl or "flash" in nl):
+        elif capability == "tts" and can_generate and "tts" in nl:
             models.append(name)
-        elif capability == "text" and "image" not in nl and "tts" not in nl:
+        elif capability == "text" and can_generate and not _is_google_image_model(nl) and "tts" not in nl:
             models.append(name)
     return sorted(models)
+
+
+def _is_google_image_model(name_lower: str) -> bool:
+    """Check if a Google model name indicates an image-generation model."""
+    return "image" in name_lower or "imagen" in name_lower
