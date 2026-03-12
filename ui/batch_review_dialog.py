@@ -327,7 +327,6 @@ class BatchReviewDialog(QDialog):
         )
         for fname in all_sounds:
             btn = QPushButton(f"\u25b6 {fname}")
-            btn.setFixedHeight(22)
             qconnect(btn.clicked, lambda _c=False, f=fname: self._play_sound(f))
             label_row.addWidget(btn)
 
