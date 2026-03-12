@@ -282,10 +282,9 @@ class BatchReviewDialog(QDialog):
         group_layout.addLayout(header_row)
 
         if not prop.success:
-            err = QLabel(f"\u274c Error: {prop.error[:200]}")
-            err.setStyleSheet("color: #DC2626; font-size: 12px;")
-            err.setWordWrap(True)
-            group_layout.addWidget(err)
+            self._add_error_block(
+                group_layout, f"\u274c Error: {prop.error}", "color: #DC2626; font-size: 12px;"
+            )
         elif self._dry_run:
             # Show which fields would be targeted
             fields_text = ", ".join(prop.blank_fields) if prop.blank_fields else "none"
@@ -299,13 +298,59 @@ class BatchReviewDialog(QDialog):
                 self._add_field_diff(group_layout, idx, field_name, old_value, new_value)
             # Show per-field errors as warnings
             for field_name, err_msg in prop.field_errors.items():
-                fe_label = QLabel(f"\u26a0\ufe0f <b>{field_name}</b>: {err_msg[:200]}")
-                fe_label.setStyleSheet(_FIELD_ERROR_STYLE)
-                fe_label.setWordWrap(True)
-                group_layout.addWidget(fe_label)
+                self._add_error_block(
+                    group_layout,
+                    f"\u26a0\ufe0f <b>{field_name}</b>: {err_msg}",
+                    _FIELD_ERROR_STYLE,
+                )
 
         group.setLayout(group_layout)
         return group
+
+    _MAX_ERROR_PREVIEW = 200
+
+    def _add_error_block(
+        self,
+        parent_layout: QVBoxLayout,
+        text: str,
+        style: str,
+    ) -> None:
+        """Add an error label that can expand if the message is long."""
+        if len(text) <= self._MAX_ERROR_PREVIEW:
+            label = QLabel(text)
+            label.setStyleSheet(style)
+            label.setWordWrap(True)
+            parent_layout.addWidget(label)
+            return
+
+        preview = QLabel(text[: self._MAX_ERROR_PREVIEW] + "\u2026")
+        preview.setStyleSheet(style)
+        preview.setWordWrap(True)
+        parent_layout.addWidget(preview)
+
+        full_edit = QPlainTextEdit()
+        plain = re.sub(r"<[^>]+>", "", text)
+        full_edit.setPlainText(plain)
+        full_edit.setReadOnly(True)
+        full_edit.setMaximumHeight(120)
+        full_edit.setStyleSheet(style)
+        full_edit.setVisible(False)
+        parent_layout.addWidget(full_edit)
+
+        toggle = QPushButton("Show full error")
+
+        def _toggle() -> None:
+            if full_edit.isVisible():
+                full_edit.setVisible(False)
+                preview.setVisible(True)
+                toggle.setText("Show full error")
+            else:
+                full_edit.setVisible(True)
+                preview.setVisible(False)
+                toggle.setText("Hide full error")
+
+        qconnect(toggle.clicked, lambda _c=False: _toggle())
+        parent_layout.addWidget(toggle)
 
     def _add_field_diff(
         self,

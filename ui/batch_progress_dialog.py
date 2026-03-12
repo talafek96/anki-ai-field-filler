@@ -195,8 +195,7 @@ class BatchSummaryDialog(QDialog):
             fail_list.setMaximumHeight(150)
             lines = []
             for f in r.failures:
-                err_preview = f.error[:200]
-                lines.append(f"Note ID {f.note_id}: {err_preview}")
+                lines.append(f"Note ID {f.note_id}: {f.error}")
             fail_list.setPlainText("\n\n".join(lines))
             fail_layout.addWidget(fail_list)
 
