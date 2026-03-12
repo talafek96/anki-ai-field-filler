@@ -1,0 +1,78 @@
+<!--
+    AnkiWeb Addon Listing — AI Field Filler
+
+    Copy the title and paste the HTML description into the AnkiWeb
+    upload form at https://ankiweb.net/shared/addons/
+
+    This file is version-controlled so the listing stays in sync
+    with the codebase. It is excluded from the .ankiaddon package.
+-->
+
+<!-- TITLE -->
+AI Field Filler — AI-powered auto-fill for Anki note fields
+
+<!-- DESCRIPTION (paste everything below into the AnkiWeb HTML editor) -->
+
+<b>AI Field Filler</b> uses LLM-based AI to intelligently auto-fill blank note fields. It considers already-filled fields, per-field instructions you configure, and optional user prompts to generate appropriate content &mdash; including <b>text</b>, <b>audio (TTS)</b>, and <b>images</b>.
+
+<h3>Features</h3>
+<ul>
+  <li><b>Multi-provider support</b> &mdash; OpenAI, Anthropic (Claude), Google (Gemini / Nano Banana), and any OpenAI-compatible API</li>
+  <li><b>Smart field filling</b> &mdash; The AI decides what content type fits each field and leaves irrelevant fields empty</li>
+  <li><b>Text-to-speech</b> &mdash; Generates audio files for audio-type fields (OpenAI TTS or Google Gemini TTS)</li>
+  <li><b>Image generation</b> &mdash; Generates images for image-type fields (OpenAI DALL-E or Google Nano Banana)</li>
+  <li><b>Optional inline images</b> &mdash; For text fields, the AI can include a generated illustration when it would help the learner</li>
+  <li><b>Per-field instructions</b> &mdash; Configure what each field should contain per note type</li>
+  <li><b>Dynamic model selection</b> &mdash; Model dropdowns fetch available models from the API with one click</li>
+  <li><b>Multiple activation methods</b> &mdash; Toolbar buttons, right-click context menu, or keyboard shortcuts</li>
+</ul>
+
+<h3>Supported Providers</h3>
+<table>
+  <tr><th>Provider</th><th>Text</th><th>TTS</th><th>Image</th></tr>
+  <tr><td>OpenAI</td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td></tr>
+  <tr><td>Anthropic</td><td>&#10003;</td><td>&mdash;</td><td>&mdash;</td></tr>
+  <tr><td>Google (Gemini)</td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td></tr>
+</table>
+
+<p>You can set a different provider for each capability. For example, use Anthropic for text, OpenAI for TTS, and Google for images.</p>
+
+<h3>Quick Start</h3>
+<ol>
+  <li>Open <b>Tools &rarr; AI Field Filler &rarr; Settings...</b></li>
+  <li>Enter your API key for your preferred provider</li>
+  <li>Click <b>Test Connection</b> to verify</li>
+  <li>Go to the <b>Note Types</b> tab and describe what each field should contain</li>
+  <li>Open a note in the editor and click <b>AI Fill All</b> or press <code>Ctrl+Shift+G</code></li>
+</ol>
+
+<h3>How It Works</h3>
+<ol>
+  <li>When you trigger a fill action, the addon gathers all field values, per-field instructions, and your optional prompt</li>
+  <li>This context is sent to your AI provider as a structured prompt</li>
+  <li>The AI returns content for each field, including type decisions (text, audio, or image)</li>
+  <li><b>Text fields:</b> content is inserted as HTML. The AI may optionally add an illustration.</li>
+  <li><b>Audio fields:</b> text is sent to the TTS provider and saved as a sound file</li>
+  <li><b>Image fields:</b> a prompt is sent to the image provider and saved as an image</li>
+  <li>Fields the AI deems irrelevant are left empty</li>
+</ol>
+
+<h3>Usage</h3>
+<ul>
+  <li><b>Fill All Blank Fields:</b> toolbar button, right-click menu, or <code>Ctrl+Shift+G</code></li>
+  <li><b>Fill Current Field:</b> toolbar button, right-click menu, or <code>Ctrl+Shift+F</code></li>
+  <li><b>Quick Configure:</b> right-click any field &rarr; "AI: Configure instructions..." to set up instructions inline</li>
+</ul>
+
+<h3>Requirements</h3>
+<ul>
+  <li>Anki 2.1.50 or later (Qt6 recommended)</li>
+  <li>An API key for at least one supported provider</li>
+  <li>Internet connection</li>
+</ul>
+
+<h3>Support &amp; Source</h3>
+<p>
+  Bug reports and feature requests are welcome on
+  <a href="https://github.com/AIsOfSyria/ai-field-filler">GitHub</a>.
+</p>
