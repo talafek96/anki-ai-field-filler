@@ -13,7 +13,8 @@ ignore = [
 "tests/*" = ["E501"]  # allow long lines in tests
 
 [tool.ruff.lint.isort]
-known-third-party = ["aqt", "anki"]
+known-first-party = ["ai_field_filler"]
+known-third-party = ["aqt", "anki", "pytest"]
 
 [tool.mypy]
 python_version = "3.9"
