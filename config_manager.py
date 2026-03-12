@@ -287,10 +287,33 @@ class ConfigManager:
             if not nt_instr[note_type_name]:
                 del nt_instr[note_type_name]
 
+    # --- Model cache ---
+
+    def get_cached_models(self, provider_type: str, capability: str) -> List[str]:
+        """Return the cached model list for *provider_type* + *capability*.
+
+        Returns an empty list when nothing has been cached yet.
+        """
+        cache = self._get("_model_cache", {})
+        return list(cache.get(provider_type, {}).get(capability, []))
+
+    def get_all_cached_models(self, provider_type: str) -> Dict[str, List[str]]:
+        """Return ``{capability: [model, …]}`` for *provider_type*."""
+        cache = self._get("_model_cache", {})
+        return {k: list(v) for k, v in cache.get(provider_type, {}).items()}
+
+    def set_cached_models(self, provider_type: str, capability: str, models: List[str]) -> None:
+        """Persist a fetched model list for *provider_type* + *capability*."""
+        if "_model_cache" not in self._config:
+            self._config["_model_cache"] = {}
+        cache = self._config["_model_cache"]
+        if provider_type not in cache:
+            cache[provider_type] = {}
+        cache[provider_type][capability] = list(models)
+
     # --- General settings ---
 
     def get_general_settings(self) -> GeneralSettings:
-        """Get general addon settings."""
         g = self._get("general", {})
         return GeneralSettings(
             fill_all_shortcut=g.get("fill_all_shortcut", "Ctrl+Shift+G"),

@@ -422,3 +422,71 @@ class TestDeckFieldInstructions:
         # Global should be untouched
         global_instrs = cm.get_global_field_instructions("Basic")
         assert "Back" in global_instrs
+
+
+# ---------------------------------------------------------------------------
+# Model cache tests
+# ---------------------------------------------------------------------------
+
+
+class TestModelCache:
+    def test_empty_cache_returns_empty_list(self) -> None:
+        cm, _ = _make_config_manager()
+        assert cm.get_cached_models("openai", "text") == []
+
+    def test_set_and_get_cached_models(self) -> None:
+        cm, _ = _make_config_manager()
+        models = ["gpt-4o", "gpt-5.4"]
+        cm.set_cached_models("openai", "text", models)
+        assert cm.get_cached_models("openai", "text") == models
+
+    def test_multiple_capabilities(self) -> None:
+        cm, _ = _make_config_manager()
+        cm.set_cached_models("openai", "text", ["gpt-4o"])
+        cm.set_cached_models("openai", "tts", ["tts-1"])
+        cm.set_cached_models("openai", "image", ["dall-e-3"])
+        assert cm.get_cached_models("openai", "text") == ["gpt-4o"]
+        assert cm.get_cached_models("openai", "tts") == ["tts-1"]
+        assert cm.get_cached_models("openai", "image") == ["dall-e-3"]
+
+    def test_multiple_providers(self) -> None:
+        cm, _ = _make_config_manager()
+        cm.set_cached_models("openai", "text", ["gpt-4o"])
+        cm.set_cached_models("google", "text", ["gemini-2.5-flash"])
+        assert cm.get_cached_models("openai", "text") == ["gpt-4o"]
+        assert cm.get_cached_models("google", "text") == ["gemini-2.5-flash"]
+
+    def test_get_all_cached_models(self) -> None:
+        cm, _ = _make_config_manager()
+        cm.set_cached_models("openai", "text", ["gpt-4o"])
+        cm.set_cached_models("openai", "tts", ["tts-1"])
+        result = cm.get_all_cached_models("openai")
+        assert result == {"text": ["gpt-4o"], "tts": ["tts-1"]}
+
+    def test_get_all_cached_models_unknown_provider(self) -> None:
+        cm, _ = _make_config_manager()
+        assert cm.get_all_cached_models("unknown") == {}
+
+    def test_overwrite_existing_cache(self) -> None:
+        cm, _ = _make_config_manager()
+        cm.set_cached_models("openai", "text", ["gpt-4o"])
+        cm.set_cached_models("openai", "text", ["gpt-5.4", "gpt-4o"])
+        assert cm.get_cached_models("openai", "text") == ["gpt-5.4", "gpt-4o"]
+
+    def test_cached_models_returns_copy(self) -> None:
+        cm, _ = _make_config_manager()
+        cm.set_cached_models("openai", "text", ["gpt-4o"])
+        result = cm.get_cached_models("openai", "text")
+        result.append("mutated")
+        assert cm.get_cached_models("openai", "text") == ["gpt-4o"]
+
+    def test_cached_models_stored_in_config(self) -> None:
+        cm, _ = _make_config_manager()
+        cm.set_cached_models("openai", "text", ["gpt-4o"])
+        assert cm._config["_model_cache"]["openai"]["text"] == ["gpt-4o"]
+
+    def test_preexisting_cache_loaded(self) -> None:
+        config = copy.deepcopy(_SAMPLE_CONFIG)
+        config["_model_cache"] = {"openai": {"text": ["gpt-4o", "gpt-5.4"]}}
+        cm, _ = _make_config_manager(config=config)
+        assert cm.get_cached_models("openai", "text") == ["gpt-4o", "gpt-5.4"]
