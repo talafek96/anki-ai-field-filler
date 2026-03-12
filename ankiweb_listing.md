@@ -8,7 +8,7 @@ with the codebase. It is excluded from the .ankiaddon package. -->
 
 # Title
 
-AI Field Filler — Free AI Auto-Fill for Note Fields (Text, TTS, Images · Bring Your Own Key)
+AI Field Filler 🧠 — Free AI Auto-Fill for Note Fields (Text, TTS, Images · Bring Your Own Key)
 
 # Tags
 
