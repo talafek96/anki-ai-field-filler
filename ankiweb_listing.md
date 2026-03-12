@@ -12,7 +12,7 @@ AI Field Filler 🧠 Smart Auto-Fill for Notes (Text, TTS, Images)
 
 # Tags
 
-ai, gpt, openai, anthropic, google, gemini, tts, text-to-speech, image-generation, auto-fill, field-filler, language-learning
+ai, gpt, openai, anthropic, google, gemini, tts, text-to-speech, image-generation, auto-fill, field-filler, language-learning, batch-fill
 
 # Support Page
 
@@ -30,13 +30,14 @@ https://github.com/talafek96/anki-ai-field-filler/issues
 
 - **Multi-provider support** — OpenAI (GPT-5, GPT-4o, DALL-E, TTS), Anthropic (Claude), Google (Gemini, Nano Banana, Gemini TTS), and any OpenAI-compatible API
 - **Smart field filling** — The AI decides the best content type for each field (text, audio, or image) and skips irrelevant ones
-- **Text-to-speech** — Generates audio files using OpenAI TTS or Google Gemini TTS
+- **Batch fill from browser** — Select multiple cards, fill all their blank fields in one go. Full review workflow: configure fields → watch progress with ETA → review side-by-side diffs → edit results → apply only the changes you approve
+- **Text-to-speech** — Generates audio files using OpenAI TTS or Google Gemini TTS, with note context for accurate pronunciation
 - **Image generation** — Generates images using OpenAI DALL-E or Google Nano Banana
 - **Optional inline images** — For text fields, the AI can add a helpful illustration below the text when it aids learning
 - **Per-field instructions** — Describe what each field should contain per note type, giving the AI rich context
 - **Dynamic model selection** — Model dropdowns with a refresh button that fetches available models directly from the provider's API
 - **Mix and match providers** — Use Anthropic for text, OpenAI for TTS, and Google for images — each capability is independent
-- **Multiple activation methods** — Editor toolbar buttons, right-click context menu, or configurable keyboard shortcuts
+- **Multiple activation methods** — Editor toolbar buttons, right-click context menu, browser batch fill, or configurable keyboard shortcuts
 - **Comfortable settings UI** — Tabbed settings dialog for providers, note type instructions, and general settings
 
 # Supported Providers
@@ -69,6 +70,7 @@ Works with any OpenAI-compatible API (Azure OpenAI, local LLMs, etc.) by changin
 
 - **Fill All Blank Fields:** toolbar button, right-click menu, or `Ctrl+Shift+G`
 - **Fill Current Field:** toolbar button, right-click menu, or `Ctrl+Shift+F`
+- **Batch Fill:** select cards in the browser → right-click → "AI: Batch fill blank fields" → configure → review diffs → apply
 - **Quick Configure:** right-click any field → "AI: Configure instructions..." to set instructions inline
 
 # Requirements
