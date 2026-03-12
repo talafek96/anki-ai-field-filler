@@ -8,7 +8,7 @@ with the codebase. It is excluded from the .ankiaddon package. -->
 
 # Title
 
-AI Field Filler 🧠 Free AI Auto-Fill (Text, TTS, Images · Your Own Key)
+AI Field Filler 🧠 Smart Auto-Fill for Notes (Text, TTS, Images)
 
 # Tags
 
