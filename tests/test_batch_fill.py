@@ -12,6 +12,7 @@ from ai_field_filler.field_filler import (
     BatchFiller,
     BatchNoteItem,
     BatchProgress,
+    BatchProposedChange,
     BatchResult,
 )
 
@@ -217,3 +218,143 @@ class TestBatchDataclasses:
         assert r.skipped == 0
         assert r.failures == []
         assert r.dry_run is False
+
+
+class TestFilledFieldsNotOverwritten:
+    """Verify that already-filled fields are never sent to the AI."""
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_partial_fill_only_targets_blank(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
+        """Expression is filled, Back is blank — only Back is targeted."""
+        fields = {"Expression": "hello", "Meaning": "world", "Back": ""}
+        note, raw = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response({"Back": {"content": "answer", "type": "text"}})
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        result = filler.run(
+            [BatchNoteItem(note_id=1)],
+            target_fields=["Expression", "Meaning", "Back"],
+        )
+
+        assert result.succeeded == 1
+        # Only Back should appear in proposals — Expression and Meaning were filled
+        prop = result.proposals[0]
+        assert "Back" in prop.blank_fields
+        assert "Expression" not in prop.blank_fields
+        assert "Meaning" not in prop.blank_fields
+        # Original values must be untouched
+        assert raw["Expression"] == "hello"
+        assert raw["Meaning"] == "world"
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_all_fields_filled_skips_note(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
+        """When every target field is already filled, the note is skipped."""
+        fields = {"Front": "hello", "Back": "world"}
+        note, raw = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        filler = _make_batch_filler(mock_mw)
+        result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Front", "Back"])
+
+        assert result.skipped == 1
+        assert result.succeeded == 0
+        mock_urlopen.assert_not_called()
+        assert raw["Front"] == "hello"
+        assert raw["Back"] == "world"
+
+
+class TestDryRunProposals:
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_dry_run_shows_blank_fields_per_note(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
+        """Dry run proposals list which fields would be targeted."""
+        fields = {"Front": "hello", "Back": "", "Extra": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        filler = _make_batch_filler(mock_mw)
+        result = filler.run(
+            [BatchNoteItem(note_id=1)],
+            target_fields=["Front", "Back", "Extra"],
+            dry_run=True,
+        )
+
+        assert len(result.proposals) == 1
+        prop = result.proposals[0]
+        assert prop.blank_fields == ["Back", "Extra"]
+        assert prop.changes == {}  # no AI was called
+        mock_urlopen.assert_not_called()
+
+
+class TestProposalsAndApply:
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_proposals_populated_without_writing(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
+        """Real run populates proposals but doesn't write to notes."""
+        fields = {"Front": "hello", "Back": ""}
+        note, raw = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response({"Back": {"content": "generated", "type": "text"}})
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
+
+        assert result.succeeded == 1
+        assert len(result.proposals) == 1
+        prop = result.proposals[0]
+        assert prop.changes == {"Back": "generated"}
+        # Note was NOT modified (no flush called yet)
+        assert raw["Back"] == ""
+        note.flush.assert_not_called()
+
+    @patch("ai_field_filler.field_filler.mw")
+    def test_apply_proposals_writes_to_notes(self, mock_mw: MagicMock) -> None:
+        """apply_proposals writes approved changes and flushes."""
+        fields = {"Front": "hello", "Back": ""}
+        note, raw = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        prop = BatchProposedChange(
+            note_id=1,
+            note_preview="hello",
+            blank_fields=["Back"],
+            changes={"Back": "new content"},
+        )
+
+        filler = BatchFiller()
+        applied = filler.apply_proposals([prop])
+
+        assert applied == 1
+        assert raw["Back"] == "new content"
+        note.flush.assert_called_once()
+
+    @patch("ai_field_filler.field_filler.mw")
+    def test_apply_skips_failed_proposals(self, mock_mw: MagicMock) -> None:
+        """Proposals with errors are not applied."""
+        prop = BatchProposedChange(
+            note_id=1,
+            note_preview="hello",
+            blank_fields=["Back"],
+            error="API error",
+        )
+
+        filler = BatchFiller()
+        applied = filler.apply_proposals([prop])
+
+        assert applied == 0
+        mock_mw.col.get_note.assert_not_called()

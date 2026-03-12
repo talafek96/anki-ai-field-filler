@@ -323,6 +323,21 @@ class BatchNoteResult:
 
 
 @dataclass
+class BatchProposedChange:
+    """A single proposed field change for review before applying."""
+
+    note_id: int
+    note_preview: str  # first non-empty field for identification
+    blank_fields: List[str]  # fields that would be targeted
+    changes: Dict[str, str] = field(default_factory=dict)  # field → new value
+    error: str = ""
+
+    @property
+    def success(self) -> bool:
+        return not self.error
+
+
+@dataclass
 class BatchProgress:
     """Snapshot of batch progress, passed to the UI callback."""
 
@@ -342,6 +357,7 @@ class BatchResult:
     failed: int = 0
     skipped: int = 0
     failures: List[BatchNoteResult] = field(default_factory=list)
+    proposals: List[BatchProposedChange] = field(default_factory=list)
     dry_run: bool = False
 
 
@@ -379,8 +395,14 @@ class BatchFiller:
     ) -> BatchResult:
         """Process notes sequentially. Call from a background thread.
 
+        When *dry_run* is True, no AI calls are made — the result contains
+        :attr:`BatchResult.proposals` with the blank fields that *would* be
+        targeted per note.
+
+        Otherwise, proposals are populated with the generated content so the
+        caller can present a review dialog before committing.
+
         *on_progress* is called (on the calling thread) after each note.
-        The caller must schedule UI updates via ``mw.taskman.run_on_main``.
         """
         self._cancelled = False
         result = BatchResult(total=len(items), dry_run=dry_run)
@@ -393,6 +415,7 @@ class BatchFiller:
 
             note = mw.col.get_note(item.note_id)
             note_type_name = note.note_type()["name"]
+            preview = self._note_preview(note)
 
             # Determine which target fields are actually blank for this note
             blank_targets = [f for f in target_fields if not note[f].strip()]
@@ -406,11 +429,18 @@ class BatchFiller:
             )
 
             if dry_run:
+                result.proposals.append(
+                    BatchProposedChange(
+                        note_id=item.note_id,
+                        note_preview=preview,
+                        blank_fields=blank_targets,
+                    )
+                )
                 result.succeeded += 1
                 self._report_progress(on_progress, idx + 1, result.total, note, start)
                 continue
 
-            # Generate and apply
+            # Generate content (but don't write to note yet)
             try:
                 field_values = {name: note[name] for name in note.keys()}
                 user_message = self._filler._build_user_prompt(
@@ -421,11 +451,25 @@ class BatchFiller:
                     user_prompt,
                 )
                 parsed = self._filler._generate_and_parse(SYSTEM_PROMPT, user_message)
-                filled = self._apply_to_note(note, parsed, blank_targets)
-                note.flush()
+                changes = self._render_fields(parsed, blank_targets)
+                result.proposals.append(
+                    BatchProposedChange(
+                        note_id=item.note_id,
+                        note_preview=preview,
+                        blank_fields=blank_targets,
+                        changes=changes,
+                    )
+                )
                 result.succeeded += 1
-                nr = BatchNoteResult(note_id=item.note_id, success=True, fields_filled=filled)
             except Exception as e:
+                result.proposals.append(
+                    BatchProposedChange(
+                        note_id=item.note_id,
+                        note_preview=preview,
+                        blank_fields=blank_targets,
+                        error=str(e),
+                    )
+                )
                 nr = BatchNoteResult(note_id=item.note_id, success=False, error=str(e))
                 result.failed += 1
                 result.failures.append(nr)
@@ -434,14 +478,40 @@ class BatchFiller:
 
         return result
 
-    def _apply_to_note(
+    def apply_proposals(
         self,
-        note: Any,
+        proposals: List[BatchProposedChange],
+    ) -> int:
+        """Write approved proposals to their notes. Returns count applied.
+
+        Call from the main thread after the user has reviewed and approved.
+        """
+        applied = 0
+        for prop in proposals:
+            if not prop.success or not prop.changes:
+                continue
+            note = mw.col.get_note(prop.note_id)
+            changed = False
+            for field_name, new_value in prop.changes.items():
+                if field_name in note:
+                    note[field_name] = new_value
+                    changed = True
+            if changed:
+                note.flush()
+                applied += 1
+        return applied
+
+    def _render_fields(
+        self,
         parsed: Dict[str, Any],
         target_fields: List[str],
-    ) -> int:
-        """Apply parsed AI results to a note. Returns number of fields filled."""
-        filled = 0
+    ) -> Dict[str, str]:
+        """Render parsed AI output into final field values (HTML/media).
+
+        Returns a dict of {field_name: rendered_value} without writing
+        to any note.
+        """
+        changes: Dict[str, str] = {}
         for field_name in target_fields:
             field_data = parsed.get(field_name)
             if field_data is None:
@@ -455,20 +525,17 @@ class BatchFiller:
                 if tts_config:
                     tts = create_tts_provider(tts_config)
                     audio_bytes = tts.synthesize(content)
-                    note[field_name] = MediaHandler.save_audio(audio_bytes, field_name)
-                    filled += 1
+                    changes[field_name] = MediaHandler.save_audio(audio_bytes, field_name)
                 else:
                     html = FieldFiller._to_html(content)
                     if html:
-                        note[field_name] = html
-                        filled += 1
+                        changes[field_name] = html
             elif ftype == "image":
                 img_config = self._config.get_active_image_provider()
                 if img_config:
                     img_prov = create_image_provider(img_config)
                     img_bytes = img_prov.generate_image(content)
-                    note[field_name] = MediaHandler.save_image(img_bytes, field_name)
-                    filled += 1
+                    changes[field_name] = MediaHandler.save_image(img_bytes, field_name)
             else:
                 html = FieldFiller._to_html(content)
                 image_prompt = field_data.get("image_prompt", "")
@@ -480,10 +547,18 @@ class BatchFiller:
                         img_tag = MediaHandler.save_image(img_bytes, field_name)
                         html = f"{html}<br><br>{img_tag}"
                 if html:
-                    note[field_name] = html
-                    filled += 1
+                    changes[field_name] = html
 
-        return filled
+        return changes
+
+    @staticmethod
+    def _note_preview(note: Any) -> str:
+        """Return a short preview string from the first non-empty field."""
+        for name in note.keys():
+            val = note[name].strip()
+            if val:
+                return val[:60] + ("..." if len(val) > 60 else "")
+        return "(empty note)"
 
     @staticmethod
     def _report_progress(
@@ -499,15 +574,7 @@ class BatchFiller:
         rate = completed / elapsed if elapsed > 0 else 0
         remaining = total - completed
         eta = remaining / rate if rate > 0 else 0.0
-        # Use the first non-empty field as a preview
-        preview = ""
-        for name in note.keys():
-            val = note[name].strip()
-            if val:
-                preview = val[:60]
-                if len(note[name].strip()) > 60:
-                    preview += "..."
-                break
+        preview = BatchFiller._note_preview(note)
         callback(
             BatchProgress(
                 completed=completed,
