@@ -91,10 +91,19 @@ class OpenAITextProvider(_OpenAIRequestMixin, TextProvider):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "max_tokens": self._config.max_tokens,
+            "max_completion_tokens": self._config.max_tokens,
             "temperature": 0.7,
         }
-        result = self._request(url, payload)
+        try:
+            result = self._request(url, payload)
+        except ProviderError as e:
+            # Fall back to legacy max_tokens for older models/endpoints
+            if "max_completion_tokens" in str(e) and "unsupported" in str(e).lower():
+                payload.pop("max_completion_tokens")
+                payload["max_tokens"] = self._config.max_tokens
+                result = self._request(url, payload)
+            else:
+                raise
         return result["choices"][0]["message"]["content"]
 
 
