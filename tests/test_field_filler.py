@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+
 import pytest
 
 from ai_field_filler.field_filler import FieldFiller
@@ -13,12 +14,14 @@ class TestParseResponse:
     """Tests for FieldFiller._parse_response."""
 
     def test_clean_json(self, filler) -> None:
-        raw = json.dumps({
-            "fields": {
-                "Meaning": {"content": "hello", "type": "text"},
-                "Audio": None,
+        raw = json.dumps(
+            {
+                "fields": {
+                    "Meaning": {"content": "hello", "type": "text"},
+                    "Audio": None,
+                }
             }
-        })
+        )
         result = filler._parse_response(raw)
         assert result["Meaning"]["content"] == "hello"
         assert result["Audio"] is None
@@ -56,28 +59,32 @@ class TestParseResponse:
             filler._parse_response("<!DOCTYPE html><html><body>Error</body></html>")
 
     def test_null_fields_preserved(self, filler) -> None:
-        raw = json.dumps({
-            "fields": {
-                "A": {"content": "val", "type": "text"},
-                "B": None,
-                "C": {"content": "img prompt", "type": "image"},
+        raw = json.dumps(
+            {
+                "fields": {
+                    "A": {"content": "val", "type": "text"},
+                    "B": None,
+                    "C": {"content": "img prompt", "type": "image"},
+                }
             }
-        })
+        )
         result = filler._parse_response(raw)
         assert result["A"] is not None
         assert result["B"] is None
         assert result["C"]["type"] == "image"
 
     def test_image_prompt_field(self, filler) -> None:
-        raw = json.dumps({
-            "fields": {
-                "Meaning": {
-                    "content": "definition",
-                    "type": "text",
-                    "image_prompt": "a picture of something",
+        raw = json.dumps(
+            {
+                "fields": {
+                    "Meaning": {
+                        "content": "definition",
+                        "type": "text",
+                        "image_prompt": "a picture of something",
+                    }
                 }
             }
-        })
+        )
         result = filler._parse_response(raw)
         assert result["Meaning"]["image_prompt"] == "a picture of something"
 

@@ -13,10 +13,7 @@ _TYPE_TOOLTIP = (
     "image: generate an image"
 )
 
-_AUTO_FILL_TOOLTIP = (
-    "When checked, this field will be included when using "
-    "'Fill All Blank Fields'."
-)
+_AUTO_FILL_TOOLTIP = "When checked, this field will be included when using 'Fill All Blank Fields'."
 
 
 def create_field_type_combo() -> QComboBox:

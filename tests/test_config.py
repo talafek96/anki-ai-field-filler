@@ -15,7 +15,6 @@ from ai_field_filler.config_manager import (
     ProviderConfig,
 )
 
-
 # ---------------------------------------------------------------------------
 # Dataclass tests
 # ---------------------------------------------------------------------------
@@ -29,9 +28,7 @@ class TestFieldInstruction:
         assert fi.auto_fill is True
 
     def test_custom_values(self) -> None:
-        fi = FieldInstruction(
-            instruction="English def", field_type="text", auto_fill=False
-        )
+        fi = FieldInstruction(instruction="English def", field_type="text", auto_fill=False)
         assert fi.instruction == "English def"
         assert fi.field_type == "text"
         assert fi.auto_fill is False
@@ -247,7 +244,8 @@ class TestConfigManagerFieldInstructions:
     def test_set_field_instruction(self) -> None:
         cm, _ = _make_config_manager()
         cm.set_field_instruction(
-            "Basic", "Front",
+            "Basic",
+            "Front",
             FieldInstruction(instruction="Question", field_type="text"),
         )
         instrs = cm.get_field_instructions("Basic")
@@ -278,12 +276,14 @@ class TestConfigManagerGeneralSettings:
 
     def test_set_general_settings(self) -> None:
         cm, _ = _make_config_manager()
-        cm.set_general_settings(GeneralSettings(
-            fill_all_shortcut="Ctrl+G",
-            fill_field_shortcut="Ctrl+F",
-            default_user_prompt="Be concise",
-            show_fill_dialog=False,
-        ))
+        cm.set_general_settings(
+            GeneralSettings(
+                fill_all_shortcut="Ctrl+G",
+                fill_field_shortcut="Ctrl+F",
+                default_user_prompt="Be concise",
+                show_fill_dialog=False,
+            )
+        )
         gs = cm.get_general_settings()
         assert gs.fill_all_shortcut == "Ctrl+G"
         assert gs.default_user_prompt == "Be concise"

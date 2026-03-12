@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from ..config_manager import ProviderConfig
 from .base import ProviderError, TextProvider
 from .http import http_post_json
 
@@ -28,6 +27,4 @@ class AnthropicTextProvider(TextProvider):
             result = http_post_json(url, headers, payload, label=_LABEL)
             return result["content"][0]["text"]
         except (KeyError, IndexError) as e:
-            raise ProviderError(
-                f"Unexpected Anthropic response format: {e}"
-            ) from e
+            raise ProviderError(f"Unexpected Anthropic response format: {e}") from e

@@ -24,9 +24,7 @@ class TestBuildUserPrompt:
 
     def test_field_instructions_included(self, filler) -> None:
         instructions = {
-            "Meaning": FieldInstruction(
-                instruction="English definition", field_type="text"
-            ),
+            "Meaning": FieldInstruction(instruction="English definition", field_type="text"),
         }
         prompt = filler._build_user_prompt(
             note_type_name="Japanese",
@@ -40,9 +38,7 @@ class TestBuildUserPrompt:
 
     def test_auto_type_no_bracket(self, filler) -> None:
         instructions = {
-            "Meaning": FieldInstruction(
-                instruction="English def", field_type="auto"
-            ),
+            "Meaning": FieldInstruction(instruction="English def", field_type="auto"),
         }
         prompt = filler._build_user_prompt(
             note_type_name="Test",
@@ -87,9 +83,7 @@ class TestBuildUserPrompt:
 
     def test_expected_type_hint_in_fields_to_fill(self, filler) -> None:
         instructions = {
-            "Audio": FieldInstruction(
-                instruction="pronunciation", field_type="audio"
-            ),
+            "Audio": FieldInstruction(instruction="pronunciation", field_type="audio"),
         }
         prompt = filler._build_user_prompt(
             note_type_name="Test",

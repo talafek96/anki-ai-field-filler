@@ -26,15 +26,21 @@ class _OpenAIRequestMixin:
     def _request(self, url: str, payload: dict, timeout: int = 120) -> dict:
         """Make a JSON request to an OpenAI-compatible endpoint."""
         return http_post_json(
-            url, self._auth_headers(), payload,
-            timeout=timeout, label=_LABEL,
+            url,
+            self._auth_headers(),
+            payload,
+            timeout=timeout,
+            label=_LABEL,
         )
 
     def _request_raw(self, url: str, payload: dict, timeout: int = 120) -> bytes:
         """Make a JSON request and return raw response bytes."""
         return http_post_raw(
-            url, self._auth_headers(), payload,
-            timeout=timeout, label=_LABEL,
+            url,
+            self._auth_headers(),
+            payload,
+            timeout=timeout,
+            label=_LABEL,
         )
 
 

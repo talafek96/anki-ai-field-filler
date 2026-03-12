@@ -118,9 +118,7 @@ class FieldFiller:
                         if tts_config:
                             tts = create_tts_provider(tts_config)
                             audio_bytes = tts.synthesize(content)
-                            results[field_name] = MediaHandler.save_audio(
-                                audio_bytes, field_name
-                            )
+                            results[field_name] = MediaHandler.save_audio(audio_bytes, field_name)
                         else:
                             results[field_name] = self._to_html(content)
                     elif ftype == "image":
@@ -128,9 +126,7 @@ class FieldFiller:
                         if img_config:
                             img_prov = create_image_provider(img_config)
                             img_bytes = img_prov.generate_image(content)
-                            results[field_name] = MediaHandler.save_image(
-                                img_bytes, field_name
-                            )
+                            results[field_name] = MediaHandler.save_image(img_bytes, field_name)
                         else:
                             results[field_name] = None
                     else:
@@ -142,9 +138,7 @@ class FieldFiller:
                             if img_config:
                                 img_prov = create_image_provider(img_config)
                                 img_bytes = img_prov.generate_image(image_prompt)
-                                img_tag = MediaHandler.save_image(
-                                    img_bytes, field_name
-                                )
+                                img_tag = MediaHandler.save_image(img_bytes, field_name)
                                 html = f"{html}<br><br>{img_tag}"
                         results[field_name] = html
 
@@ -216,27 +210,21 @@ class FieldFiller:
             parts.append(f"- {name}: {display}")
         parts.append("")
 
-        has_instructions = any(
-            fi.instruction for fi in field_instructions.values()
-        )
+        has_instructions = any(fi.instruction for fi in field_instructions.values())
         if has_instructions:
             parts.append("== Field Instructions ==")
             for name, instr in field_instructions.items():
                 if instr.instruction:
-                    type_hint = (
-                        f" [{instr.field_type}]"
-                        if instr.field_type != "auto"
-                        else ""
-                    )
+                    type_hint = f" [{instr.field_type}]" if instr.field_type != "auto" else ""
                     parts.append(f"- {name}{type_hint}: {instr.instruction}")
             parts.append("")
 
         parts.append("== Fields to Fill ==")
         for name in target_fields:
-            instr = field_instructions.get(name)
+            fi = field_instructions.get(name)
             hint = ""
-            if instr and instr.field_type != "auto":
-                hint = f" (expected type: {instr.field_type})"
+            if fi and fi.field_type != "auto":
+                hint = f" (expected type: {fi.field_type})"
             parts.append(f"- {name}{hint}")
         parts.append("")
 
@@ -265,13 +253,9 @@ class FieldFiller:
                 try:
                     data = json.loads(match.group())
                 except json.JSONDecodeError:
-                    raise ProviderError(
-                        f"Could not parse AI response as JSON:\n{text[:500]}"
-                    )
+                    raise ProviderError(f"Could not parse AI response as JSON:\n{text[:500]}")
             else:
-                raise ProviderError(
-                    f"Could not find JSON in AI response:\n{text[:500]}"
-                )
+                raise ProviderError(f"Could not find JSON in AI response:\n{text[:500]}")
 
         return data.get("fields", data)
 
@@ -290,9 +274,7 @@ class FieldFiller:
         return text.replace("\n", "<br>")
 
     @staticmethod
-    def _apply_results(
-        editor: Editor, results: Dict[str, Optional[str]]
-    ) -> None:
+    def _apply_results(editor: Editor, results: Dict[str, Optional[str]]) -> None:
         """Apply generated content to the editor's note fields."""
         note = editor.note
         if not note:

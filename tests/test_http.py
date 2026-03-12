@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import urllib.error
 from io import BytesIO
 from unittest.mock import MagicMock, patch
@@ -66,7 +65,10 @@ class TestHttpPostJson:
     @patch("ai_field_filler.providers.http.urllib.request.urlopen")
     def test_http_error(self, mock_urlopen) -> None:
         error = urllib.error.HTTPError(
-            "https://api.test", 401, "Unauthorized", {},
+            "https://api.test",
+            401,
+            "Unauthorized",
+            {},
             BytesIO(b'{"error": "invalid key"}'),
         )
         mock_urlopen.side_effect = error
@@ -106,14 +108,20 @@ class TestHttpPostRaw:
     def test_returns_bytes(self, mock_urlopen) -> None:
         mock_urlopen.return_value = _mock_urlopen(b"\xff\xfb\x90audio-data")
         result = http_post_raw(
-            "https://api.test/audio", {}, {"input": "hello"}, label="Test",
+            "https://api.test/audio",
+            {},
+            {"input": "hello"},
+            label="Test",
         )
         assert result == b"\xff\xfb\x90audio-data"
 
     @patch("ai_field_filler.providers.http.urllib.request.urlopen")
     def test_http_error(self, mock_urlopen) -> None:
         error = urllib.error.HTTPError(
-            "https://api.test", 500, "Server Error", {},
+            "https://api.test",
+            500,
+            "Server Error",
+            {},
             BytesIO(b"internal error"),
         )
         mock_urlopen.side_effect = error
@@ -143,7 +151,10 @@ class TestHttpGetJson:
     @patch("ai_field_filler.providers.http.urllib.request.urlopen")
     def test_http_error(self, mock_urlopen) -> None:
         error = urllib.error.HTTPError(
-            "https://api.test", 403, "Forbidden", {},
+            "https://api.test",
+            403,
+            "Forbidden",
+            {},
             BytesIO(b"access denied"),
         )
         mock_urlopen.side_effect = error

@@ -20,13 +20,8 @@ class _GoogleRequestMixin:
 
     _config: ProviderConfig
 
-    def _generate_content(
-        self, model: str, payload: dict, timeout: int = 120
-    ) -> dict:
-        url = (
-            f"{self._config.base_url}/models/{model}"
-            f":generateContent?key={self._config.api_key}"
-        )
+    def _generate_content(self, model: str, payload: dict, timeout: int = 120) -> dict:
+        url = f"{self._config.base_url}/models/{model}:generateContent?key={self._config.api_key}"
         return http_post_json(url, {}, payload, timeout=timeout, label=_LABEL)
 
 
@@ -47,9 +42,7 @@ class GoogleTextProvider(_GoogleRequestMixin, TextProvider):
             result = self._generate_content(model, payload)
             return result["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError) as e:
-            raise ProviderError(
-                f"Unexpected Google API response format: {e}"
-            ) from e
+            raise ProviderError(f"Unexpected Google API response format: {e}") from e
 
 
 class GoogleImageProvider(_GoogleRequestMixin, ImageProvider):
@@ -70,9 +63,7 @@ class GoogleImageProvider(_GoogleRequestMixin, ImageProvider):
                     return base64.b64decode(part["inlineData"]["data"])
             raise ProviderError("No image data in Google API response")
         except (KeyError, IndexError) as e:
-            raise ProviderError(
-                f"Unexpected Google API response format: {e}"
-            ) from e
+            raise ProviderError(f"Unexpected Google API response format: {e}") from e
 
 
 class GoogleTTSProvider(_GoogleRequestMixin, TTSProvider):
@@ -101,6 +92,4 @@ class GoogleTTSProvider(_GoogleRequestMixin, TTSProvider):
                     return base64.b64decode(part["inlineData"]["data"])
             raise ProviderError("No audio data in Google API response")
         except (KeyError, IndexError) as e:
-            raise ProviderError(
-                f"Unexpected Google API response format: {e}"
-            ) from e
+            raise ProviderError(f"Unexpected Google API response format: {e}") from e

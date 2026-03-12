@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from typing import List
 
-from aqt import gui_hooks, mw
+from aqt import gui_hooks
 from aqt.editor import Editor, EditorWebView
 from aqt.qt import QDialog, QMenu, qconnect
 from aqt.utils import showWarning, tooltip
 
 from .config_manager import ConfigManager, FieldInstruction
 from .field_filler import FieldFiller
-from .ui.fill_dialog import FillDialog
 from .ui.field_instruction_dialog import FieldInstructionDialog
+from .ui.fill_dialog import FillDialog
 from .ui.quick_prompt_dialog import QuickPromptDialog
 
 
@@ -29,9 +29,7 @@ class EditorIntegration:
         gui_hooks.editor_will_show_context_menu.append(cls._add_context_menu)
 
     @classmethod
-    def _add_toolbar_buttons(
-        cls, buttons: List[str], editor: Editor
-    ) -> None:
+    def _add_toolbar_buttons(cls, buttons: List[str], editor: Editor) -> None:
         config = ConfigManager()
         general = config.get_general_settings()
 
@@ -56,9 +54,7 @@ class EditorIntegration:
         buttons.append(btn_field)
 
     @classmethod
-    def _add_context_menu(
-        cls, webview: EditorWebView, menu: QMenu
-    ) -> None:
+    def _add_context_menu(cls, webview: EditorWebView, menu: QMenu) -> None:
         editor = webview.editor
         if not editor.note:
             return
@@ -68,9 +64,7 @@ class EditorIntegration:
         if editor.currentField is not None:
             field_name = editor.note.keys()[editor.currentField]
             action_fill = menu.addAction(f"AI: Fill '{field_name}'")
-            qconnect(
-                action_fill.triggered, lambda: cls._on_fill_field(editor)
-            )
+            qconnect(action_fill.triggered, lambda: cls._on_fill_field(editor))
 
         action_all = menu.addAction("AI: Fill all blank fields")
         qconnect(action_all.triggered, lambda: cls._on_fill_all(editor))
@@ -79,9 +73,7 @@ class EditorIntegration:
 
         if editor.currentField is not None:
             field_name = editor.note.keys()[editor.currentField]
-            action_cfg = menu.addAction(
-                f"AI: Configure instructions for '{field_name}'..."
-            )
+            action_cfg = menu.addAction(f"AI: Configure instructions for '{field_name}'...")
             qconnect(
                 action_cfg.triggered,
                 lambda: cls._on_configure_field(editor, field_name),
@@ -102,9 +94,7 @@ class EditorIntegration:
         if general.show_fill_dialog:
             field_names = list(note.keys())
             field_values = {name: note[name] for name in field_names}
-            blank_fields = [
-                n for n in field_names if not note[n].strip()
-            ]
+            blank_fields = [n for n in field_names if not note[n].strip()]
 
             dialog = FillDialog(
                 field_names=field_names,
@@ -123,8 +113,7 @@ class EditorIntegration:
             target_fields = [
                 n
                 for n in note.keys()
-                if not note[n].strip()
-                and field_instructions.get(n, FieldInstruction()).auto_fill
+                if not note[n].strip() and field_instructions.get(n, FieldInstruction()).auto_fill
             ]
             user_prompt = general.default_user_prompt
 
@@ -161,9 +150,7 @@ class EditorIntegration:
         if not editor.note:
             return
         note_type_name = editor.note.note_type()["name"]
-        dialog = FieldInstructionDialog(
-            note_type_name, field_name, parent=editor.widget
-        )
+        dialog = FieldInstructionDialog(note_type_name, field_name, parent=editor.widget)
         dialog.exec()
 
     @classmethod
@@ -190,9 +177,7 @@ class EditorIntegration:
             editor=editor,
             target_fields=target_fields,
             user_prompt=combined_prompt,
-            on_success=lambda: tooltip(
-                "Fields filled successfully!", parent=editor.widget
-            ),
+            on_success=lambda: tooltip("Fields filled successfully!", parent=editor.widget),
             on_error=lambda msg: showWarning(
                 f"AI Field Filler error:\n\n{msg}",
                 title="AI Field Filler",

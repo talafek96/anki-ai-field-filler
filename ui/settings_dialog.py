@@ -6,14 +6,14 @@ addon manager's Config button.
 
 from __future__ import annotations
 
-from aqt.qt import *
 from aqt import mw
+from aqt.qt import *
 from aqt.utils import restoreGeom, saveGeom
 
 from ..config_manager import ConfigManager
-from .provider_settings_tab import ProviderSettingsTab
-from .note_type_settings_tab import NoteTypeSettingsTab
 from .general_settings_tab import GeneralSettingsTab
+from .note_type_settings_tab import NoteTypeSettingsTab
+from .provider_settings_tab import ProviderSettingsTab
 
 
 class SettingsDialog(QDialog):
@@ -50,8 +50,7 @@ class SettingsDialog(QDialog):
 
         # --- Button box ---
         button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok
-            | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         qconnect(button_box.accepted, self.accept)
         qconnect(button_box.rejected, self.reject)

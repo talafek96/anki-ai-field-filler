@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from aqt.qt import *
 from aqt import mw
+from aqt.qt import *
 
 from ..config_manager import ConfigManager, FieldInstruction
 from . import create_auto_fill_checkbox, create_field_type_combo
@@ -16,9 +16,7 @@ class NoteTypeSettingsTab(QWidget):
         super().__init__()
         self._config = config
         self._current_note_type: str | None = None
-        self._field_widgets: list[
-            tuple[str, QPlainTextEdit, QComboBox, QCheckBox]
-        ] = []
+        self._field_widgets: list[tuple[str, QPlainTextEdit, QComboBox, QCheckBox]] = []
         self._setup_ui()
         self._load_note_types()
 
@@ -153,9 +151,7 @@ class NoteTypeSettingsTab(QWidget):
             group.setLayout(group_layout)
             self._fields_layout.addWidget(group)
 
-            self._field_widgets.append(
-                (fname, instruction_edit, type_combo, auto_fill_check)
-            )
+            self._field_widgets.append((fname, instruction_edit, type_combo, auto_fill_check))
 
     def _save_current_note_type(self) -> None:
         if not self._current_note_type:
@@ -166,9 +162,7 @@ class NoteTypeSettingsTab(QWidget):
                 field_type=type_combo.currentData(),
                 auto_fill=auto_check.isChecked(),
             )
-            self._config.set_field_instruction(
-                self._current_note_type, fname, instruction
-            )
+            self._config.set_field_instruction(self._current_note_type, fname, instruction)
 
     def save(self) -> None:
         """Save current note type's field instructions."""

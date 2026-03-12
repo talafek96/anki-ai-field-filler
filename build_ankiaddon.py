@@ -19,6 +19,7 @@ EXCLUDE_DIRS = {
     "__pycache__",
     ".git",
     ".github",
+    ".pytest_cache",
     "tests",
     ".vscode",
     ".idea",
@@ -33,6 +34,7 @@ EXCLUDE_FILES = {
     "AGENTS.md",
     "build_ankiaddon.py",
     "ankiweb_listing.md",
+    "pyproject.toml",
     "meta.json",
     ".env",
     ".DS_Store",
@@ -113,7 +115,8 @@ def build(check: bool = False) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Package AI Field Filler addon")
     parser.add_argument(
-        "--check", action="store_true",
+        "--check",
+        action="store_true",
         help="Dry-run: list files that would be included without creating the zip",
     )
     args = parser.parse_args()

@@ -71,9 +71,8 @@ def test_provider_connection(config: ProviderConfig) -> Tuple[bool, str]:
 # Dynamic model listing
 # ---------------------------------------------------------------------------
 
-def fetch_available_models(
-    config: ProviderConfig, capability: str = "text"
-) -> List[str]:
+
+def fetch_available_models(config: ProviderConfig, capability: str = "text") -> List[str]:
     """Fetch available models from a provider's API.
 
     Args:
@@ -92,9 +91,7 @@ def fetch_available_models(
     return []
 
 
-def _fetch_openai_models(
-    config: ProviderConfig, capability: str
-) -> List[str]:
+def _fetch_openai_models(config: ProviderConfig, capability: str) -> List[str]:
     """Fetch models from an OpenAI-compatible /models endpoint."""
     url = f"{config.base_url}/models"
     headers = {"Authorization": f"Bearer {config.api_key}"}
@@ -124,8 +121,14 @@ def _fetch_anthropic_models(config: ProviderConfig) -> List[str]:
 _OPENAI_IMAGE_SIGNALS = ("image", "dall-e")
 _OPENAI_TTS_SIGNALS = ("tts",)
 _OPENAI_SKIP_SIGNALS = (
-    "whisper", "transcrib", "embedding", "moderation",
-    "realtime", "audio", "sora", "codex",
+    "whisper",
+    "transcrib",
+    "embedding",
+    "moderation",
+    "realtime",
+    "audio",
+    "sora",
+    "codex",
 )
 
 
@@ -146,9 +149,7 @@ def _classify_openai_model(model_id: str) -> str | None:
     return "text"
 
 
-def _fetch_google_models(
-    config: ProviderConfig, capability: str = "text"
-) -> List[str]:
+def _fetch_google_models(config: ProviderConfig, capability: str = "text") -> List[str]:
     """Fetch models from the Google Gemini /models endpoint."""
     url = f"{config.base_url}/models?key={config.api_key}&pageSize=1000"
     data = http_get_json(url, label="Google")
@@ -178,14 +179,18 @@ def _classify_google_model(model: dict, methods: List[str]) -> str | None:
     searchable = f"{desc} {display} {name}"
 
     # Image generation models (Nano Banana, Imagen, …)
-    image_signals = ("image generation", "image editing",
-                     "imagen", "nano banana", "native image")
+    image_signals = ("image generation", "image editing", "imagen", "nano banana", "native image")
     if any(s in searchable for s in image_signals):
         return "image"
 
     # TTS / speech-generation models
-    tts_signals = ("text-to-speech", "text to speech", "tts",
-                   "speech generation", "speech synthesis")
+    tts_signals = (
+        "text-to-speech",
+        "text to speech",
+        "tts",
+        "speech generation",
+        "speech synthesis",
+    )
     if any(s in searchable for s in tts_signals):
         return "tts"
 

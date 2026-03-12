@@ -11,17 +11,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from ai_field_filler.config_manager import ProviderConfig
-from ai_field_filler.providers.base import ProviderError
-from ai_field_filler.providers.openai_provider import (
-    OpenAIImageProvider,
-    OpenAITextProvider,
-    OpenAITTSProvider,
-)
 from ai_field_filler.providers.anthropic_provider import AnthropicTextProvider
+from ai_field_filler.providers.base import ProviderError
 from ai_field_filler.providers.google_provider import (
     GoogleImageProvider,
     GoogleTextProvider,
     GoogleTTSProvider,
+)
+from ai_field_filler.providers.openai_provider import (
+    OpenAIImageProvider,
+    OpenAITextProvider,
+    OpenAITTSProvider,
 )
 
 _OPENAI_CFG = ProviderConfig(
@@ -75,9 +75,9 @@ def _mock_urlopen(response_data: str | bytes):
 class TestOpenAITextProvider:
     @patch(_HTTP_POST_JSON)
     def test_generate(self, mock_urlopen) -> None:
-        mock_urlopen.return_value = _mock_urlopen(json.dumps({
-            "choices": [{"message": {"content": "Hello world"}}]
-        }))
+        mock_urlopen.return_value = _mock_urlopen(
+            json.dumps({"choices": [{"message": {"content": "Hello world"}}]})
+        )
         provider = OpenAITextProvider(_OPENAI_CFG)
         result = provider.generate("system prompt", "user prompt")
         assert result == "Hello world"
@@ -86,12 +86,13 @@ class TestOpenAITextProvider:
     def test_generate_fallback_to_max_tokens(self, mock_urlopen) -> None:
         """First call fails with max_completion_tokens unsupported, retry succeeds."""
         error = urllib.error.HTTPError(
-            "https://api.openai.com", 400, "Bad Request", {},
+            "https://api.openai.com",
+            400,
+            "Bad Request",
+            {},
             BytesIO(b'{"error": {"message": "max_completion_tokens is unsupported"}}'),
         )
-        success_resp = _mock_urlopen(json.dumps({
-            "choices": [{"message": {"content": "OK"}}]
-        }))
+        success_resp = _mock_urlopen(json.dumps({"choices": [{"message": {"content": "OK"}}]}))
         mock_urlopen.side_effect = [error, success_resp]
         provider = OpenAITextProvider(_OPENAI_CFG)
         result = provider.generate("sys", "usr")
@@ -101,7 +102,10 @@ class TestOpenAITextProvider:
     @patch(_HTTP_POST_JSON)
     def test_generate_non_fallback_error_propagates(self, mock_urlopen) -> None:
         error = urllib.error.HTTPError(
-            "https://api.openai.com", 401, "Unauthorized", {},
+            "https://api.openai.com",
+            401,
+            "Unauthorized",
+            {},
             BytesIO(b'{"error": {"message": "Invalid API key"}}'),
         )
         mock_urlopen.side_effect = error
@@ -125,9 +129,7 @@ class TestOpenAIImageProvider:
     def test_generate_image(self, mock_urlopen) -> None:
         img_data = b"PNG-image-bytes"
         b64 = base64.b64encode(img_data).decode()
-        mock_urlopen.return_value = _mock_urlopen(json.dumps({
-            "data": [{"b64_json": b64}]
-        }))
+        mock_urlopen.return_value = _mock_urlopen(json.dumps({"data": [{"b64_json": b64}]}))
         provider = OpenAIImageProvider(_OPENAI_CFG)
         result = provider.generate_image("a cat")
         assert result == img_data
@@ -141,9 +143,9 @@ class TestOpenAIImageProvider:
 class TestAnthropicTextProvider:
     @patch(_HTTP_POST_JSON)
     def test_generate(self, mock_urlopen) -> None:
-        mock_urlopen.return_value = _mock_urlopen(json.dumps({
-            "content": [{"text": "Claude says hi"}]
-        }))
+        mock_urlopen.return_value = _mock_urlopen(
+            json.dumps({"content": [{"text": "Claude says hi"}]})
+        )
         provider = AnthropicTextProvider(_ANTHROPIC_CFG)
         result = provider.generate("system", "user")
         assert result == "Claude says hi"
@@ -164,9 +166,9 @@ class TestAnthropicTextProvider:
 class TestGoogleTextProvider:
     @patch(_HTTP_POST_JSON)
     def test_generate(self, mock_urlopen) -> None:
-        mock_urlopen.return_value = _mock_urlopen(json.dumps({
-            "candidates": [{"content": {"parts": [{"text": "Gemini says hi"}]}}]
-        }))
+        mock_urlopen.return_value = _mock_urlopen(
+            json.dumps({"candidates": [{"content": {"parts": [{"text": "Gemini says hi"}]}}]})
+        )
         provider = GoogleTextProvider(_GOOGLE_CFG)
         result = provider.generate("system", "user")
         assert result == "Gemini says hi"
@@ -184,25 +186,31 @@ class TestGoogleImageProvider:
     def test_generate_image(self, mock_urlopen) -> None:
         img_data = b"PNG-image"
         b64 = base64.b64encode(img_data).decode()
-        mock_urlopen.return_value = _mock_urlopen(json.dumps({
-            "candidates": [{
-                "content": {
-                    "parts": [
-                        {"text": "here is the image"},
-                        {"inlineData": {"data": b64, "mimeType": "image/png"}},
+        mock_urlopen.return_value = _mock_urlopen(
+            json.dumps(
+                {
+                    "candidates": [
+                        {
+                            "content": {
+                                "parts": [
+                                    {"text": "here is the image"},
+                                    {"inlineData": {"data": b64, "mimeType": "image/png"}},
+                                ]
+                            }
+                        }
                     ]
                 }
-            }]
-        }))
+            )
+        )
         provider = GoogleImageProvider(_GOOGLE_CFG)
         result = provider.generate_image("a dog")
         assert result == img_data
 
     @patch(_HTTP_POST_JSON)
     def test_generate_image_no_data(self, mock_urlopen) -> None:
-        mock_urlopen.return_value = _mock_urlopen(json.dumps({
-            "candidates": [{"content": {"parts": [{"text": "sorry no image"}]}}]
-        }))
+        mock_urlopen.return_value = _mock_urlopen(
+            json.dumps({"candidates": [{"content": {"parts": [{"text": "sorry no image"}]}}]})
+        )
         provider = GoogleImageProvider(_GOOGLE_CFG)
         with pytest.raises(ProviderError, match="No image data"):
             provider.generate_image("a dog")
@@ -213,22 +221,28 @@ class TestGoogleTTSProvider:
     def test_synthesize(self, mock_urlopen) -> None:
         audio = b"wav-audio-data"
         b64 = base64.b64encode(audio).decode()
-        mock_urlopen.return_value = _mock_urlopen(json.dumps({
-            "candidates": [{
-                "content": {
-                    "parts": [{"inlineData": {"data": b64, "mimeType": "audio/wav"}}]
+        mock_urlopen.return_value = _mock_urlopen(
+            json.dumps(
+                {
+                    "candidates": [
+                        {
+                            "content": {
+                                "parts": [{"inlineData": {"data": b64, "mimeType": "audio/wav"}}]
+                            }
+                        }
+                    ]
                 }
-            }]
-        }))
+            )
+        )
         provider = GoogleTTSProvider(_GOOGLE_CFG)
         result = provider.synthesize("Hello")
         assert result == audio
 
     @patch(_HTTP_POST_JSON)
     def test_synthesize_no_audio(self, mock_urlopen) -> None:
-        mock_urlopen.return_value = _mock_urlopen(json.dumps({
-            "candidates": [{"content": {"parts": [{"text": "no audio"}]}}]
-        }))
+        mock_urlopen.return_value = _mock_urlopen(
+            json.dumps({"candidates": [{"content": {"parts": [{"text": "no audio"}]}}]})
+        )
         provider = GoogleTTSProvider(_GOOGLE_CFG)
         with pytest.raises(ProviderError, match="No audio data"):
             provider.synthesize("Hello")

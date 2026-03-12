@@ -11,7 +11,6 @@ from aqt.utils import showInfo, tooltip
 
 from ..config_manager import ConfigManager, ProviderConfig
 from ..providers import fetch_available_models, test_provider_connection
-from ..providers.base import ProviderError
 
 PROVIDER_CAPABILITIES = {
     "openai": {"text": True, "tts": True, "image": True},
@@ -27,11 +26,23 @@ PROVIDER_LABELS = {
 
 KNOWN_TTS_VOICES = {
     "openai": [
-        "alloy", "ash", "ballad", "coral", "echo",
-        "fable", "nova", "onyx", "sage", "shimmer",
+        "alloy",
+        "ash",
+        "ballad",
+        "coral",
+        "echo",
+        "fable",
+        "nova",
+        "onyx",
+        "sage",
+        "shimmer",
     ],
     "google": [
-        "Aoede", "Charon", "Fenrir", "Kore", "Puck",
+        "Aoede",
+        "Charon",
+        "Fenrir",
+        "Kore",
+        "Puck",
     ],
 }
 
@@ -54,15 +65,11 @@ class ModelComboWithRefresh(QWidget):
         self._combo.setEditable(True)
         self._combo.lineEdit().setPlaceholderText(placeholder)
         self._combo.setToolTip(tool_tip)
-        self._combo.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        self._combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         lay.addWidget(self._combo)
 
         self._refresh_btn = QToolButton()
-        self._refresh_btn.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
-        )
+        self._refresh_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
         self._refresh_btn.setToolTip("Fetch available models from the API")
         self._refresh_btn.setIconSize(QSize(16, 16))
         self._refresh_btn.setFixedSize(26, 26)
@@ -134,9 +141,7 @@ class ProviderSettingsTab(QWidget):
         self._provider_combo = QComboBox()
         self._provider_combo.setMinimumWidth(180)
         for ptype in self._config.get_all_provider_types():
-            self._provider_combo.addItem(
-                PROVIDER_LABELS.get(ptype, ptype), ptype
-            )
+            self._provider_combo.addItem(PROVIDER_LABELS.get(ptype, ptype), ptype)
         qconnect(
             self._provider_combo.currentIndexChanged,
             self._on_provider_changed,
@@ -148,9 +153,7 @@ class ProviderSettingsTab(QWidget):
         # --- Connection ---
         conn = QGroupBox("Connection")
         cf = QFormLayout()
-        cf.setFieldGrowthPolicy(
-            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
-        )
+        cf.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         cf.setHorizontalSpacing(12)
         cf.setVerticalSpacing(8)
 
@@ -177,9 +180,7 @@ class ProviderSettingsTab(QWidget):
         cf.addRow("API Key:", key_row)
 
         self._test_btn = QPushButton("  Test Connection  ")
-        self._test_btn.setToolTip(
-            "Send a small test request to verify your credentials."
-        )
+        self._test_btn.setToolTip("Send a small test request to verify your credentials.")
         qconnect(self._test_btn.clicked, self._test_connection)
         test_row = QHBoxLayout()
         test_row.addStretch()
@@ -192,9 +193,7 @@ class ProviderSettingsTab(QWidget):
         # --- Models ---
         models = QGroupBox("Models")
         mf = QFormLayout()
-        mf.setFieldGrowthPolicy(
-            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
-        )
+        mf.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         mf.setHorizontalSpacing(12)
         mf.setVerticalSpacing(8)
 
@@ -212,9 +211,7 @@ class ProviderSettingsTab(QWidget):
         self._max_tokens_spin = QSpinBox()
         self._max_tokens_spin.setRange(256, 32768)
         self._max_tokens_spin.setSingleStep(256)
-        self._max_tokens_spin.setToolTip(
-            "Maximum number of tokens in AI responses."
-        )
+        self._max_tokens_spin.setToolTip("Maximum number of tokens in AI responses.")
         mf.addRow("Max Tokens:", self._max_tokens_spin)
 
         self._tts_model_label = QLabel("TTS Model:")
@@ -232,9 +229,7 @@ class ProviderSettingsTab(QWidget):
         self._tts_voice_label = QLabel("TTS Voice:")
         self._tts_voice_combo = QComboBox()
         self._tts_voice_combo.setEditable(True)
-        self._tts_voice_combo.setToolTip(
-            "Voice to use for text-to-speech synthesis."
-        )
+        self._tts_voice_combo.setToolTip("Voice to use for text-to-speech synthesis.")
         mf.addRow(self._tts_voice_label, self._tts_voice_combo)
 
         self._image_model_label = QLabel("Image Model:")
@@ -274,9 +269,7 @@ class ProviderSettingsTab(QWidget):
         self._active_tts_combo.addItem("Disabled", "disabled")
         self._active_image_combo.addItem("Disabled", "disabled")
 
-        self._active_text_combo.setToolTip(
-            "Which provider to use for generating text content."
-        )
+        self._active_text_combo.setToolTip("Which provider to use for generating text content.")
         self._active_tts_combo.setToolTip(
             "Which provider to use for text-to-speech audio.\n"
             "Set to Disabled if you don't need audio generation."
@@ -347,8 +340,10 @@ class ProviderSettingsTab(QWidget):
         has_image = caps.get("image", False)
 
         for w in (
-            self._tts_model_label, self._tts_model_combo,
-            self._tts_voice_label, self._tts_voice_combo,
+            self._tts_model_label,
+            self._tts_model_combo,
+            self._tts_voice_label,
+            self._tts_voice_combo,
         ):
             w.setVisible(has_tts)
         for w in (self._image_model_label, self._image_model_combo):
@@ -407,16 +402,12 @@ class ProviderSettingsTab(QWidget):
             try:
                 models = fetch_available_models(cfg, capability)
                 mw.taskman.run_on_main(
-                    lambda: self._on_models_fetched(
-                        ptype, capability, target, models, None
-                    )
+                    lambda: self._on_models_fetched(ptype, capability, target, models, None)
                 )
             except Exception as e:
                 err_msg = str(e)
                 mw.taskman.run_on_main(
-                    lambda: self._on_models_fetched(
-                        ptype, capability, target, [], err_msg
-                    )
+                    lambda: self._on_models_fetched(ptype, capability, target, [], err_msg)
                 )
 
         threading.Thread(target=do_fetch, daemon=True).start()
@@ -446,8 +437,7 @@ class ProviderSettingsTab(QWidget):
 
     def _toggle_key_visibility(self, visible: bool) -> None:
         self._key_edit.setEchoMode(
-            QLineEdit.EchoMode.Normal if visible
-            else QLineEdit.EchoMode.Password
+            QLineEdit.EchoMode.Normal if visible else QLineEdit.EchoMode.Password
         )
 
     # ---- connection test ----------------------------------------------
@@ -467,9 +457,7 @@ class ProviderSettingsTab(QWidget):
 
         def test() -> None:
             success, message = test_provider_connection(cfg)
-            mw.taskman.run_on_main(
-                lambda: self._show_test_result(success, message)
-            )
+            mw.taskman.run_on_main(lambda: self._show_test_result(success, message))
 
         threading.Thread(target=test, daemon=True).start()
 
@@ -488,12 +476,6 @@ class ProviderSettingsTab(QWidget):
 
     def save(self) -> None:
         self._save_current_provider()
-        self._config.set_active_provider_type(
-            "text", self._active_text_combo.currentData()
-        )
-        self._config.set_active_provider_type(
-            "tts", self._active_tts_combo.currentData()
-        )
-        self._config.set_active_provider_type(
-            "image", self._active_image_combo.currentData()
-        )
+        self._config.set_active_provider_type("text", self._active_text_combo.currentData())
+        self._config.set_active_provider_type("tts", self._active_tts_combo.currentData())
+        self._config.set_active_provider_type("image", self._active_image_combo.currentData())

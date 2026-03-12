@@ -23,9 +23,7 @@ class GeneralSettingsTab(QWidget):
         # --- Shortcuts group ---
         shortcut_group = QGroupBox("Keyboard Shortcuts")
         shortcut_layout = QFormLayout()
-        shortcut_layout.setFieldGrowthPolicy(
-            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
-        )
+        shortcut_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
 
         self._fill_all_shortcut = QLineEdit()
         self._fill_all_shortcut.setPlaceholderText("e.g. Ctrl+Shift+G")
@@ -33,9 +31,7 @@ class GeneralSettingsTab(QWidget):
             "Keyboard shortcut to fill all blank fields in the editor.\n"
             "Leave empty to disable the shortcut."
         )
-        shortcut_layout.addRow(
-            "Fill All Blank Fields:", self._fill_all_shortcut
-        )
+        shortcut_layout.addRow("Fill All Blank Fields:", self._fill_all_shortcut)
 
         self._fill_field_shortcut = QLineEdit()
         self._fill_field_shortcut.setPlaceholderText("e.g. Ctrl+Shift+F")
@@ -43,9 +39,7 @@ class GeneralSettingsTab(QWidget):
             "Keyboard shortcut to fill the currently focused field.\n"
             "Leave empty to disable the shortcut."
         )
-        shortcut_layout.addRow(
-            "Fill Current Field:", self._fill_field_shortcut
-        )
+        shortcut_layout.addRow("Fill Current Field:", self._fill_field_shortcut)
 
         shortcut_group.setLayout(shortcut_layout)
         layout.addWidget(shortcut_group)
@@ -54,9 +48,7 @@ class GeneralSettingsTab(QWidget):
         behavior_group = QGroupBox("Behavior")
         behavior_layout = QVBoxLayout()
 
-        self._show_dialog_check = QCheckBox(
-            "Show confirmation dialog before filling"
-        )
+        self._show_dialog_check = QCheckBox("Show confirmation dialog before filling")
         self._show_dialog_check.setToolTip(
             "When enabled, a dialog appears letting you review which "
             "fields will be filled and add an optional prompt.\n"
@@ -73,8 +65,7 @@ class GeneralSettingsTab(QWidget):
         prompt_layout = QVBoxLayout()
 
         prompt_info = QLabel(
-            "This prompt will be included with every AI fill request "
-            "as additional context:"
+            "This prompt will be included with every AI fill request as additional context:"
         )
         prompt_info.setWordWrap(True)
         prompt_layout.addWidget(prompt_info)

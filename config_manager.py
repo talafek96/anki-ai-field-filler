@@ -59,11 +59,11 @@ class ConfigManager:
     """
 
     _instance: Optional[ConfigManager] = None
+    _initialized: bool = False
 
     def __new__(cls) -> ConfigManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
         return cls._instance
 
     def __init__(self) -> None:
@@ -75,12 +75,8 @@ class ConfigManager:
 
     def _load(self) -> None:
         """Load config from Anki's addon manager."""
-        self._config: Dict[str, Any] = (
-            mw.addonManager.getConfig(self._addon_name) or {}
-        )
-        self._defaults: Dict[str, Any] = (
-            mw.addonManager.addonConfigDefaults(self._addon_name) or {}
-        )
+        self._config: Dict[str, Any] = mw.addonManager.getConfig(self._addon_name) or {}
+        self._defaults: Dict[str, Any] = mw.addonManager.addonConfigDefaults(self._addon_name) or {}
 
     def _get(self, key: str, default: Any = None) -> Any:
         """Get a top-level config value, falling back to defaults."""
@@ -93,9 +89,7 @@ class ConfigManager:
     def _ensure_section(self, key: str) -> None:
         """Ensure a top-level config section exists (copied from defaults)."""
         if key not in self._config:
-            self._config[key] = copy.deepcopy(
-                self._defaults.get(key, {})
-            )
+            self._config[key] = copy.deepcopy(self._defaults.get(key, {}))
 
     def update_from_addon_manager(self, new_config: Dict[str, Any]) -> None:
         """Called when user edits config via Anki's built-in JSON editor."""
@@ -168,9 +162,7 @@ class ConfigManager:
 
     # --- Field instructions ---
 
-    def get_field_instructions(
-        self, note_type_name: str
-    ) -> Dict[str, FieldInstruction]:
+    def get_field_instructions(self, note_type_name: str) -> Dict[str, FieldInstruction]:
         """Get field instructions for a note type."""
         all_instr = self._get("note_type_field_instructions", {})
         note_instr = all_instr.get(note_type_name, {})
@@ -201,9 +193,7 @@ class ConfigManager:
             "auto_fill": instruction.auto_fill,
         }
 
-    def remove_field_instruction(
-        self, note_type_name: str, field_name: str
-    ) -> None:
+    def remove_field_instruction(self, note_type_name: str, field_name: str) -> None:
         """Remove instruction for a specific field."""
         nt_instr = self._config.get("note_type_field_instructions", {})
         if note_type_name in nt_instr and field_name in nt_instr[note_type_name]:

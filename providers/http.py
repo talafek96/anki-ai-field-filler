@@ -11,7 +11,7 @@ import json
 import ssl
 import urllib.error
 import urllib.request
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 from .base import ProviderError
 
@@ -28,6 +28,7 @@ except ssl.SSLError:
 # ---------------------------------------------------------------------------
 # Low-level HTTP helpers
 # ---------------------------------------------------------------------------
+
 
 def http_post_json(
     url: str,
@@ -88,6 +89,7 @@ def http_get_json(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _urlopen_with_errors(
     req: urllib.request.Request,
     *,
@@ -129,6 +131,4 @@ def _parse_json(raw: str, label: str) -> dict:
     try:
         return json.loads(raw)
     except json.JSONDecodeError as e:
-        raise ProviderError(
-            f"Invalid JSON from {label}: {e}\nResponse was: {raw[:300]}"
-        ) from e
+        raise ProviderError(f"Invalid JSON from {label}: {e}\nResponse was: {raw[:300]}") from e

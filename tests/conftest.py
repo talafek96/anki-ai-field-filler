@@ -26,13 +26,35 @@ def _install_aqt_mocks() -> None:
 
     aqt_qt = types.ModuleType("aqt.qt")
     for name in [
-        "QWidget", "QDialog", "QMenu", "QAction", "QComboBox", "QLineEdit",
-        "QCheckBox", "QLabel", "QPushButton", "QToolButton", "QSpinBox",
-        "QVBoxLayout", "QHBoxLayout", "QFormLayout", "QGroupBox",
-        "QTabWidget", "QScrollArea", "QFrame", "QPlainTextEdit",
-        "QListWidget", "QListWidgetItem", "QDialogButtonBox",
-        "QSizePolicy", "QSize", "QStyle", "QApplication",
-        "Qt", "qconnect", "pyqtSignal",
+        "QWidget",
+        "QDialog",
+        "QMenu",
+        "QAction",
+        "QComboBox",
+        "QLineEdit",
+        "QCheckBox",
+        "QLabel",
+        "QPushButton",
+        "QToolButton",
+        "QSpinBox",
+        "QVBoxLayout",
+        "QHBoxLayout",
+        "QFormLayout",
+        "QGroupBox",
+        "QTabWidget",
+        "QScrollArea",
+        "QFrame",
+        "QPlainTextEdit",
+        "QListWidget",
+        "QListWidgetItem",
+        "QDialogButtonBox",
+        "QSizePolicy",
+        "QSize",
+        "QStyle",
+        "QApplication",
+        "Qt",
+        "qconnect",
+        "pyqtSignal",
     ]:
         setattr(aqt_qt, name, MagicMock())
 
@@ -63,7 +85,6 @@ _install_aqt_mocks()
 # These imports MUST come after aqt mocks are installed.
 from ai_field_filler.config_manager import ProviderConfig  # noqa: E402
 from ai_field_filler.field_filler import FieldFiller  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures

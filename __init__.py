@@ -15,10 +15,11 @@ except ImportError:
 
 def start_addon() -> None:
     """Initialize the addon: register hooks, menus, and config actions."""
+    from aqt.qt import QAction, QMenu, qconnect
+
     from . import editor_hooks
     from .config_manager import ConfigManager
     from .ui.settings_dialog import SettingsDialog
-    from aqt.qt import QAction, QMenu, qconnect
 
     editor_hooks.EditorIntegration.init()
 
@@ -31,12 +32,8 @@ def start_addon() -> None:
     addon_name = mw.addonManager.addonFromModule(__name__)
     config = ConfigManager()
 
-    mw.addonManager.setConfigAction(
-        addon_name, lambda: SettingsDialog(mw).exec()
-    )
-    mw.addonManager.setConfigUpdatedAction(
-        addon_name, config.update_from_addon_manager
-    )
+    mw.addonManager.setConfigAction(addon_name, lambda: SettingsDialog(mw).exec())
+    mw.addonManager.setConfigUpdatedAction(addon_name, config.update_from_addon_manager)
 
 
 if mw and "pytest" not in sys.modules:

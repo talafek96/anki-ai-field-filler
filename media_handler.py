@@ -37,7 +37,10 @@ class MediaHandler:
         if audio_bytes[:4] == b"RIFF":
             ext = "wav"
         elif audio_bytes[:3] == b"ID3" or audio_bytes[:2] in (
-            b"\xff\xfb", b"\xff\xf3", b"\xff\xf2", b"\xff\xe2",
+            b"\xff\xfb",
+            b"\xff\xf3",
+            b"\xff\xf2",
+            b"\xff\xe2",
         ):
             ext = "mp3"
         else:
@@ -64,7 +67,5 @@ class MediaHandler:
         """Generate a unique filename based on field name and timestamp."""
         safe_name = "".join(c if c.isalnum() else "_" for c in field_name)
         timestamp = str(time.time()).replace(".", "")
-        hash_suffix = hashlib.md5(
-            f"{safe_name}{timestamp}".encode()
-        ).hexdigest()[:8]
+        hash_suffix = hashlib.md5(f"{safe_name}{timestamp}".encode()).hexdigest()[:8]
         return f"ai_filler_{safe_name}_{hash_suffix}.{extension}"

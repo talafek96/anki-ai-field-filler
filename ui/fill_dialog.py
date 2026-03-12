@@ -58,16 +58,12 @@ class FillDialog(QDialog):
                 cb.setToolTip(f"Already filled: {preview}")
                 cb.setStyleSheet("color: gray;")
             else:
-                is_pre_selected = (
-                    not self._pre_selected or name in self._pre_selected
-                )
+                is_pre_selected = not self._pre_selected or name in self._pre_selected
                 instr = self._field_instructions.get(name)
                 auto_fill = instr.auto_fill if instr else True
                 cb.setChecked(is_pre_selected and auto_fill)
                 if not auto_fill:
-                    cb.setToolTip(
-                        "Auto-fill is disabled for this field in settings"
-                    )
+                    cb.setToolTip("Auto-fill is disabled for this field in settings")
 
             self._checkboxes[name] = cb
             fields_layout.addWidget(cb)
@@ -102,9 +98,7 @@ class FillDialog(QDialog):
         # --- Progress label (hidden by default) ---
         self._progress_label = QLabel("Generating content with AI...")
         self._progress_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._progress_label.setStyleSheet(
-            "color: #4a86c8; font-style: italic; padding: 8px;"
-        )
+        self._progress_label.setStyleSheet("color: #4a86c8; font-style: italic; padding: 8px;")
         self._progress_label.setVisible(False)
         layout.addWidget(self._progress_label)
 
@@ -135,9 +129,7 @@ class FillDialog(QDialog):
                 cb.setChecked(False)
 
     def _on_fill(self) -> None:
-        selected = [
-            name for name, cb in self._checkboxes.items() if cb.isChecked()
-        ]
+        selected = [name for name, cb in self._checkboxes.items() if cb.isChecked()]
         if not selected:
             return
         self._result = (selected, self._prompt_edit.toPlainText().strip())
