@@ -128,15 +128,12 @@ def _fetch_openai_models(
 
     data = _safe_json(raw, "OpenAI")
     all_ids = [m["id"] for m in data.get("data", [])]
-
-    if capability == "text":
-        prefixes = ("gpt-", "o1", "o3", "o4", "chatgpt")
-        return sorted(m for m in all_ids if any(m.startswith(p) for p in prefixes))
-    elif capability == "tts":
-        return sorted(m for m in all_ids if "tts" in m.lower())
-    elif capability == "image":
-        return sorted(m for m in all_ids if "dall-e" in m.lower())
-    return sorted(all_ids)
+    classified: dict[str, list[str]] = {"text": [], "tts": [], "image": []}
+    for mid in all_ids:
+        cap = _classify_openai_model(mid)
+        if cap in classified:
+            classified[cap].append(mid)
+    return sorted(classified.get(capability, []))
 
 
 def _fetch_anthropic_models(config: ProviderConfig) -> List[str]:
@@ -158,6 +155,33 @@ def _fetch_anthropic_models(config: ProviderConfig) -> List[str]:
 
     data = _safe_json(raw, "Anthropic")
     return sorted(m["id"] for m in data.get("data", []))
+
+
+# OpenAI model ID substrings that indicate non-text-chat categories.
+# Order matters: checked top-to-bottom, first match wins.
+_OPENAI_IMAGE_SIGNALS = ("image", "dall-e")
+_OPENAI_TTS_SIGNALS = ("tts",)
+_OPENAI_SKIP_SIGNALS = (
+    "whisper", "transcrib", "embedding", "moderation",
+    "realtime", "audio", "sora", "codex",
+)
+
+
+def _classify_openai_model(model_id: str) -> str | None:
+    """Classify an OpenAI model ID as 'text', 'tts', 'image', or None.
+
+    The OpenAI /models API has no capability metadata, so we classify
+    by exclusion: identify image / TTS / non-chat models first, then
+    treat everything remaining as a text-chat model.
+    """
+    ml = model_id.lower()
+    if any(s in ml for s in _OPENAI_IMAGE_SIGNALS):
+        return "image"
+    if any(s in ml for s in _OPENAI_TTS_SIGNALS):
+        return "tts"
+    if any(s in ml for s in _OPENAI_SKIP_SIGNALS):
+        return None
+    return "text"
 
 
 def _fetch_google_models(
