@@ -6,8 +6,7 @@ from aqt.qt import *
 from aqt import mw
 
 from ..config_manager import ConfigManager, FieldInstruction
-
-FIELD_TYPES = ["auto", "text", "audio", "image"]
+from . import create_auto_fill_checkbox, create_field_type_combo
 
 
 class NoteTypeSettingsTab(QWidget):
@@ -137,15 +136,7 @@ class NoteTypeSettingsTab(QWidget):
             row = QHBoxLayout()
             row.addWidget(QLabel("Content Type:"))
 
-            type_combo = QComboBox()
-            type_combo.setToolTip(
-                "auto: let the AI decide\n"
-                "text: plain text or HTML\n"
-                "audio: generate TTS audio\n"
-                "image: generate an image"
-            )
-            for ft in FIELD_TYPES:
-                type_combo.addItem(ft.capitalize(), ft)
+            type_combo = create_field_type_combo()
             idx = type_combo.findData(instr.field_type)
             if idx >= 0:
                 type_combo.setCurrentIndex(idx)
@@ -153,12 +144,8 @@ class NoteTypeSettingsTab(QWidget):
 
             row.addSpacing(20)
 
-            auto_fill_check = QCheckBox("Include in auto-fill")
+            auto_fill_check = create_auto_fill_checkbox()
             auto_fill_check.setChecked(instr.auto_fill)
-            auto_fill_check.setToolTip(
-                "When checked, this field will be included when "
-                "using 'Fill All Blank Fields'."
-            )
             row.addWidget(auto_fill_check)
             row.addStretch()
 

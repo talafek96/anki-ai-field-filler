@@ -2,37 +2,29 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
 from ai_field_filler.media_handler import MediaHandler
 
 
 class TestMediaHandler:
-    def test_save_audio_mp3(self) -> None:
+    def test_save_audio_mp3(self, mock_mw) -> None:
         mp3_bytes = b"\xff\xfb\x90\x00" + b"\x00" * 100
-        with patch("ai_field_filler.media_handler.mw") as mock_mw:
-            mock_mw.col.media.write_data = MagicMock()
-            result = MediaHandler.save_audio(mp3_bytes, "TestField")
+        result = MediaHandler.save_audio(mp3_bytes, "TestField")
 
         assert result.startswith("[sound:")
         assert result.endswith(".mp3]")
         assert "ai_filler_TestField_" in result
         mock_mw.col.media.write_data.assert_called_once()
 
-    def test_save_audio_wav(self) -> None:
+    def test_save_audio_wav(self, mock_mw) -> None:
         wav_bytes = b"RIFF" + b"\x00" * 100
-        with patch("ai_field_filler.media_handler.mw") as mock_mw:
-            mock_mw.col.media.write_data = MagicMock()
-            result = MediaHandler.save_audio(wav_bytes, "VoiceField")
+        result = MediaHandler.save_audio(wav_bytes, "VoiceField")
 
         assert result.startswith("[sound:")
         assert result.endswith(".wav]")
 
-    def test_save_image(self) -> None:
+    def test_save_image(self, mock_mw) -> None:
         png_bytes = b"\x89PNG" + b"\x00" * 100
-        with patch("ai_field_filler.media_handler.mw") as mock_mw:
-            mock_mw.col.media.write_data = MagicMock()
-            result = MediaHandler.save_image(png_bytes, "ImageField")
+        result = MediaHandler.save_image(png_bytes, "ImageField")
 
         assert result.startswith('<img src="')
         assert result.endswith('">')

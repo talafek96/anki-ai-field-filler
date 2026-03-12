@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import sys
 import types
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 def _install_aqt_mocks() -> None:
@@ -57,3 +59,44 @@ def _install_aqt_mocks() -> None:
 
 
 _install_aqt_mocks()
+
+# These imports MUST come after aqt mocks are installed.
+from ai_field_filler.config_manager import ProviderConfig  # noqa: E402
+from ai_field_filler.field_filler import FieldFiller  # noqa: E402
+
+
+# ---------------------------------------------------------------------------
+# Shared fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def provider_config():
+    """Create a :class:`ProviderConfig` pre-filled for testing."""
+
+    def _make(provider_type: str = "openai", **overrides) -> ProviderConfig:
+        defaults = dict(
+            provider_type=provider_type,
+            api_url="https://fake.test/v1",
+            api_key="test-key",
+            text_model="test-model",
+            max_tokens=4096,
+        )
+        defaults.update(overrides)
+        return ProviderConfig(**defaults)
+
+    return _make
+
+
+@pytest.fixture()
+def filler():
+    """Create a :class:`FieldFiller` without calling __init__ (skips ConfigManager)."""
+    return FieldFiller.__new__(FieldFiller)
+
+
+@pytest.fixture()
+def mock_mw():
+    """Patch ``mw`` inside the media_handler module."""
+    with patch("ai_field_filler.media_handler.mw") as m:
+        m.col.media.write_data = MagicMock()
+        yield m

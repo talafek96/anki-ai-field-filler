@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 from typing import List, Optional
 
+from aqt import mw
 from aqt.qt import *
 from aqt.utils import showInfo, tooltip
 
@@ -405,8 +406,6 @@ class ProviderSettingsTab(QWidget):
         def do_fetch() -> None:
             try:
                 models = fetch_available_models(cfg, capability)
-                from aqt import mw
-
                 mw.taskman.run_on_main(
                     lambda: self._on_models_fetched(
                         ptype, capability, target, models, None
@@ -414,8 +413,6 @@ class ProviderSettingsTab(QWidget):
                 )
             except Exception as e:
                 err_msg = str(e)
-                from aqt import mw
-
                 mw.taskman.run_on_main(
                     lambda: self._on_models_fetched(
                         ptype, capability, target, [], err_msg
@@ -470,8 +467,6 @@ class ProviderSettingsTab(QWidget):
 
         def test() -> None:
             success, message = test_provider_connection(cfg)
-            from aqt import mw
-
             mw.taskman.run_on_main(
                 lambda: self._show_test_result(success, message)
             )

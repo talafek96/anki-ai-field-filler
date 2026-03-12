@@ -8,8 +8,7 @@ from __future__ import annotations
 from aqt.qt import *
 
 from ..config_manager import ConfigManager, FieldInstruction
-
-FIELD_TYPES = ["auto", "text", "audio", "image"]
+from . import create_auto_fill_checkbox, create_field_type_combo
 
 
 class FieldInstructionDialog(QDialog):
@@ -58,24 +57,12 @@ class FieldInstructionDialog(QDialog):
         row = QHBoxLayout()
         row.addWidget(QLabel("Content Type:"))
 
-        self._type_combo = QComboBox()
-        self._type_combo.setToolTip(
-            "auto: let the AI decide the best type\n"
-            "text: plain text or HTML content\n"
-            "audio: generate TTS audio file\n"
-            "image: generate an image"
-        )
-        for ft in FIELD_TYPES:
-            self._type_combo.addItem(ft.capitalize(), ft)
+        self._type_combo = create_field_type_combo()
         row.addWidget(self._type_combo)
 
         row.addSpacing(20)
 
-        self._auto_fill_check = QCheckBox("Include in auto-fill")
-        self._auto_fill_check.setToolTip(
-            "When checked, this field will be included when using "
-            "'Fill All Blank Fields'."
-        )
+        self._auto_fill_check = create_auto_fill_checkbox()
         row.addWidget(self._auto_fill_check)
         row.addStretch()
 

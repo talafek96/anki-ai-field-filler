@@ -22,13 +22,22 @@ class ProviderConfig:
     tts_voice: str = ""
     image_model: str = ""
 
+    @property
+    def base_url(self) -> str:
+        """API URL with trailing slashes stripped."""
+        return self.api_url.rstrip("/")
+
+
+FIELD_TYPES = ("auto", "text", "audio", "image")
+"""Valid values for :attr:`FieldInstruction.field_type`."""
+
 
 @dataclass
 class FieldInstruction:
     """Per-field instruction for AI context."""
 
     instruction: str = ""
-    field_type: str = "auto"  # "auto", "text", "audio", "image"
+    field_type: str = "auto"  # one of FIELD_TYPES
     auto_fill: bool = True
 
 
@@ -81,6 +90,13 @@ class ConfigManager:
         """Persist config to disk."""
         mw.addonManager.writeConfig(self._addon_name, self._config)
 
+    def _ensure_section(self, key: str) -> None:
+        """Ensure a top-level config section exists (copied from defaults)."""
+        if key not in self._config:
+            self._config[key] = copy.deepcopy(
+                self._defaults.get(key, {})
+            )
+
     def update_from_addon_manager(self, new_config: Dict[str, Any]) -> None:
         """Called when user edits config via Anki's built-in JSON editor."""
         self._config.update(new_config)
@@ -104,10 +120,7 @@ class ConfigManager:
 
     def set_provider_config(self, provider_type: str, config: ProviderConfig) -> None:
         """Set config for a specific provider."""
-        if "providers" not in self._config:
-            self._config["providers"] = copy.deepcopy(
-                self._defaults.get("providers", {})
-            )
+        self._ensure_section("providers")
         self._config["providers"][provider_type] = {
             "api_url": config.api_url,
             "api_key": config.api_key,
@@ -125,10 +138,7 @@ class ConfigManager:
 
     def set_active_provider_type(self, capability: str, provider_type: str) -> None:
         """Set the active provider type for a capability."""
-        if "active_providers" not in self._config:
-            self._config["active_providers"] = copy.deepcopy(
-                self._defaults.get("active_providers", {})
-            )
+        self._ensure_section("active_providers")
         self._config["active_providers"][capability] = provider_type
 
     def get_active_text_provider(self) -> ProviderConfig:

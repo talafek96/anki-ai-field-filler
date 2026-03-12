@@ -7,13 +7,12 @@ speech synthesis via the Gemini generateContent API.
 from __future__ import annotations
 
 import base64
-import json
-import urllib.error
-import urllib.request
 
 from ..config_manager import ProviderConfig
 from .base import ImageProvider, ProviderError, TextProvider, TTSProvider
-from .openai_provider import _ssl_ctx
+from .http import http_post_json
+
+_LABEL = "Google API"
 
 
 class _GoogleRequestMixin:
@@ -24,33 +23,11 @@ class _GoogleRequestMixin:
     def _generate_content(
         self, model: str, payload: dict, timeout: int = 120
     ) -> dict:
-        base = self._config.api_url.rstrip("/")
-        url = f"{base}/models/{model}:generateContent?key={self._config.api_key}"
-        headers = {"Content-Type": "application/json"}
-        data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers=headers)
-        try:
-            with urllib.request.urlopen(
-                req, timeout=timeout, context=_ssl_ctx
-            ) as resp:
-                raw = resp.read().decode("utf-8")
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")
-            raise ProviderError(
-                f"Google API error {e.code}: {body}"
-            ) from e
-        except urllib.error.URLError as e:
-            raise ProviderError(f"Connection error: {e.reason}") from e
-
-        if not raw.strip():
-            raise ProviderError("Empty response from Google API")
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError as e:
-            raise ProviderError(
-                f"Invalid JSON from Google API: {e}\n"
-                f"Response was: {raw[:300]}"
-            ) from e
+        url = (
+            f"{self._config.base_url}/models/{model}"
+            f":generateContent?key={self._config.api_key}"
+        )
+        return http_post_json(url, {}, payload, timeout=timeout, label=_LABEL)
 
 
 class GoogleTextProvider(_GoogleRequestMixin, TextProvider):

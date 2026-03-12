@@ -12,53 +12,50 @@ from ai_field_filler.providers.base import ProviderError
 class TestParseResponse:
     """Tests for FieldFiller._parse_response."""
 
-    def setup_method(self) -> None:
-        self.filler = FieldFiller.__new__(FieldFiller)
-
-    def test_clean_json(self) -> None:
+    def test_clean_json(self, filler) -> None:
         raw = json.dumps({
             "fields": {
                 "Meaning": {"content": "hello", "type": "text"},
                 "Audio": None,
             }
         })
-        result = self.filler._parse_response(raw)
+        result = filler._parse_response(raw)
         assert result["Meaning"]["content"] == "hello"
         assert result["Audio"] is None
 
-    def test_json_with_markdown_fences(self) -> None:
+    def test_json_with_markdown_fences(self, filler) -> None:
         raw = '```json\n{"fields": {"Word": {"content": "test", "type": "text"}}}\n```'
-        result = self.filler._parse_response(raw)
+        result = filler._parse_response(raw)
         assert result["Word"]["content"] == "test"
 
-    def test_json_with_only_opening_fence(self) -> None:
+    def test_json_with_only_opening_fence(self, filler) -> None:
         raw = '```\n{"fields": {"A": {"content": "x", "type": "text"}}}\n```'
-        result = self.filler._parse_response(raw)
+        result = filler._parse_response(raw)
         assert result["A"]["content"] == "x"
 
-    def test_json_embedded_in_text(self) -> None:
+    def test_json_embedded_in_text(self, filler) -> None:
         raw = 'Here is the result:\n{"fields": {"B": {"content": "y", "type": "text"}}}\nDone!'
-        result = self.filler._parse_response(raw)
+        result = filler._parse_response(raw)
         assert result["B"]["content"] == "y"
 
-    def test_flat_json_without_fields_wrapper(self) -> None:
+    def test_flat_json_without_fields_wrapper(self, filler) -> None:
         raw = json.dumps({"Word": {"content": "flat", "type": "text"}})
-        result = self.filler._parse_response(raw)
+        result = filler._parse_response(raw)
         assert result["Word"]["content"] == "flat"
 
-    def test_completely_invalid_json_raises(self) -> None:
+    def test_completely_invalid_json_raises(self, filler) -> None:
         with pytest.raises(ProviderError, match="Could not find JSON"):
-            self.filler._parse_response("This is not json at all")
+            filler._parse_response("This is not json at all")
 
-    def test_empty_response_raises(self) -> None:
+    def test_empty_response_raises(self, filler) -> None:
         with pytest.raises(ProviderError):
-            self.filler._parse_response("")
+            filler._parse_response("")
 
-    def test_html_response_raises(self) -> None:
+    def test_html_response_raises(self, filler) -> None:
         with pytest.raises(ProviderError):
-            self.filler._parse_response("<!DOCTYPE html><html><body>Error</body></html>")
+            filler._parse_response("<!DOCTYPE html><html><body>Error</body></html>")
 
-    def test_null_fields_preserved(self) -> None:
+    def test_null_fields_preserved(self, filler) -> None:
         raw = json.dumps({
             "fields": {
                 "A": {"content": "val", "type": "text"},
@@ -66,12 +63,12 @@ class TestParseResponse:
                 "C": {"content": "img prompt", "type": "image"},
             }
         })
-        result = self.filler._parse_response(raw)
+        result = filler._parse_response(raw)
         assert result["A"] is not None
         assert result["B"] is None
         assert result["C"]["type"] == "image"
 
-    def test_image_prompt_field(self) -> None:
+    def test_image_prompt_field(self, filler) -> None:
         raw = json.dumps({
             "fields": {
                 "Meaning": {
@@ -81,7 +78,7 @@ class TestParseResponse:
                 }
             }
         })
-        result = self.filler._parse_response(raw)
+        result = filler._parse_response(raw)
         assert result["Meaning"]["image_prompt"] == "a picture of something"
 
 
