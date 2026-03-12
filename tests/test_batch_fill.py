@@ -294,6 +294,7 @@ class TestDryRunProposals:
         prop = result.proposals[0]
         assert prop.blank_fields == ["Back", "Extra"]
         assert prop.changes == {}  # no AI was called
+        assert prop.original_values == {"Back": "", "Extra": ""}
         mock_urlopen.assert_not_called()
 
 
@@ -318,6 +319,7 @@ class TestProposalsAndApply:
         assert len(result.proposals) == 1
         prop = result.proposals[0]
         assert prop.changes == {"Back": "generated"}
+        assert prop.original_values == {"Back": ""}
         # Note was NOT modified (no flush called yet)
         assert raw["Back"] == ""
         note.flush.assert_not_called()
@@ -358,3 +360,27 @@ class TestProposalsAndApply:
 
         assert applied == 0
         mock_mw.col.get_note.assert_not_called()
+
+    @patch("ai_field_filler.field_filler.mw")
+    def test_apply_edited_proposal(self, mock_mw: MagicMock) -> None:
+        """Proposals with user-edited values apply the edited content."""
+        fields = {"Front": "hello", "Back": ""}
+        note, raw = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        prop = BatchProposedChange(
+            note_id=1,
+            note_preview="hello",
+            blank_fields=["Back"],
+            changes={"Back": "ai generated"},
+            original_values={"Back": ""},
+        )
+        # Simulate user editing the value in the review dialog
+        prop.changes["Back"] = "user edited value"
+
+        filler = BatchFiller()
+        applied = filler.apply_proposals([prop])
+
+        assert applied == 1
+        assert raw["Back"] == "user edited value"
+        note.flush.assert_called_once()

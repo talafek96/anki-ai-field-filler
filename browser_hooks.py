@@ -29,7 +29,7 @@ class BrowserIntegration:
         if not selected:
             return
         menu.addSeparator()
-        action = menu.addAction(f"AI: Batch fill blank fields ({len(selected)} cards)")
+        action = menu.addAction(f"\u2728 AI: Batch fill blank fields ({len(selected)} cards)")
         qconnect(action.triggered, lambda: cls._on_batch_fill(browser, selected))
 
     @classmethod

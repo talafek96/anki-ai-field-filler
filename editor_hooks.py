@@ -113,7 +113,7 @@ class EditorIntegration:
             func=lambda ed: cls._on_fill_field(ed),
             tip=f"AI: Fill current field ({general.fill_field_shortcut})",
             keys=general.fill_field_shortcut or None,
-            label="\U0001f9e0 Fill",
+            label="\U0001f9e0 Fill Current",
         )
         buttons.append(btn_field)
 
@@ -127,17 +127,17 @@ class EditorIntegration:
 
         if editor.currentField is not None:
             field_name = editor.note.keys()[editor.currentField]
-            action_fill = menu.addAction(f"AI: Fill '{field_name}'")
+            action_fill = menu.addAction(f"\U0001f9e0 AI: Fill '{field_name}'")
             qconnect(action_fill.triggered, lambda: cls._on_fill_field(editor))
 
-        action_all = menu.addAction("AI: Fill all blank fields")
+        action_all = menu.addAction("\u2728 AI: Fill all blank fields")
         qconnect(action_all.triggered, lambda: cls._on_fill_all(editor))
 
         menu.addSeparator()
 
         if editor.currentField is not None:
             field_name = editor.note.keys()[editor.currentField]
-            action_cfg = menu.addAction(f"AI: Configure instructions for '{field_name}'...")
+            action_cfg = menu.addAction(f"\U0001f4dd AI: Configure '{field_name}' instructions...")
             qconnect(
                 action_cfg.triggered,
                 lambda: cls._on_configure_field(editor, field_name),

@@ -330,6 +330,7 @@ class BatchProposedChange:
     note_preview: str  # first non-empty field for identification
     blank_fields: List[str]  # fields that would be targeted
     changes: Dict[str, str] = field(default_factory=dict)  # field → new value
+    original_values: Dict[str, str] = field(default_factory=dict)  # field → old value
     error: str = ""
 
     @property
@@ -428,12 +429,15 @@ class BatchFiller:
                 note_type_name, deck_name=item.deck_name
             )
 
+            orig_values = {f: note[f] for f in blank_targets}
+
             if dry_run:
                 result.proposals.append(
                     BatchProposedChange(
                         note_id=item.note_id,
                         note_preview=preview,
                         blank_fields=blank_targets,
+                        original_values=orig_values,
                     )
                 )
                 result.succeeded += 1
@@ -458,6 +462,7 @@ class BatchFiller:
                         note_preview=preview,
                         blank_fields=blank_targets,
                         changes=changes,
+                        original_values=orig_values,
                     )
                 )
                 result.succeeded += 1
@@ -467,6 +472,7 @@ class BatchFiller:
                         note_id=item.note_id,
                         note_preview=preview,
                         blank_fields=blank_targets,
+                        original_values=orig_values,
                         error=str(e),
                     )
                 )
