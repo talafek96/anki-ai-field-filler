@@ -126,13 +126,35 @@ class TestOpenAITTSProvider:
 
 class TestOpenAIImageProvider:
     @patch(_HTTP_POST_JSON)
-    def test_generate_image(self, mock_urlopen) -> None:
+    def test_generate_image_dalle(self, mock_urlopen) -> None:
         img_data = b"PNG-image-bytes"
         b64 = base64.b64encode(img_data).decode()
         mock_urlopen.return_value = _mock_urlopen(json.dumps({"data": [{"b64_json": b64}]}))
-        provider = OpenAIImageProvider(_OPENAI_CFG)
+        cfg = ProviderConfig(**{**_OPENAI_CFG.__dict__, "image_model": "dall-e-3"})
+        provider = OpenAIImageProvider(cfg)
         result = provider.generate_image("a cat")
         assert result == img_data
+        # DALL-E should use response_format
+        req = mock_urlopen.call_args[0][0]
+        body = json.loads(req.data)
+        assert "response_format" in body
+        assert "output_format" not in body
+
+    @patch(_HTTP_POST_JSON)
+    def test_generate_image_gpt_image(self, mock_urlopen) -> None:
+        img_data = b"PNG-image-bytes"
+        b64 = base64.b64encode(img_data).decode()
+        mock_urlopen.return_value = _mock_urlopen(json.dumps({"data": [{"b64_json": b64}]}))
+        cfg = ProviderConfig(**{**_OPENAI_CFG.__dict__, "image_model": "gpt-image-1"})
+        provider = OpenAIImageProvider(cfg)
+        result = provider.generate_image("a dog")
+        assert result == img_data
+        # gpt-image should use output_format, not response_format
+        req = mock_urlopen.call_args[0][0]
+        body = json.loads(req.data)
+        assert "output_format" in body
+        assert body["output_format"] == "png"
+        assert "response_format" not in body
 
 
 # ---------------------------------------------------------------------------

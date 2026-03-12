@@ -86,17 +86,29 @@ class OpenAITTSProvider(_OpenAIRequestMixin, TTSProvider):
 
 
 class OpenAIImageProvider(_OpenAIRequestMixin, ImageProvider):
-    """OpenAI DALL-E image generation."""
+    """OpenAI image generation (GPT Image and DALL-E)."""
+
+    # gpt-image-* models use a different API shape than dall-e-*:
+    #   - No response_format param (b64_json is always returned)
+    #   - Uses output_format instead for the file type
+    _GPT_IMAGE_PREFIXES = ("gpt-image",)
 
     def generate_image(self, prompt: str, size: str = "1024x1024") -> bytes:
         url = f"{self._config.base_url}/images/generations"
-        payload = {
-            "model": self._config.image_model or "dall-e-3",
+        model = self._config.image_model or "dall-e-3"
+        is_gpt_image = any(model.startswith(p) for p in self._GPT_IMAGE_PREFIXES)
+
+        payload: dict = {
+            "model": model,
             "prompt": prompt,
             "n": 1,
             "size": size,
-            "response_format": "b64_json",
         }
+        if is_gpt_image:
+            payload["output_format"] = "png"
+        else:
+            payload["response_format"] = "b64_json"
+
         result = self._request(url, payload, timeout=180)
         b64_data = result["data"][0]["b64_json"]
         return base64.b64decode(b64_data)
