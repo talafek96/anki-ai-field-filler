@@ -314,3 +314,111 @@ class TestConfigManagerEnsureSection:
         original = cm._config["providers"]
         cm._ensure_section("providers")
         assert cm._config["providers"] is original
+
+
+# ---------------------------------------------------------------------------
+# Deck-scoped field instructions
+# ---------------------------------------------------------------------------
+
+_DECK_CONFIG = {
+    **_SAMPLE_CONFIG,
+    "deck_field_instructions": {
+        "JLPT N3": {
+            "Basic": {
+                "Back": {
+                    "instruction": "N3-level answer",
+                    "field_type": "text",
+                    "auto_fill": True,
+                }
+            }
+        }
+    },
+}
+
+
+class TestDeckFieldInstructions:
+    def test_get_global_unaffected_by_deck_data(self) -> None:
+        cm, _ = _make_config_manager(config=_DECK_CONFIG)
+        instrs = cm.get_global_field_instructions("Basic")
+        assert instrs["Back"].instruction == "Answer to the front"
+
+    def test_get_deck_instructions(self) -> None:
+        cm, _ = _make_config_manager(config=_DECK_CONFIG)
+        instrs = cm.get_deck_field_instructions("JLPT N3", "Basic")
+        assert instrs["Back"].instruction == "N3-level answer"
+
+    def test_get_deck_instructions_empty_for_unknown_deck(self) -> None:
+        cm, _ = _make_config_manager(config=_DECK_CONFIG)
+        instrs = cm.get_deck_field_instructions("Unknown Deck", "Basic")
+        assert instrs == {}
+
+    def test_merged_without_deck_returns_global(self) -> None:
+        cm, _ = _make_config_manager(config=_DECK_CONFIG)
+        instrs = cm.get_field_instructions("Basic")
+        assert instrs["Back"].instruction == "Answer to the front"
+
+    def test_merged_with_deck_overrides_global(self) -> None:
+        cm, _ = _make_config_manager(config=_DECK_CONFIG)
+        instrs = cm.get_field_instructions("Basic", deck_name="JLPT N3")
+        assert instrs["Back"].instruction == "N3-level answer"
+
+    def test_merged_keeps_global_fields_not_in_deck(self) -> None:
+        """Fields only defined globally are preserved in the merge."""
+        config = copy.deepcopy(_DECK_CONFIG)
+        config["note_type_field_instructions"]["Basic"]["Front"] = {
+            "instruction": "Global front",
+            "field_type": "text",
+            "auto_fill": True,
+        }
+        cm, _ = _make_config_manager(config=config)
+        instrs = cm.get_field_instructions("Basic", deck_name="JLPT N3")
+        # Front is only global — should survive the merge
+        assert instrs["Front"].instruction == "Global front"
+        # Back is overridden by deck
+        assert instrs["Back"].instruction == "N3-level answer"
+
+    def test_set_deck_field_instruction(self) -> None:
+        cm, _ = _make_config_manager()
+        cm.set_deck_field_instruction(
+            "MyDeck",
+            "Basic",
+            "Back",
+            FieldInstruction(instruction="Deck-specific"),
+        )
+        instrs = cm.get_deck_field_instructions("MyDeck", "Basic")
+        assert instrs["Back"].instruction == "Deck-specific"
+
+    def test_set_field_instruction_with_deck_name(self) -> None:
+        cm, _ = _make_config_manager()
+        cm.set_field_instruction(
+            "Basic",
+            "Back",
+            FieldInstruction(instruction="Via unified API"),
+            deck_name="MyDeck",
+        )
+        instrs = cm.get_deck_field_instructions("MyDeck", "Basic")
+        assert instrs["Back"].instruction == "Via unified API"
+        # Global should be unchanged
+        global_instrs = cm.get_global_field_instructions("Basic")
+        assert global_instrs["Back"].instruction == "Answer to the front"
+
+    def test_remove_deck_field_instruction(self) -> None:
+        cm, _ = _make_config_manager(config=_DECK_CONFIG)
+        cm.remove_deck_field_instruction("JLPT N3", "Basic", "Back")
+        instrs = cm.get_deck_field_instructions("JLPT N3", "Basic")
+        assert "Back" not in instrs
+
+    def test_remove_deck_cleans_empty_parents(self) -> None:
+        cm, _ = _make_config_manager(config=_DECK_CONFIG)
+        cm.remove_deck_field_instruction("JLPT N3", "Basic", "Back")
+        dfi = cm._config.get("deck_field_instructions", {})
+        assert "JLPT N3" not in dfi
+
+    def test_remove_field_instruction_with_deck_name(self) -> None:
+        cm, _ = _make_config_manager(config=_DECK_CONFIG)
+        cm.remove_field_instruction("Basic", "Back", deck_name="JLPT N3")
+        instrs = cm.get_deck_field_instructions("JLPT N3", "Basic")
+        assert "Back" not in instrs
+        # Global should be untouched
+        global_instrs = cm.get_global_field_instructions("Basic")
+        assert "Back" in global_instrs

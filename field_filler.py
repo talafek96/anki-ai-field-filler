@@ -74,6 +74,7 @@ class FieldFiller:
         user_prompt: str = "",
         on_success: Optional[Callable[[], None]] = None,
         on_error: Optional[Callable[[str], None]] = None,
+        deck_name: Optional[str] = None,
     ) -> None:
         """Fill specified fields using AI. Runs in a background thread."""
         note = editor.note
@@ -86,7 +87,9 @@ class FieldFiller:
         note_type_name = note_type["name"]
         field_names = list(note.keys())
         field_values = {name: note[name] for name in field_names}
-        field_instructions = self._config.get_field_instructions(note_type_name)
+        field_instructions = self._config.get_field_instructions(
+            note_type_name, deck_name=deck_name
+        )
 
         user_message = self._build_user_prompt(
             note_type_name,

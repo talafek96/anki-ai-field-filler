@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
-from aqt import gui_hooks
+from aqt import gui_hooks, mw
 from aqt.editor import Editor, EditorWebView
 from aqt.qt import QDialog, QMenu, qconnect
 from aqt.utils import showWarning, tooltip
@@ -15,6 +15,38 @@ from .ui.field_instruction_dialog import FieldInstructionDialog
 from .ui.fill_dialog import FillDialog
 from .ui.generating_dialog import GeneratingDialog
 from .ui.quick_prompt_dialog import QuickPromptDialog
+
+
+def _current_deck_name(editor: Editor) -> Optional[str]:
+    """Best-effort resolve the deck name for the note being edited.
+
+    * In the *Add* dialog the deck is available via ``editor.parentWindow``.
+    * When *browsing / editing* an existing note we look at the first card's
+      deck id.
+    * Falls back to ``None`` (= use global instructions only).
+    """
+    note = editor.note
+    if note is None:
+        return None
+
+    # Editing an existing note — look at its first card
+    if note.id:
+        cards = note.cards()
+        if cards:
+            deck = mw.col.decks.get(cards[0].did)
+            if deck:
+                return deck["name"]
+
+    # Add dialog — the parent window usually exposes .deckChooser
+    parent = getattr(editor, "parentWindow", None)
+    chooser = getattr(parent, "deckChooser", None)
+    if chooser:
+        did = chooser.selectedId()
+        deck = mw.col.decks.get(did)
+        if deck:
+            return deck["name"]
+
+    return None
 
 
 class EditorIntegration:
@@ -90,7 +122,8 @@ class EditorIntegration:
         general = config.get_general_settings()
         note = editor.note
         note_type_name = note.note_type()["name"]
-        field_instructions = config.get_field_instructions(note_type_name)
+        deck_name = _current_deck_name(editor)
+        field_instructions = config.get_field_instructions(note_type_name, deck_name=deck_name)
 
         if general.show_fill_dialog:
             field_names = list(note.keys())
@@ -151,7 +184,10 @@ class EditorIntegration:
         if not editor.note:
             return
         note_type_name = editor.note.note_type()["name"]
-        dialog = FieldInstructionDialog(note_type_name, field_name, parent=editor.widget)
+        deck_name = _current_deck_name(editor)
+        dialog = FieldInstructionDialog(
+            note_type_name, field_name, deck_name=deck_name, parent=editor.widget
+        )
         dialog.exec()
 
     @classmethod
@@ -164,6 +200,7 @@ class EditorIntegration:
         """Execute the AI fill operation with a blocking progress dialog."""
         config = ConfigManager()
         general = config.get_general_settings()
+        deck_name = _current_deck_name(editor)
 
         prompts = []
         if general.default_user_prompt.strip():
@@ -192,6 +229,7 @@ class EditorIntegration:
             user_prompt=combined_prompt,
             on_success=on_success,
             on_error=on_error,
+            deck_name=deck_name,
         )
 
         progress.exec()

@@ -31,6 +31,7 @@
         "image": "openai"
     },
     "note_type_field_instructions": {},
+    "deck_field_instructions": {},
     "general": {
         "fill_all_shortcut": "Ctrl+Shift+G",
         "fill_field_shortcut": "Ctrl+Shift+F",
