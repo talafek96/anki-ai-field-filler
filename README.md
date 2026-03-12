@@ -120,7 +120,7 @@ For text fields, the AI can optionally include a generated illustration when it 
 2. This context is sent to your configured AI provider as a structured prompt
 3. The AI returns a JSON response with content for each requested field, including content type decisions
 4. For text fields: content is converted to HTML (newlines → `<br>`) and inserted. If the AI included an `image_prompt`, the image is generated and appended below the text.
-5. For audio fields: text is sent to the TTS provider (OpenAI or Google Gemini), audio is saved to Anki's media folder (MP3 or WAV auto-detected), and a `[sound:filename]` tag is inserted
+5. For audio fields: text is sent to the TTS provider (OpenAI or Google Gemini), audio is saved to Anki's media folder as MP3 or WAV (raw PCM from Google TTS is automatically wrapped in a WAV header), and a `[sound:filename]` tag is inserted
 6. For image fields: a generation prompt is sent to the image provider (DALL-E or Nano Banana), the image is saved, and an `<img>` tag is inserted
 7. Fields the AI deems irrelevant are left empty
 
@@ -135,21 +135,33 @@ ai_field_filler/
 ├── field_filler.py            # Core orchestrator
 ├── media_handler.py           # Audio/image media management
 ├── editor_hooks.py            # Editor toolbar + context menu
+├── AGENTS.md                  # Development notes & conventions
 ├── providers/
 │   ├── __init__.py            # Provider factory + model fetching
 │   ├── base.py                # Abstract base classes
+│   ├── http.py                # Shared HTTP request helpers
 │   ├── openai_provider.py     # OpenAI (text + TTS + image)
 │   ├── anthropic_provider.py  # Anthropic (text)
 │   └── google_provider.py     # Google Gemini (text + TTS + image)
-└── ui/
-    ├── __init__.py
-    ├── settings_dialog.py           # Main tabbed settings dialog
-    ├── provider_settings_tab.py     # Provider credentials tab
-    ├── note_type_settings_tab.py    # Per-field instructions tab
-    ├── general_settings_tab.py      # General settings tab
-    ├── fill_dialog.py               # Fill All activation dialog
-    ├── quick_prompt_dialog.py       # Single-field prompt dialog
-    └── field_instruction_dialog.py  # Quick field instruction editor
+├── ui/
+│   ├── __init__.py            # Shared UI widget helpers
+│   ├── settings_dialog.py           # Main tabbed settings dialog
+│   ├── provider_settings_tab.py     # Provider credentials tab
+│   ├── note_type_settings_tab.py    # Per-field instructions tab
+│   ├── general_settings_tab.py      # General settings tab
+│   ├── fill_dialog.py               # Fill All activation dialog
+│   ├── quick_prompt_dialog.py       # Single-field prompt dialog
+│   └── field_instruction_dialog.py  # Quick field instruction editor
+└── tests/
+    ├── conftest.py            # aqt mocks + shared fixtures
+    ├── test_config.py         # ConfigManager + dataclass tests
+    ├── test_field_filler.py   # Response parsing + HTML conversion
+    ├── test_prompt_builder.py # Prompt construction
+    ├── test_media_handler.py  # Audio/image saving + PCM→WAV
+    ├── test_providers.py      # Factory functions + model classifiers
+    ├── test_provider_generate.py  # Provider methods (mocked HTTP)
+    ├── test_http.py           # Shared HTTP helper tests
+    └── test_fetch_models.py   # Model fetching + connection test
 ```
 
 ## Requirements
