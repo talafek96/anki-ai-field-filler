@@ -56,3 +56,7 @@ python build_ankiaddon.py --check  # dry-run
 GitHub Actions runs on every push/PR to `main`:
 - **Lint**: ruff check, ruff format, mypy (Python 3.12)
 - **Test**: pytest on Python 3.9, 3.12, 3.13
+
+## Git
+
+- Do NOT include "Generated with Devin" or "Co-Authored-By: Devin" in commit messages
