@@ -64,6 +64,103 @@ class _ResizeHandle(QWidget):
             event.accept()  # type: ignore[union-attr]
 
 
+class _DeckScopeWidget(QWidget):
+    """Collapsible deck scope selector with a radio toggle and checkable deck list."""
+
+    scope_changed = pyqtSignal()
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        # Radio buttons
+        self._radio_global = QRadioButton("All Decks (Global)")
+        self._radio_global.setChecked(True)
+        self._radio_global.setToolTip("Instructions apply to every deck")
+        self._radio_decks = QRadioButton("Specific Decks:")
+        self._radio_decks.setToolTip("Instructions only apply to the checked decks below")
+        layout.addWidget(self._radio_global)
+        layout.addWidget(self._radio_decks)
+
+        # Checkable deck list (hidden when global is selected)
+        self._deck_list = QListWidget()
+        self._deck_list.setMaximumHeight(120)
+        self._deck_list.setVisible(False)
+        self._load_decks()
+        layout.addWidget(self._deck_list)
+
+        self.setLayout(layout)
+
+        self._radio_global.toggled.connect(self._on_radio_toggled)
+        self._radio_decks.toggled.connect(self._on_radio_toggled)
+        self._deck_list.itemChanged.connect(lambda _: self.scope_changed.emit())
+
+    def _load_decks(self) -> None:
+        self._deck_list.clear()
+        if not mw.col:
+            return
+        for deck in sorted(mw.col.decks.all_names_and_ids(), key=lambda d: d.name):
+            item = QListWidgetItem(deck.name)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
+            self._deck_list.addItem(item)
+
+    def _on_radio_toggled(self, _checked: bool) -> None:
+        self._deck_list.setVisible(self._radio_decks.isChecked())
+        self.scope_changed.emit()
+
+    def is_global(self) -> bool:
+        return self._radio_global.isChecked()
+
+    def checked_decks(self) -> list[str]:
+        """Return the list of checked deck names (empty if global)."""
+        if self.is_global():
+            return []
+        decks = []
+        for i in range(self._deck_list.count()):
+            item = self._deck_list.item(i)
+            if item and item.checkState() == Qt.CheckState.Checked:
+                decks.append(item.text())
+        return decks
+
+    def set_scope(self, deck_names: list[str]) -> None:
+        """Set the scope — empty list = global, otherwise check those decks."""
+        self._deck_list.blockSignals(True)
+        if not deck_names:
+            self._radio_global.setChecked(True)
+            # Uncheck all
+            for i in range(self._deck_list.count()):
+                item = self._deck_list.item(i)
+                if item:
+                    item.setCheckState(Qt.CheckState.Unchecked)
+        else:
+            self._radio_decks.setChecked(True)
+            names_set = set(deck_names)
+            for i in range(self._deck_list.count()):
+                item = self._deck_list.item(i)
+                if item:
+                    state = (
+                        Qt.CheckState.Checked
+                        if item.text() in names_set
+                        else Qt.CheckState.Unchecked
+                    )
+                    item.setCheckState(state)
+        self._deck_list.blockSignals(False)
+
+    def selected_deck_for_save(self) -> Optional[str]:
+        """Return the single deck name to save to, or None for global.
+
+        For the multi-deck case, the caller should iterate checked_decks()
+        and save to each one.
+        """
+        if self.is_global():
+            return None
+        decks = self.checked_decks()
+        return decks[0] if len(decks) == 1 else None
+
+
 class NoteTypeSettingsTab(QWidget):
     """Tab for configuring per-note-type, per-field AI instructions."""
 
@@ -71,7 +168,6 @@ class NoteTypeSettingsTab(QWidget):
         super().__init__()
         self._config = config
         self._current_note_type: str | None = None
-        self._current_deck: str | None = None  # None = global
         self._field_widgets: list[tuple[str, QPlainTextEdit, QComboBox, QCheckBox]] = []
         self._setup_ui()
         self._load_note_types()
@@ -103,19 +199,9 @@ class NoteTypeSettingsTab(QWidget):
         right_panel.addWidget(right_label)
 
         # Deck scope selector
-        scope_row = QHBoxLayout()
-        scope_row.addWidget(QLabel("Scope:"))
-        self._deck_combo = QComboBox()
-        self._deck_combo.setMinimumWidth(200)
-        self._deck_combo.setToolTip(
-            "Choose 'All Decks' for global instructions, or a specific\n"
-            "deck to set overrides that only apply to that deck."
-        )
-        self._load_deck_combo()
-        qconnect(self._deck_combo.currentIndexChanged, self._on_deck_changed)
-        scope_row.addWidget(self._deck_combo)
-        scope_row.addStretch()
-        right_panel.addLayout(scope_row)
+        self._scope_widget = _DeckScopeWidget()
+        self._scope_widget.scope_changed.connect(self._on_scope_changed)
+        right_panel.addWidget(self._scope_widget)
 
         info_label = QLabel(
             "Describe what each field should contain. The AI uses these "
@@ -140,22 +226,7 @@ class NoteTypeSettingsTab(QWidget):
         layout.addLayout(right_panel, stretch=1)
         self.setLayout(layout)
 
-    def _load_deck_combo(self) -> None:
-        self._deck_combo.blockSignals(True)
-        self._deck_combo.clear()
-        self._deck_combo.addItem("All Decks (Global)", "")
-        if mw.col:
-            for deck in sorted(mw.col.decks.all_names_and_ids(), key=lambda d: d.name):
-                self._deck_combo.addItem(deck.name, deck.name)
-        self._deck_combo.blockSignals(False)
-
-    def _selected_deck(self) -> Optional[str]:
-        """Return the deck name for the selected scope, or None for global."""
-        return self._deck_combo.currentData() or None
-
-    def _on_deck_changed(self, _index: int) -> None:
-        self._save_current_note_type()
-        self._current_deck = self._selected_deck()
+    def _on_scope_changed(self) -> None:
         if self._current_note_type:
             self._load_fields(self._current_note_type)
 
@@ -183,6 +254,11 @@ class NoteTypeSettingsTab(QWidget):
         self._current_note_type = nt_name
         self._load_fields(nt_name)
 
+    def _effective_deck(self) -> Optional[str]:
+        """Return the first checked deck for loading, or None for global."""
+        decks = self._scope_widget.checked_decks()
+        return decks[0] if decks else None
+
     def _load_fields(self, note_type_name: str) -> None:
         self._field_widgets.clear()
         while self._fields_layout.count():
@@ -203,9 +279,8 @@ class NoteTypeSettingsTab(QWidget):
             return
 
         field_names = [f["name"] for f in note_type["flds"]]
-        deck = self._selected_deck()
+        deck = self._effective_deck()
         if deck:
-            # For deck scope, show the merged view (global + deck overrides)
             instructions = self._config.get_field_instructions(note_type_name, deck_name=deck)
         else:
             instructions = self._config.get_global_field_instructions(note_type_name)
@@ -256,16 +331,26 @@ class NoteTypeSettingsTab(QWidget):
     def _save_current_note_type(self) -> None:
         if not self._current_note_type:
             return
-        deck = self._current_deck
+
+        target_decks = self._scope_widget.checked_decks()
+        is_global = self._scope_widget.is_global()
+
         for fname, instr_edit, type_combo, auto_check in self._field_widgets:
             instruction = FieldInstruction(
                 instruction=instr_edit.toPlainText().strip(),
                 field_type=type_combo.currentData(),
                 auto_fill=auto_check.isChecked(),
             )
-            self._config.set_field_instruction(
-                self._current_note_type, fname, instruction, deck_name=deck
-            )
+            if is_global:
+                self._config.set_field_instruction(self._current_note_type, fname, instruction)
+            else:
+                for deck_name in target_decks:
+                    self._config.set_field_instruction(
+                        self._current_note_type,
+                        fname,
+                        instruction,
+                        deck_name=deck_name,
+                    )
 
     def save(self) -> None:
         """Save current note type's field instructions."""
