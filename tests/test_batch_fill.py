@@ -175,7 +175,7 @@ class TestBatchFiller:
     @patch(_HTTP_URLOPEN)
     @patch("ai_field_filler.field_filler.mw")
     def test_progress_callback(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
-        """Progress callback is called for each note."""
+        """Progress callback is called before and after each note."""
         fields1 = {"Front": "hello", "Back": ""}
         fields2 = {"Front": "world", "Back": ""}
         note1, _ = _make_mock_note(1, fields1)
@@ -193,11 +193,20 @@ class TestBatchFiller:
             on_progress=progress_calls.append,
         )
 
-        assert len(progress_calls) == 2
-        assert progress_calls[0].completed == 1
-        assert progress_calls[1].completed == 2
-        assert progress_calls[1].total == 2
-        assert progress_calls[1].eta_seconds >= 0
+        # 4 calls: "starting" + "done" for each of the 2 notes
+        assert len(progress_calls) == 4
+        # Before note 1
+        assert progress_calls[0].completed == 0
+        assert progress_calls[0].current_note_preview == "hello"
+        # After note 1
+        assert progress_calls[1].completed == 1
+        # Before note 2
+        assert progress_calls[2].completed == 1
+        assert progress_calls[2].current_note_preview == "world"
+        # After note 2
+        assert progress_calls[3].completed == 2
+        assert progress_calls[3].total == 2
+        assert progress_calls[3].eta_seconds >= 0
 
 
 class TestBatchDataclasses:

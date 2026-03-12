@@ -418,6 +418,9 @@ class BatchFiller:
             note_type_name = note.note_type()["name"]
             preview = self._note_preview(note)
 
+            # Show which note we're about to process
+            self._report_progress(on_progress, idx, result.total, note, start)
+
             # Determine which target fields are actually blank for this note
             blank_targets = [f for f in target_fields if not note[f].strip()]
             if not blank_targets:
