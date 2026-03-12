@@ -7,7 +7,10 @@ optional user prompts. Supports text, audio (TTS), and image generation.
 
 import sys
 
-from aqt import mw
+try:
+    from aqt import mw
+except ImportError:
+    mw = None  # Running outside Anki (e.g. pytest)
 
 
 def start_addon() -> None:
