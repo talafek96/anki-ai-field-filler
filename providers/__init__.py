@@ -183,18 +183,39 @@ def _fetch_google_models(
         if "/" in name:
             name = name.split("/", 1)[1]
         methods = m.get("supportedGenerationMethods", [])
-        can_generate = "generateContent" in methods
-        nl = name.lower()
-        if capability == "image" and _is_google_image_model(nl):
-            # Image models may not list generateContent in methods
-            models.append(name)
-        elif capability == "tts" and can_generate and "tts" in nl:
-            models.append(name)
-        elif capability == "text" and can_generate and not _is_google_image_model(nl) and "tts" not in nl:
+        cap = _classify_google_model(m, methods)
+        if cap == capability:
             models.append(name)
     return sorted(models)
 
 
-def _is_google_image_model(name_lower: str) -> bool:
-    """Check if a Google model name indicates an image-generation model."""
-    return "image" in name_lower or "imagen" in name_lower
+def _classify_google_model(model: dict, methods: List[str]) -> str | None:
+    """Classify a Google model as 'text', 'tts', 'image', or None.
+
+    Uses description and displayName (the most reliable metadata the
+    API exposes) with model name as a fallback.  Returns None for
+    models that don't support generateContent or don't match any
+    category we care about (e.g. embeddings, video, robotics).
+    """
+    desc = model.get("description", "").lower()
+    display = model.get("displayName", "").lower()
+    name = model.get("name", "").lower()
+    searchable = f"{desc} {display} {name}"
+
+    # Image generation models (Nano Banana, Imagen, …)
+    image_signals = ("image generation", "image editing",
+                     "imagen", "nano banana", "native image")
+    if any(s in searchable for s in image_signals):
+        return "image"
+
+    # TTS / speech-generation models
+    tts_signals = ("text-to-speech", "text to speech", "tts",
+                   "speech generation", "speech synthesis")
+    if any(s in searchable for s in tts_signals):
+        return "tts"
+
+    # Everything else that supports generateContent is a text model
+    if "generateContent" in methods:
+        return "text"
+
+    return None
