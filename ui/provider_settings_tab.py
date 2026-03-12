@@ -413,11 +413,12 @@ class ProviderSettingsTab(QWidget):
                     )
                 )
             except Exception as e:
+                err_msg = str(e)
                 from aqt import mw
 
                 mw.taskman.run_on_main(
                     lambda: self._on_models_fetched(
-                        ptype, capability, target, [], str(e)
+                        ptype, capability, target, [], err_msg
                     )
                 )
 
