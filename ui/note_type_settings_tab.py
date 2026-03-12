@@ -64,101 +64,131 @@ class _ResizeHandle(QWidget):
             event.accept()  # type: ignore[union-attr]
 
 
-class _DeckScopeWidget(QWidget):
-    """Collapsible deck scope selector with a radio toggle and checkable deck list."""
+class _DeckScopeCombo(QComboBox):
+    """Compact dropdown with checkable deck items for multi-deck selection.
+
+    First item is always "All Decks (Global)". When it is checked (or no
+    specific deck is checked) the scope is global. Otherwise the scope
+    consists of every checked deck.
+    """
 
     scope_changed = pyqtSignal()
 
+    _GLOBAL_LABEL = "All Decks (Global)"
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        self.setMinimumWidth(220)
+        self.setToolTip(
+            "Select which decks these instructions apply to.\n"
+            "Leave on 'All Decks' for global instructions, or\n"
+            "check specific decks for overrides."
+        )
 
-        # Radio buttons
-        self._radio_global = QRadioButton("All Decks (Global)")
-        self._radio_global.setChecked(True)
-        self._radio_global.setToolTip("Instructions apply to every deck")
-        self._radio_decks = QRadioButton("Specific Decks:")
-        self._radio_decks.setToolTip("Instructions only apply to the checked decks below")
-        layout.addWidget(self._radio_global)
-        layout.addWidget(self._radio_decks)
+        self._model = QStandardItemModel(self)
+        self.setModel(self._model)
 
-        # Checkable deck list (hidden when global is selected)
-        self._deck_list = QListWidget()
-        self._deck_list.setMaximumHeight(120)
-        self._deck_list.setVisible(False)
-        self._load_decks()
-        layout.addWidget(self._deck_list)
+        # Global item (always index 0)
+        global_item = QStandardItem(self._GLOBAL_LABEL)
+        global_item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+        global_item.setCheckState(Qt.CheckState.Checked)
+        self._model.appendRow(global_item)
 
-        self.setLayout(layout)
+        # Deck items
+        if mw.col:
+            for deck in sorted(mw.col.decks.all_names_and_ids(), key=lambda d: d.name):
+                item = QStandardItem(deck.name)
+                item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+                item.setCheckState(Qt.CheckState.Unchecked)
+                self._model.appendRow(item)
 
-        self._radio_global.toggled.connect(self._on_radio_toggled)
-        self._radio_decks.toggled.connect(self._on_radio_toggled)
-        self._deck_list.itemChanged.connect(lambda _: self.scope_changed.emit())
+        self._model.itemChanged.connect(self._on_item_changed)
+        self._updating = False
+        self._refresh_display_text()
 
-    def _load_decks(self) -> None:
-        self._deck_list.clear()
-        if not mw.col:
+    def _on_item_changed(self, item: QStandardItem) -> None:
+        if self._updating:
             return
-        for deck in sorted(mw.col.decks.all_names_and_ids(), key=lambda d: d.name):
-            item = QListWidgetItem(deck.name)
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Unchecked)
-            self._deck_list.addItem(item)
+        self._updating = True
 
-    def _on_radio_toggled(self, _checked: bool) -> None:
-        self._deck_list.setVisible(self._radio_decks.isChecked())
+        global_item = self._model.item(0)
+        if item is global_item:
+            # If global was just checked, uncheck all decks
+            if item.checkState() == Qt.CheckState.Checked:
+                for i in range(1, self._model.rowCount()):
+                    self._model.item(i).setCheckState(Qt.CheckState.Unchecked)
+        else:
+            # A deck was toggled — uncheck global if any deck is checked
+            any_deck = any(
+                self._model.item(i).checkState() == Qt.CheckState.Checked
+                for i in range(1, self._model.rowCount())
+            )
+            global_item.setCheckState(
+                Qt.CheckState.Unchecked if any_deck else Qt.CheckState.Checked
+            )
+
+        self._updating = False
+        self._refresh_display_text()
         self.scope_changed.emit()
 
+    def _refresh_display_text(self) -> None:
+        decks = self.checked_decks()
+        if not decks:
+            text = self._GLOBAL_LABEL
+        elif len(decks) == 1:
+            text = decks[0]
+        else:
+            text = f"{len(decks)} decks selected"
+        # Show summary in the collapsed combo text
+        self.setCurrentIndex(-1)
+        self.setEditText(text)
+        self.lineEdit().setReadOnly(True) if self.lineEdit() else None
+
+    def paintEvent(self, event: object) -> None:
+        """Override to show our custom text instead of the current item."""
+        opt = QStyleOptionComboBox()
+        self.initStyleOption(opt)
+        decks = self.checked_decks()
+        if not decks:
+            opt.currentText = self._GLOBAL_LABEL
+        elif len(decks) == 1:
+            opt.currentText = decks[0]
+        else:
+            opt.currentText = f"{len(decks)} decks selected"
+        p = QStylePainter(self)
+        p.drawComplexControl(QStyle.ComplexControl.CC_ComboBox, opt)
+        p.drawControl(QStyle.ControlElement.CE_ComboBoxLabel, opt)
+
     def is_global(self) -> bool:
-        return self._radio_global.isChecked()
+        return self._model.item(0).checkState() == Qt.CheckState.Checked
 
     def checked_decks(self) -> list[str]:
         """Return the list of checked deck names (empty if global)."""
-        if self.is_global():
-            return []
         decks = []
-        for i in range(self._deck_list.count()):
-            item = self._deck_list.item(i)
-            if item and item.checkState() == Qt.CheckState.Checked:
+        for i in range(1, self._model.rowCount()):
+            item = self._model.item(i)
+            if item.checkState() == Qt.CheckState.Checked:
                 decks.append(item.text())
         return decks
 
     def set_scope(self, deck_names: list[str]) -> None:
         """Set the scope — empty list = global, otherwise check those decks."""
-        self._deck_list.blockSignals(True)
+        self._updating = True
+        names_set = set(deck_names)
         if not deck_names:
-            self._radio_global.setChecked(True)
-            # Uncheck all
-            for i in range(self._deck_list.count()):
-                item = self._deck_list.item(i)
-                if item:
-                    item.setCheckState(Qt.CheckState.Unchecked)
+            self._model.item(0).setCheckState(Qt.CheckState.Checked)
+            for i in range(1, self._model.rowCount()):
+                self._model.item(i).setCheckState(Qt.CheckState.Unchecked)
         else:
-            self._radio_decks.setChecked(True)
-            names_set = set(deck_names)
-            for i in range(self._deck_list.count()):
-                item = self._deck_list.item(i)
-                if item:
-                    state = (
-                        Qt.CheckState.Checked
-                        if item.text() in names_set
-                        else Qt.CheckState.Unchecked
-                    )
-                    item.setCheckState(state)
-        self._deck_list.blockSignals(False)
-
-    def selected_deck_for_save(self) -> Optional[str]:
-        """Return the single deck name to save to, or None for global.
-
-        For the multi-deck case, the caller should iterate checked_decks()
-        and save to each one.
-        """
-        if self.is_global():
-            return None
-        decks = self.checked_decks()
-        return decks[0] if len(decks) == 1 else None
+            self._model.item(0).setCheckState(Qt.CheckState.Unchecked)
+            for i in range(1, self._model.rowCount()):
+                item = self._model.item(i)
+                state = (
+                    Qt.CheckState.Checked if item.text() in names_set else Qt.CheckState.Unchecked
+                )
+                item.setCheckState(state)
+        self._updating = False
+        self._refresh_display_text()
 
 
 class NoteTypeSettingsTab(QWidget):
@@ -168,6 +198,11 @@ class NoteTypeSettingsTab(QWidget):
         super().__init__()
         self._config = config
         self._current_note_type: str | None = None
+        # Track the scope that was active when the fields were loaded,
+        # so _save_current_note_type writes to the correct place even
+        # after the dropdown has already changed.
+        self._loaded_scope_global: bool = True
+        self._loaded_scope_decks: list[str] = []
         self._field_widgets: list[tuple[str, QPlainTextEdit, QComboBox, QCheckBox]] = []
         self._setup_ui()
         self._load_note_types()
@@ -199,9 +234,13 @@ class NoteTypeSettingsTab(QWidget):
         right_panel.addWidget(right_label)
 
         # Deck scope selector
-        self._scope_widget = _DeckScopeWidget()
+        scope_row = QHBoxLayout()
+        scope_row.addWidget(QLabel("Scope:"))
+        self._scope_widget = _DeckScopeCombo()
         self._scope_widget.scope_changed.connect(self._on_scope_changed)
-        right_panel.addWidget(self._scope_widget)
+        scope_row.addWidget(self._scope_widget)
+        scope_row.addStretch()
+        right_panel.addLayout(scope_row)
 
         info_label = QLabel(
             "Describe what each field should contain. The AI uses these "
@@ -227,6 +266,8 @@ class NoteTypeSettingsTab(QWidget):
         self.setLayout(layout)
 
     def _on_scope_changed(self) -> None:
+        # Save under the *previous* scope before reloading
+        self._save_current_note_type()
         if self._current_note_type:
             self._load_fields(self._current_note_type)
 
@@ -260,6 +301,10 @@ class NoteTypeSettingsTab(QWidget):
         return decks[0] if decks else None
 
     def _load_fields(self, note_type_name: str) -> None:
+        # Snapshot the current scope so save writes to the right place
+        self._loaded_scope_global = self._scope_widget.is_global()
+        self._loaded_scope_decks = list(self._scope_widget.checked_decks())
+
         self._field_widgets.clear()
         while self._fields_layout.count():
             item = self._fields_layout.takeAt(0)
@@ -329,11 +374,8 @@ class NoteTypeSettingsTab(QWidget):
             self._field_widgets.append((fname, instruction_edit, type_combo, auto_fill_check))
 
     def _save_current_note_type(self) -> None:
-        if not self._current_note_type:
+        if not self._current_note_type or not self._field_widgets:
             return
-
-        target_decks = self._scope_widget.checked_decks()
-        is_global = self._scope_widget.is_global()
 
         for fname, instr_edit, type_combo, auto_check in self._field_widgets:
             instruction = FieldInstruction(
@@ -341,10 +383,10 @@ class NoteTypeSettingsTab(QWidget):
                 field_type=type_combo.currentData(),
                 auto_fill=auto_check.isChecked(),
             )
-            if is_global:
+            if self._loaded_scope_global:
                 self._config.set_field_instruction(self._current_note_type, fname, instruction)
             else:
-                for deck_name in target_decks:
+                for deck_name in self._loaded_scope_decks:
                     self._config.set_field_instruction(
                         self._current_note_type,
                         fname,
