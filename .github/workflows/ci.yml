@@ -20,6 +20,13 @@ jobs:
       - name: Install dev dependencies
         run: uv sync --group dev
 
+      # The repo is anki-ai-field-filler but imports need ai_field_filler.
+      # Symlink + PYTHONPATH so both tools and imports resolve correctly.
+      - name: Setup package path
+        run: |
+          ln -sfn "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/../ai_field_filler"
+          echo "PYTHONPATH=$GITHUB_WORKSPACE/.." >> "$GITHUB_ENV"
+
       - name: Ruff check
         run: uv run ruff check .
 
@@ -27,7 +34,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Mypy
-        run: uv run mypy .
+        run: uv run mypy --package ai_field_filler
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -44,6 +51,11 @@ jobs:
 
       - name: Install dev dependencies
         run: uv sync --group dev
+
+      - name: Setup package path
+        run: |
+          ln -sfn "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/../ai_field_filler"
+          echo "PYTHONPATH=$GITHUB_WORKSPACE/.." >> "$GITHUB_ENV"
 
       - name: Run tests
         run: uv run pytest tests/ -v

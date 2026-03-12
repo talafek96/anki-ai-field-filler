@@ -1,7 +1,3 @@
-[build-system]
-requires = ["setuptools>=64"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "ai-field-filler"
 version = "0.1.0"
@@ -14,14 +10,6 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.0",
 ]
-
-# The repo root IS the ai_field_filler package.  Map it explicitly
-# so editable installs work even when the repo dir has a different name.
-[tool.setuptools.package-dir]
-"ai_field_filler" = "."
-
-[tool.setuptools.packages]
-find = {}
 
 # --------------------------------------------------------------------------
 # Ruff
