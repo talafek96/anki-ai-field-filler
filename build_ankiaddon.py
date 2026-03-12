@@ -32,7 +32,7 @@ EXCLUDE_FILES = {
     ".gitignore",
     "AGENTS.md",
     "build_ankiaddon.py",
-    "ankiweb_listing.html",
+    "ankiweb_listing.md",
     "meta.json",
     ".env",
     ".DS_Store",
