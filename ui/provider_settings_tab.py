@@ -47,8 +47,36 @@ KNOWN_TTS_VOICES = {
 }
 
 
+class _AutoFetchCombo(QComboBox):
+    """``QComboBox`` that emits *popupAboutToShow* before showing the list.
+
+    If a signal handler sets :attr:`_suppress_popup` to ``True``, the
+    popup is *not* opened — the caller is expected to open it later
+    (e.g. after an async model fetch completes).
+    """
+
+    popupAboutToShow = pyqtSignal()
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._suppress_popup = False
+
+    def showPopup(self) -> None:  # noqa: N802 — Qt naming
+        self._suppress_popup = False
+        self.popupAboutToShow.emit()
+        if not self._suppress_popup:
+            super().showPopup()
+
+
 class ModelComboWithRefresh(QWidget):
-    """Editable combo box paired with a compact refresh icon button."""
+    """Editable combo box paired with a compact refresh icon button.
+
+    Emits :pyqt:`modelsRequested` the first time the user opens the
+    dropdown when it contains no items, so the parent can trigger an
+    auto-fetch.
+    """
+
+    modelsRequested = pyqtSignal()
 
     def __init__(
         self,
@@ -61,11 +89,12 @@ class ModelComboWithRefresh(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(4)
 
-        self._combo = QComboBox()
+        self._combo = _AutoFetchCombo()
         self._combo.setEditable(True)
         self._combo.lineEdit().setPlaceholderText(placeholder)
         self._combo.setToolTip(tool_tip)
         self._combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._combo.popupAboutToShow.connect(self._on_popup)
         lay.addWidget(self._combo)
 
         self._refresh_btn = QToolButton()
@@ -76,6 +105,8 @@ class ModelComboWithRefresh(QWidget):
         lay.addWidget(self._refresh_btn)
 
         self.setLayout(lay)
+        self._fetching = False
+        self._pending_popup = False
 
     # -- public helpers --
 
@@ -95,12 +126,25 @@ class ModelComboWithRefresh(QWidget):
         self._combo.addItems(models)
         if current:
             self.setCurrentText(current)
+        if self._pending_popup:
+            self._pending_popup = False
+            if self._combo.count() > 0:
+                self._combo.showPopup()
 
     def refreshButton(self) -> QToolButton:
         return self._refresh_btn
 
     def setRefreshing(self, busy: bool) -> None:
+        self._fetching = busy
         self._refresh_btn.setEnabled(not busy)
+
+    # -- auto-fetch on empty popup --
+
+    def _on_popup(self) -> None:
+        if self._combo.count() == 0 and not self._fetching:
+            self._combo._suppress_popup = True
+            self._pending_popup = True
+            self.modelsRequested.emit()
 
 
 # -----------------------------------------------------------------------
@@ -113,8 +157,6 @@ class ProviderSettingsTab(QWidget):
         super().__init__()
         self._config = config
         self._current_provider = "openai"
-        # Cache fetched models per provider: {"openai": {"text": [...], "tts": [...], ...}}
-        self._model_cache: dict[str, dict[str, List[str]]] = {}
         self._setup_ui()
         self._load_provider("openai")
 
@@ -206,6 +248,10 @@ class ProviderSettingsTab(QWidget):
             self._text_model_combo.refreshButton().clicked,
             lambda: self._fetch_models("text"),
         )
+        qconnect(
+            self._text_model_combo.modelsRequested,
+            lambda: self._fetch_models("text"),
+        )
         mf.addRow("Text Model:", self._text_model_combo)
 
         self._max_tokens_spin = QSpinBox()
@@ -224,6 +270,10 @@ class ProviderSettingsTab(QWidget):
             self._tts_model_combo.refreshButton().clicked,
             lambda: self._fetch_models("tts"),
         )
+        qconnect(
+            self._tts_model_combo.modelsRequested,
+            lambda: self._fetch_models("tts"),
+        )
         mf.addRow(self._tts_model_label, self._tts_model_combo)
 
         self._tts_voice_label = QLabel("TTS Voice:")
@@ -240,6 +290,10 @@ class ProviderSettingsTab(QWidget):
         )
         qconnect(
             self._image_model_combo.refreshButton().clicked,
+            lambda: self._fetch_models("image"),
+        )
+        qconnect(
+            self._image_model_combo.modelsRequested,
             lambda: self._fetch_models("image"),
         )
         mf.addRow(self._image_model_label, self._image_model_combo)
@@ -309,8 +363,8 @@ class ProviderSettingsTab(QWidget):
         self._show_key_check.setChecked(False)
         self._max_tokens_spin.setValue(cfg.max_tokens)
 
-        # Restore cached model lists (or clear if none were fetched)
-        cached = self._model_cache.get(ptype, {})
+        # Restore cached model lists (persistent across sessions)
+        cached = self._config.get_all_cached_models(ptype)
         for capability, combo in [
             ("text", self._text_model_combo),
             ("tts", self._tts_model_combo),
@@ -424,10 +478,8 @@ class ProviderSettingsTab(QWidget):
         if error:
             tooltip(f"Failed to fetch models: {error}", parent=self)
         elif models:
-            # Cache the results for this provider + capability
-            if ptype not in self._model_cache:
-                self._model_cache[ptype] = {}
-            self._model_cache[ptype][capability] = models
+            # Persist the results for this provider + capability
+            self._config.set_cached_models(ptype, capability, models)
             combo.setModels(models)
             tooltip(f"Loaded {len(models)} model(s).", parent=self)
         else:
