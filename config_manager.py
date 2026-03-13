@@ -330,3 +330,31 @@ class ConfigManager:
             "default_user_prompt": settings.default_user_prompt,
             "show_fill_dialog": settings.show_fill_dialog,
         }
+
+    # --- Settings export / import ---
+
+    _EXPORTABLE_KEYS = (
+        "providers",
+        "active_providers",
+        "note_type_field_instructions",
+        "deck_field_instructions",
+        "general",
+    )
+
+    def get_exportable_config(self) -> Dict[str, Any]:
+        """Return a deep copy of the config containing only exportable keys."""
+        return {
+            key: copy.deepcopy(self._config[key])
+            for key in self._EXPORTABLE_KEYS
+            if key in self._config
+        }
+
+    def import_config(self, data: Dict[str, Any]) -> None:
+        """Merge *data* into the live config (does **not** call :meth:`write`).
+
+        Only keys listed in :attr:`_EXPORTABLE_KEYS` are accepted; unknown
+        keys are silently ignored.
+        """
+        for key in self._EXPORTABLE_KEYS:
+            if key in data:
+                self._config[key] = copy.deepcopy(data[key])
