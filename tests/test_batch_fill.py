@@ -131,9 +131,12 @@ class TestBatchFiller:
         assert result.succeeded == 1
         mock_urlopen.assert_not_called()
 
+    @patch("ai_field_filler.providers.http.time.sleep")
     @patch(_HTTP_URLOPEN)
     @patch("ai_field_filler.field_filler.mw")
-    def test_error_collected_not_fatal(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+    def test_error_collected_not_fatal(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock, _mock_sleep: MagicMock
+    ) -> None:
         """Errors are collected without crashing the batch."""
         fields = {"Front": "hello", "Back": ""}
         note, _ = _make_mock_note(1, fields)
