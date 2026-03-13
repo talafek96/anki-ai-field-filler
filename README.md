@@ -19,6 +19,7 @@ An Anki addon that uses AI (LLM-based) to intelligently auto-fill blank note fie
   - Right-click in the browser for batch fill
   - Configurable keyboard shortcuts
 - **Dynamic model selection** — Model dropdowns with a refresh button that fetches available models from the provider's API, cached per provider
+- **Settings export/import** — Export all settings to a portable file for backup or transfer between computers, with optional password-based API key encryption
 - **Comfortable settings UI** — Tabbed settings dialog with provider config, note type instructions, and general settings
 - **Inline configuration** — Right-click any field to quickly set its AI instructions
 - **Text-to-speech** — Automatically generates audio files for audio fields (OpenAI TTS, Google Gemini TTS); note context is passed to the TTS engine for accurate pronunciation
@@ -124,6 +125,18 @@ Fill blank fields across many notes at once from the card browser:
 5. **Review** — A side-by-side diff view shows before/after for every note. Each "After" panel is editable (WYSIWYG for HTML, inline audio preview with play buttons). You can accept or reject individual notes with checkboxes.
 6. **Apply** — Only checked notes are written back to the collection. A summary dialog shows success/failure counts and total elapsed time.
 
+### Export / Import Settings
+
+Transfer your settings between computers or back them up:
+
+1. Open **Tools → AI Field Filler → Settings...**
+2. Click **"Export Settings..."** at the bottom of the dialog
+3. Optionally enter a password to encrypt your API keys (leave blank to export without encryption)
+4. Choose a save location — the file uses the `.aiff-settings` extension
+5. To import: click **"Import Settings..."**, select a file, enter the password if encrypted, and confirm
+
+Exported files include provider configs, active provider selections, all note type instructions, deck-specific overrides, and general settings. API keys are encrypted using PBKDF2-based key derivation when a password is provided.
+
 ## How It Works
 
 1. When you trigger a fill action, the addon gathers:
@@ -146,6 +159,7 @@ ai_field_filler/
 ├── config.md                  # Configuration documentation
 ├── config_manager.py          # Typed config wrapper (singleton)
 ├── field_filler.py            # Core orchestrator (single + batch)
+├── settings_io.py             # Settings export/import + encryption
 ├── media_handler.py           # Audio/image media management
 ├── editor_hooks.py            # Editor toolbar + context menu
 ├── browser_hooks.py           # Browser batch fill integration
@@ -182,7 +196,8 @@ ai_field_filler/
     ├── test_providers.py      # Factory functions + model classifiers
     ├── test_provider_generate.py  # Provider methods (mocked HTTP)
     ├── test_http.py           # Shared HTTP helper tests
-    └── test_fetch_models.py   # Model fetching + connection test
+    ├── test_fetch_models.py   # Model fetching + connection test
+    └── test_settings_io.py    # Settings export/import + encryption
 ```
 
 ## Requirements
