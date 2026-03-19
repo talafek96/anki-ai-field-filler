@@ -105,3 +105,35 @@ class TestBuildUserPrompt:
         assert "- A" in prompt
         assert "- B" in prompt
         assert "C: filled" in prompt
+
+    def test_rich_type_hint_in_fields_to_fill(self, filler) -> None:
+        instructions = {
+            "Notes": FieldInstruction(
+                instruction="mixed content with text and images",
+                field_type="rich",
+            ),
+        }
+        prompt = filler._build_user_prompt(
+            note_type_name="Test",
+            field_values={"Notes": ""},
+            field_instructions=instructions,
+            target_fields=["Notes"],
+            user_prompt="",
+        )
+        assert "Notes (expected type: rich)" in prompt
+
+    def test_rich_type_bracket_in_instructions(self, filler) -> None:
+        instructions = {
+            "Notes": FieldInstruction(
+                instruction="definition with illustration",
+                field_type="rich",
+            ),
+        }
+        prompt = filler._build_user_prompt(
+            note_type_name="Test",
+            field_values={"Notes": ""},
+            field_instructions=instructions,
+            target_fields=["Notes"],
+            user_prompt="",
+        )
+        assert "Notes [rich]: definition with illustration" in prompt

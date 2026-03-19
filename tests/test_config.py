@@ -80,7 +80,7 @@ class TestProviderConfig:
 
 class TestFieldTypes:
     def test_field_types_tuple(self) -> None:
-        assert FIELD_TYPES == ("auto", "text", "audio", "image")
+        assert FIELD_TYPES == ("auto", "text", "audio", "image", "rich")
 
 
 # ---------------------------------------------------------------------------

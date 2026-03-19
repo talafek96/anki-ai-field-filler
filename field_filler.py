@@ -34,24 +34,36 @@ this structure:
     "FieldName": {"content": "generated content", "type": "text"},
     "OtherField": {"content": "text to be spoken aloud", "type": "audio"},
     "ImageField": {"content": "image generation prompt", "type": "image"},
-    "RichField": {"content": "text with definition", "type": "text", \
-"image_prompt": "a helpful illustration of the concept"},
+    "RichField": {"content": "Definition of the word\\n\
+{{IMAGE: a helpful illustration of the concept}}\\n\
+Pronunciation:\\n{{AUDIO: the word spoken aloud}}", "type": "rich"},
     "SkippedField": null
   }
 }
 
+INLINE MEDIA FLAGS:
+You can embed images and audio anywhere inside a field's content using \
+these flags:
+- {{IMAGE: descriptive prompt for image generation}} — will be replaced \
+with a generated image
+- {{AUDIO: exact text to be spoken aloud}} — will be replaced with a \
+TTS audio clip
+Place flags exactly where you want the media to appear in the field. \
+You may use multiple flags in a single field. These flags work in ANY \
+field type (text, rich, or auto).
+
 RULES:
 - Only include fields listed under "Fields to Fill"
-- For "text" type: provide the actual text/HTML content for the field
+- For "text" type: provide the actual text/HTML content for the field. \
+You may include {{IMAGE: ...}} or {{AUDIO: ...}} flags inline if media \
+would help the learner.
 - For "audio" type: provide the exact text that should be spoken aloud \
-for TTS synthesis
+for TTS synthesis (the entire field becomes an audio file)
 - For "image" type: provide a descriptive prompt for image generation \
 (the entire field will be an image)
-- Any field of type "text" may OPTIONALLY include an "image_prompt" key. \
-If you believe a small illustration would significantly help the learner \
-understand or remember the content, include an "image_prompt" with a \
-descriptive prompt for image generation. The image will be appended below \
-the text in the same field. Only add an image when it genuinely adds value.
+- For "rich" type: provide content that freely mixes text with inline \
+{{IMAGE: ...}} and {{AUDIO: ...}} flags. Use this when a field benefits \
+from interleaved text, images, and audio.
 - Set a field to null if you cannot meaningfully fill it or it seems \
 irrelevant given the context
 - Use the filled fields and field instructions as context to generate \
@@ -148,6 +160,15 @@ class FieldFiller:
                                 results[field_name] = MediaHandler.save_image(img_bytes, field_name)
                             else:
                                 results[field_name] = None
+                        elif ftype == "rich" or self._has_flags(content):
+                            html, errs = self._render_rich_content(
+                                content,
+                                field_name,
+                                field_data,
+                                tts_context=tts_context,
+                            )
+                            field_errors.extend(errs)
+                            results[field_name] = html
                         else:
                             html = self._to_html(content)
                             # Handle optional inline image for text fields
@@ -323,6 +344,85 @@ class FieldFiller:
         if "<br" in text or "<p>" in text or "<div>" in text:
             return text
         return text.replace("\n", "<br>")
+
+    _FLAG_RE = re.compile(r"\{\{(IMAGE|AUDIO):\s*(.*?)\}\}", re.DOTALL)
+
+    def _render_flags(
+        self,
+        content: str,
+        field_name: str,
+        tts_context: str = "",
+    ) -> tuple[str, List[str]]:
+        """Replace ``{{IMAGE: …}}`` / ``{{AUDIO: …}}`` flags with generated media.
+
+        Returns ``(rendered_html, errors)`` where *errors* lists any flags
+        whose media generation failed (the flag is removed from the output).
+        """
+        errors: List[str] = []
+        flag_idx = 0
+
+        def _replace_flag(match: re.Match) -> str:  # type: ignore[type-arg]
+            nonlocal flag_idx
+            flag_idx += 1
+            kind = match.group(1)  # IMAGE or AUDIO
+            payload = match.group(2).strip()
+            if not payload:
+                return ""
+
+            part_name = f"{field_name}_p{flag_idx}"
+            try:
+                if kind == "IMAGE":
+                    img_config = self._config.get_active_image_provider()
+                    if img_config:
+                        img_prov = create_image_provider(img_config)
+                        img_bytes = img_prov.generate_image(payload)
+                        return MediaHandler.save_image(img_bytes, part_name)
+                    return ""
+                else:  # AUDIO
+                    tts_config = self._config.get_active_tts_provider()
+                    if tts_config:
+                        tts = create_tts_provider(tts_config)
+                        audio_bytes = tts.synthesize(payload, context=tts_context)
+                        return MediaHandler.save_audio(audio_bytes, part_name)
+                    return ""
+            except Exception as e:
+                errors.append(f"{field_name} ({kind.lower()} flag, prompt: {payload!r}): {e}")
+                return ""
+
+        rendered = self._FLAG_RE.sub(_replace_flag, content)
+        rendered = self._to_html(rendered)
+        return rendered, errors
+
+    def _has_flags(self, content: str) -> bool:
+        """Return True if *content* contains any media flags."""
+        return self._FLAG_RE.search(content) is not None
+
+    def _render_rich_content(
+        self,
+        content: str,
+        field_name: str,
+        field_data: Dict[str, Any],
+        tts_context: str = "",
+    ) -> tuple[str, List[str]]:
+        """Render content with inline media flags and optional legacy *image_prompt*.
+
+        Returns ``(html, errors)`` where *errors* lists any media operations
+        that failed.
+        """
+        html, errors = self._render_flags(content, field_name, tts_context=tts_context)
+        # Also honour legacy image_prompt if present
+        image_prompt = field_data.get("image_prompt", "")
+        if image_prompt:
+            try:
+                img_config = self._config.get_active_image_provider()
+                if img_config:
+                    img_prov = create_image_provider(img_config)
+                    img_bytes = img_prov.generate_image(image_prompt)
+                    img_tag = MediaHandler.save_image(img_bytes, field_name)
+                    html = f"{html}<br><br>{img_tag}"
+            except Exception as img_err:
+                errors.append(f"{field_name} (inline image, prompt: {image_prompt!r}): {img_err}")
+        return html, errors
 
     @staticmethod
     def _apply_results(editor: Editor, results: Dict[str, Optional[str]]) -> None:
@@ -590,6 +690,14 @@ class BatchFiller:
                         img_prov = create_image_provider(img_config)
                         img_bytes = img_prov.generate_image(content)
                         changes[field_name] = MediaHandler.save_image(img_bytes, field_name)
+                elif ftype == "rich" or self._filler._has_flags(content):
+                    html, errs = self._filler._render_rich_content(
+                        content, field_name, field_data, tts_context=tts_context
+                    )
+                    if errs:
+                        field_errors[field_name] = "; ".join(errs)
+                    if html:
+                        changes[field_name] = html
                 else:
                     html = FieldFiller._to_html(content)
                     image_prompt = field_data.get("image_prompt", "")
