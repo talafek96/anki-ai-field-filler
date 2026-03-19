@@ -542,3 +542,323 @@ class TestPartialFieldFailure:
         assert "Definition" in prop.field_errors
         assert "inline image failed" in prop.field_errors["Definition"]
         assert "waving hand" in prop.field_errors["Definition"]
+
+
+class TestRichFieldBatch:
+    """Integration tests for rich/flag-based fields through the batch pipeline."""
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_rich_field_text_only_flags(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+        """Rich field with no providers configured — flags removed, text kept."""
+        fields = {"Front": "hello", "Notes": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response(
+            {
+                "Notes": {
+                    "content": "Meaning\n\n{{IMAGE: a cat}}\n\nMore text",
+                    "type": "rich",
+                }
+            }
+        )
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
+
+        assert result.succeeded == 1
+        prop = result.proposals[0]
+        assert prop.success is True
+        assert "Notes" in prop.changes
+        html = prop.changes["Notes"]
+        # Flags removed (no provider), text and newlines rendered
+        assert "{{IMAGE" not in html
+        assert "Meaning" in html
+        assert "More text" in html
+        assert "<br>" in html
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_rich_field_with_image_provider(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
+        """Rich field with image flag — image generated and inlined."""
+        fields = {"Front": "hello", "Notes": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response(
+            {
+                "Notes": {
+                    "content": "Definition\n{{IMAGE: illustration}}\nEnd",
+                    "type": "rich",
+                }
+            }
+        )
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        img_cfg = ProviderConfig(
+            provider_type="openai",
+            api_url="https://fake.test/v1",
+            api_key="test-key",
+            text_model="gpt-4o",
+            max_tokens=4096,
+            image_model="dall-e-3",
+        )
+        filler._config.get_active_image_provider.return_value = img_cfg
+
+        with (
+            patch("ai_field_filler.field_filler.create_image_provider") as mock_img_factory,
+            patch("ai_field_filler.field_filler.MediaHandler.save_image") as mock_save,
+        ):
+            mock_img_prov = MagicMock()
+            mock_img_prov.generate_image.return_value = b"\x89PNG"
+            mock_img_factory.return_value = mock_img_prov
+            mock_save.return_value = '<img src="ai_filler_pic.png">'
+
+            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
+
+        prop = result.proposals[0]
+        assert prop.success is True
+        html = prop.changes["Notes"]
+        assert '<img src="ai_filler_pic.png">' in html
+        assert "Definition" in html
+        assert "End" in html
+        mock_img_prov.generate_image.assert_called_once_with("illustration")
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_text_field_with_flags_processed(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
+        """A text field that contains flags should still process them."""
+        fields = {"Front": "hello", "Back": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response(
+            {
+                "Back": {
+                    "content": "Answer\n{{IMAGE: diagram}}",
+                    "type": "text",
+                }
+            }
+        )
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        img_cfg = ProviderConfig(
+            provider_type="openai",
+            api_url="https://fake.test/v1",
+            api_key="test-key",
+            text_model="gpt-4o",
+            max_tokens=4096,
+            image_model="dall-e-3",
+        )
+        filler._config.get_active_image_provider.return_value = img_cfg
+
+        with (
+            patch("ai_field_filler.field_filler.create_image_provider") as mock_img_factory,
+            patch("ai_field_filler.field_filler.MediaHandler.save_image") as mock_save,
+        ):
+            mock_img_prov = MagicMock()
+            mock_img_prov.generate_image.return_value = b"\x89PNG"
+            mock_img_factory.return_value = mock_img_prov
+            mock_save.return_value = '<img src="inline.png">'
+
+            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
+
+        prop = result.proposals[0]
+        html = prop.changes["Back"]
+        assert '<img src="inline.png">' in html
+        assert "Answer" in html
+        assert "{{IMAGE" not in html
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_rich_field_flag_failure_keeps_text(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
+        """When a flag's media generation fails, text is kept and error reported."""
+        fields = {"Front": "hello", "Notes": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response(
+            {
+                "Notes": {
+                    "content": "Intro\n{{IMAGE: bad prompt}}\nConclusion",
+                    "type": "rich",
+                }
+            }
+        )
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        img_cfg = ProviderConfig(
+            provider_type="openai",
+            api_url="https://fake.test/v1",
+            api_key="test-key",
+            text_model="gpt-4o",
+            max_tokens=4096,
+            image_model="dall-e-3",
+        )
+        filler._config.get_active_image_provider.return_value = img_cfg
+
+        with patch("ai_field_filler.field_filler.create_image_provider") as mock_img_factory:
+            mock_img_prov = MagicMock()
+            mock_img_prov.generate_image.side_effect = ProviderError("content policy")
+            mock_img_factory.return_value = mock_img_prov
+
+            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
+
+        prop = result.proposals[0]
+        assert prop.success is True
+        html = prop.changes["Notes"]
+        # Text kept, flag removed
+        assert "Intro" in html
+        assert "Conclusion" in html
+        assert "{{IMAGE" not in html
+        # Error recorded
+        assert "Notes" in prop.field_errors
+        assert "content policy" in prop.field_errors["Notes"]
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_plain_text_without_flags_unchanged(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
+        """Regular text fields without flags work exactly as before."""
+        fields = {"Front": "hello", "Back": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response({"Back": {"content": "plain answer", "type": "text"}})
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
+
+        prop = result.proposals[0]
+        assert prop.changes == {"Back": "plain answer"}
+        assert prop.field_errors == {}
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_rich_with_audio_flag(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+        """Rich field with audio flag — TTS generated inline."""
+        fields = {"Front": "hello", "Notes": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response(
+            {
+                "Notes": {
+                    "content": "Pronunciation:\n{{AUDIO: konnichiwa}}",
+                    "type": "rich",
+                }
+            }
+        )
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        tts_cfg = ProviderConfig(
+            provider_type="openai",
+            api_url="https://fake.test/v1",
+            api_key="test-key",
+            text_model="gpt-4o",
+            max_tokens=4096,
+            tts_model="tts-1",
+            tts_voice="alloy",
+        )
+        filler._config.get_active_tts_provider.return_value = tts_cfg
+
+        with (
+            patch("ai_field_filler.field_filler.create_tts_provider") as mock_tts_factory,
+            patch("ai_field_filler.field_filler.MediaHandler.save_audio") as mock_save,
+        ):
+            mock_tts_prov = MagicMock()
+            mock_tts_prov.synthesize.return_value = b"\xff\xfb" + b"\x00" * 50
+            mock_tts_factory.return_value = mock_tts_prov
+            mock_save.return_value = "[sound:ai_filler_voice.mp3]"
+
+            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
+
+        prop = result.proposals[0]
+        html = prop.changes["Notes"]
+        assert "[sound:ai_filler_voice.mp3]" in html
+        assert "Pronunciation:" in html
+        assert "{{AUDIO" not in html
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_multiple_flag_errors_all_preserved(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
+        """When multiple flags fail, all errors should be reported (not just the last)."""
+        fields = {"Front": "hello", "Notes": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response(
+            {
+                "Notes": {
+                    "content": "Start\n{{IMAGE: bad pic}}\nMiddle\n{{AUDIO: bad speech}}\nEnd",
+                    "type": "rich",
+                }
+            }
+        )
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        img_cfg = ProviderConfig(
+            provider_type="openai",
+            api_url="https://fake.test/v1",
+            api_key="test-key",
+            text_model="gpt-4o",
+            max_tokens=4096,
+            image_model="dall-e-3",
+        )
+        tts_cfg = ProviderConfig(
+            provider_type="openai",
+            api_url="https://fake.test/v1",
+            api_key="test-key",
+            text_model="gpt-4o",
+            max_tokens=4096,
+            tts_model="tts-1",
+            tts_voice="alloy",
+        )
+        filler._config.get_active_image_provider.return_value = img_cfg
+        filler._config.get_active_tts_provider.return_value = tts_cfg
+
+        with (
+            patch("ai_field_filler.field_filler.create_image_provider") as mock_img_factory,
+            patch("ai_field_filler.field_filler.create_tts_provider") as mock_tts_factory,
+        ):
+            mock_img_prov = MagicMock()
+            mock_img_prov.generate_image.side_effect = ProviderError("image policy")
+            mock_img_factory.return_value = mock_img_prov
+
+            mock_tts_prov = MagicMock()
+            mock_tts_prov.synthesize.side_effect = ProviderError("TTS quota")
+            mock_tts_factory.return_value = mock_tts_prov
+
+            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
+
+        prop = result.proposals[0]
+        assert prop.success is True
+        html = prop.changes["Notes"]
+        # Text preserved, flags removed
+        assert "Start" in html
+        assert "Middle" in html
+        assert "End" in html
+        assert "{{IMAGE" not in html
+        assert "{{AUDIO" not in html
+        # Both errors reported in the same field_errors entry
+        assert "Notes" in prop.field_errors
+        error_str = prop.field_errors["Notes"]
+        assert "image policy" in error_str
+        assert "TTS quota" in error_str

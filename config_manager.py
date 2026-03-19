@@ -28,7 +28,7 @@ class ProviderConfig:
         return self.api_url.rstrip("/")
 
 
-FIELD_TYPES = ("auto", "text", "audio", "image")
+FIELD_TYPES = ("auto", "text", "audio", "image", "rich")
 """Valid values for :attr:`FieldInstruction.field_type`."""
 
 

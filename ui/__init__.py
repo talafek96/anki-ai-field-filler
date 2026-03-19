@@ -10,7 +10,8 @@ _TYPE_TOOLTIP = (
     "auto: let the AI decide the best type\n"
     "text: plain text or HTML content\n"
     "audio: generate TTS audio file\n"
-    "image: generate an image"
+    "image: generate an image\n"
+    "rich: mixed content with text, images, and audio"
 )
 
 _AUTO_FILL_TOOLTIP = "When checked, this field will be included when using 'Fill All Blank Fields'."
