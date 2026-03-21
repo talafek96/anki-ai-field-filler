@@ -1,0 +1,39 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute and push version tag
+        run: |
+          TODAY=$(date -u +%Y.%m.%d)
+          EXISTING=$(git tag -l "v${TODAY}" "v${TODAY}-*" | sort -V)
+          if [ -z "$EXISTING" ]; then
+            TAG="v${TODAY}"
+          else
+            LAST=$(echo "$EXISTING" | tail -1)
+            if [ "$LAST" = "v${TODAY}" ]; then
+              TAG="v${TODAY}-1"
+            else
+              N=$(echo "$LAST" | sed "s/v${TODAY}-//")
+              TAG="v${TODAY}-$((N + 1))"
+            fi
+          fi
+          echo "Tagging: $TAG"
+          git tag "$TAG"
+          git push origin "$TAG"
