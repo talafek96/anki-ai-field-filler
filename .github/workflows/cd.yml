@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  tag:
+  release:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -20,6 +20,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compute and push version tag
+        id: tag
         run: |
           TODAY=$(date -u +%Y.%m.%d)
           EXISTING=$(git tag -l "v${TODAY}" "v${TODAY}-*" | sort -V)
@@ -37,3 +38,21 @@ jobs:
           echo "Tagging: $TAG"
           git tag "$TAG"
           git push origin "$TAG"
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build .ankiaddon package
+        run: python build_ankiaddon.py
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.tag.outputs.version }}" \
+            ai_field_filler.ankiaddon \
+            --title "${{ steps.tag.outputs.version }}" \
+            --generate-notes
