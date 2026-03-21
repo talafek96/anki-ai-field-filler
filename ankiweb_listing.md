@@ -20,64 +20,118 @@ https://github.com/talafek96/anki-ai-field-filler/issues
 
 # Description
 
-**AI Field Filler** uses AI to intelligently auto-fill blank note fields — text, audio (TTS), and images — using context from your already-filled fields and per-field instructions you configure.
+**AI Field Filler** uses AI to intelligently fill blank note fields - text, audio (TTS), and images - based on your existing note content and the per-field instructions you configure.
 
-**100% free and open-source.** Bring your own API key from OpenAI, Anthropic, or Google. No subscription, no middleman, no usage fees beyond what your provider charges. If you already have an API key, you're ready to go.
+**Free and open-source.** Use your own API key from OpenAI, Anthropic, or Google. No subscription, no middleman.
+
+---
+
+# See It in Action
+
+**Fill all blank fields in one go**
+
+<img src="https://raw.githubusercontent.com/talafek96/anki-ai-field-filler/main/assets/fill_all_demo.gif" width="900"><br><br>
+
+**Fill the current field from the right-click menu**
+
+<img src="https://raw.githubusercontent.com/talafek96/anki-ai-field-filler/main/assets/fill_current_right_click_demo.gif" width="900"><br><br>
+
+**Generate image and sound for the current field**
+
+<img src="https://raw.githubusercontent.com/talafek96/anki-ai-field-filler/main/assets/fill_current_img_and_sound_demo.gif" width="900"><br><br>
+
+---
+
+# Why Use It
+
+- Fill missing fields faster without manually copy-pasting prompts
+- Generate text, TTS, and images in one workflow
+- Configure exactly what each field should contain per note type
+- Use different AI providers for different tasks
+- Review batch-generated changes before applying them
+
+---
+
+# Batch Fill Workflow
+
+Select multiple cards in the browser, generate fills for all blank fields, review side-by-side diffs, edit results, and apply only the changes you approve.
+
+<img src="https://raw.githubusercontent.com/talafek96/anki-ai-field-filler/main/assets/batch_fill_demo.gif" width="900"><br><br>
 
 ---
 
 # Features
 
-- **Multi-provider support** — OpenAI (GPT-5, GPT-4o, DALL-E, TTS), Anthropic (Claude), Google (Gemini, Nano Banana, Gemini TTS), and any OpenAI-compatible API
-- **Smart field filling** — The AI decides the best content type for each field (text, audio, or image) and skips irrelevant ones
-- **Batch fill from browser** — Select multiple cards, fill all their blank fields in one go. Full review workflow: configure fields → watch progress with ETA → review side-by-side diffs → edit results → apply only the changes you approve
-- **Text-to-speech** — Generates audio files using OpenAI TTS or Google Gemini TTS, with note context for accurate pronunciation
-- **Image generation** — Generates images using OpenAI DALL-E or Google Nano Banana
-- **Optional inline images** — For text fields, the AI can add a helpful illustration below the text when it aids learning
-- **Per-field instructions** — Describe what each field should contain per note type, giving the AI rich context
-- **Dynamic model selection** — Model dropdowns with a refresh button that fetches available models directly from the provider's API
-- **Mix and match providers** — Use Anthropic for text, OpenAI for TTS, and Google for images — each capability is independent
-- **Multiple activation methods** — Editor toolbar buttons, right-click context menu, browser batch fill, or configurable keyboard shortcuts
-- **Comfortable settings UI** — Tabbed settings dialog for providers, note type instructions, and general settings
+- **Smart field filling** - The AI decides the best content type for each field and skips irrelevant ones
+- **Text generation** - Fill blank text fields using context from your existing fields and instructions
+- **Text-to-speech** - Generate audio using OpenAI TTS or Google Gemini TTS
+- **Image generation** - Generate images using OpenAI DALL-E or Google Nano Banana
+- **Optional inline images** - Add a helpful illustration below generated text when it supports learning
+- **Per-field instructions** - Define what each field should contain for each note type
+- **Batch fill from browser** - Fill many notes at once with progress, diff review, editing, and selective apply
+- **Dynamic model selection** - Refresh model lists directly from each provider
+- **Mix and match providers** - Use different providers for text, TTS, and images independently
+- **Multiple activation methods** - Toolbar buttons, right-click menu, batch fill, and keyboard shortcuts
+- **Comfortable settings UI** - Tabbed settings for providers, note type instructions, and general options
+
+---
 
 # Supported Providers
 
-- **OpenAI** — Text, TTS, Image
-- **Anthropic (Claude)** — Text
-- **Google (Gemini)** — Text, TTS, Image
+- **OpenAI** - Text, TTS, Image
+- **Anthropic (Claude)** - Text
+- **Google (Gemini)** - Text, TTS, Image
 
 Works with any OpenAI-compatible API (Azure OpenAI, local LLMs, etc.) by changing the API URL.
+
+---
+
+# Flexible Configuration
+
+Choose different providers for text, TTS, and images. Configure per-field instructions for each note type, and refresh available models directly from the provider APIs.
+
+<img src="https://raw.githubusercontent.com/talafek96/anki-ai-field-filler/main/assets/settings_demo.gif" width="900"><br><br>
+
+---
 
 # Quick Start
 
 1. Open **Tools → AI Field Filler → Settings...**
 2. Enter your API key for your preferred provider
-3. Click **Test Connection** to verify
+3. Click **Test Connection**
 4. Go to the **Note Types** tab and describe what each field should contain
 5. Open a note in the editor and click **AI Fill All** or press `Ctrl+Shift+G`
+
+---
+
+# Usage
+
+- **Fill All Blank Fields** - toolbar button, right-click menu, or `Ctrl+Shift+G`
+- **Fill Current Field** - toolbar button, right-click menu, or `Ctrl+Shift+F`
+- **Batch Fill** - select cards in the browser → right-click → "AI: Batch fill blank fields" → configure → review diffs → apply
+- **Quick Configure** - right-click any field → "AI: Configure instructions..." to set instructions inline
+
+---
 
 # How It Works
 
 1. When you trigger a fill action, the addon gathers all field values, per-field instructions, and your optional prompt
 2. This context is sent to your AI provider as a structured prompt
 3. The AI returns content for each field, deciding the best type (text, audio, or image)
-4. **Text fields:** content is inserted as HTML; the AI may optionally include a generated illustration
-5. **Audio fields:** text is sent to the TTS provider and saved as a playable sound file
-6. **Image fields:** a generation prompt is sent to the image provider and saved as an image
+4. **Text fields** - content is inserted as HTML; the AI may optionally include a generated illustration
+5. **Audio fields** - text is sent to the TTS provider and saved as a playable sound file
+6. **Image fields** - a generation prompt is sent to the image provider and saved as an image
 7. Fields the AI deems irrelevant are left empty
 
-# Usage
-
-- **Fill All Blank Fields:** toolbar button, right-click menu, or `Ctrl+Shift+G`
-- **Fill Current Field:** toolbar button, right-click menu, or `Ctrl+Shift+F`
-- **Batch Fill:** select cards in the browser → right-click → "AI: Batch fill blank fields" → configure → review diffs → apply
-- **Quick Configure:** right-click any field → "AI: Configure instructions..." to set instructions inline
+---
 
 # Requirements
 
 - Anki 2.1.50 or later (Qt6 recommended)
 - An API key for at least one supported provider (OpenAI, Anthropic, or Google)
 - Internet connection
+
+---
 
 # Support
 
