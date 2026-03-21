@@ -156,6 +156,32 @@ class TestOpenAIImageProvider:
         assert body["output_format"] == "png"
         assert "response_format" not in body
 
+    @patch(_HTTP_POST_JSON)
+    def test_generate_image_fallback_response_format(self, mock_urlopen) -> None:
+        """If the API rejects response_format, retry with output_format."""
+        img_data = b"PNG-image-bytes"
+        b64 = base64.b64encode(img_data).decode()
+        error = urllib.error.HTTPError(
+            "https://api.openai.com",
+            400,
+            "Bad Request",
+            {},
+            BytesIO(b'{"error": {"message": "Unknown parameter: \'response_format\'."}}'),
+        )
+        success_resp = _mock_urlopen(json.dumps({"data": [{"b64_json": b64}]}))
+        mock_urlopen.side_effect = [error, success_resp]
+        cfg = ProviderConfig(**{**_OPENAI_CFG.__dict__, "image_model": "dall-e-3"})
+        provider = OpenAIImageProvider(cfg)
+        result = provider.generate_image("a cat")
+        assert result == img_data
+        assert mock_urlopen.call_count == 2
+        # Retry should use output_format instead
+        retry_req = mock_urlopen.call_args[0][0]
+        retry_body = json.loads(retry_req.data)
+        assert "output_format" in retry_body
+        assert retry_body["output_format"] == "png"
+        assert "response_format" not in retry_body
+
 
 # ---------------------------------------------------------------------------
 # Anthropic provider

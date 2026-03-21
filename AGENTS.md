@@ -57,6 +57,12 @@ GitHub Actions runs on every push/PR to `main`:
 - **Lint**: ruff check, ruff format, mypy (Python 3.12)
 - **Test**: pytest on Python 3.9, 3.12, 3.13
 
+## Config Files
+
+- `config.json` in the repo root is the **defaults** file shipped with the addon
+- The user's actual running config is managed by Anki's addon manager (stored in `meta.json`) and may differ from `config.json`
+- When debugging user-reported issues, check `config.json` to see what defaults are in play
+
 ## Git
 
 - Do NOT include "Generated with Devin" or "Co-Authored-By: Devin" in commit messages

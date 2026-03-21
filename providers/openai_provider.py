@@ -111,6 +111,15 @@ class OpenAIImageProvider(_OpenAIRequestMixin, ImageProvider):
         else:
             payload["response_format"] = "b64_json"
 
-        result = self._request(url, payload, timeout=180)
+        try:
+            result = self._request(url, payload, timeout=180)
+        except ProviderError as e:
+            # Fall back to output_format for models that reject response_format
+            if "response_format" in payload and "response_format" in str(e):
+                payload.pop("response_format")
+                payload["output_format"] = "png"
+                result = self._request(url, payload, timeout=180)
+            else:
+                raise
         b64_data = result["data"][0]["b64_json"]
         return base64.b64decode(b64_data)
