@@ -33,3 +33,7 @@ desktop.ini
 .venv/
 env/
 venv/
+
+# AI
+.devin
+
