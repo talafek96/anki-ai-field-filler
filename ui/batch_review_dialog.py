@@ -37,12 +37,9 @@ _FIELD_ERROR_STYLE = (
     "background: #FEF3C7; border-left: 3px solid #F59E0B; border-radius: 2px;"
 )
 
-_INITIAL_CONTENT_HEIGHT = 100
+_INITIAL_CONTENT_HEIGHT = 200
 
 _SOUND_RE = re.compile(r"\[sound:([^\]]+)\]")
-
-# Display-only CSS applied via setDefaultStyleSheet so images scale to fit.
-_IMG_DISPLAY_CSS = "img { max-width: 100%; height: auto; }"
 
 # Collapse arrow — use a QLabel styled as a button so it doesn't steal focus
 # or exhibit QPushButton repaint quirks.
@@ -223,13 +220,70 @@ class _ResizeHandle(QWidget):
     def mouseReleaseEvent(self, event: object) -> None:
         if self._dragging:
             self._dragging = False
-            h = self._target.height()
-            # Allow the widget to be resized freely in future drags
-            self._target.setMinimumHeight(36)
-            self._target.setMaximumHeight(16777215)
-            # Keep the current height without locking it
-            self._target.resize(self._target.width(), h)
             event.accept()  # type: ignore[union-attr]
+            # Height stays locked via setFixedHeight from mouseMoveEvent.
+            # Next drag starts from the current height via mousePressEvent.
+
+
+# ---------------------------------------------------------------------------
+# QTextEdit with custom image loading (handles JPEG-as-.png, scales to fit)
+# ---------------------------------------------------------------------------
+
+_IMG_MAX_W = 550
+
+
+class _ImageTextEdit(QTextEdit):
+    """QTextEdit that loads and scales images to fit the viewport.
+
+    Overrides ``loadResource`` to load images from Anki's media folder
+    with auto-detected format (handles JPEG saved as .png) and scale
+    them to the current viewport width.
+
+    On resize, the HTML is re-set so ``loadResource`` is called again
+    with the new viewport dimensions, making images dynamic.
+
+    Do NOT use ``setBaseUrl`` with this widget — it bypasses ``loadResource``.
+    """
+
+    def __init__(self, media_dir: str = "", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._media_dir = media_dir
+
+    def setHtml(self, html: str) -> None:  # type: ignore[override]
+        self.document().clear()
+        super().setHtml(html)
+
+    def loadResource(self, rtype: int, url: object) -> object:  # type: ignore[override]
+        if rtype != 2 or not self._media_dir:  # 2 = ImageResource
+            return super().loadResource(rtype, url)  # type: ignore[arg-type]
+        url_str = url.toString() if hasattr(url, "toString") else str(url)
+        basename = url_str.rsplit("/", 1)[-1] if "/" in url_str else url_str
+        filepath = os.path.join(self._media_dir, basename)
+        if not os.path.isfile(filepath):
+            return super().loadResource(rtype, url)  # type: ignore[arg-type]
+        try:
+            from aqt.qt import QImage as _QImage
+
+            img = _QImage()
+            if not img.load(filepath):
+                return super().loadResource(rtype, url)  # type: ignore[arg-type]
+            vp = self.viewport()
+            max_w = (vp.width() - 10) if vp and vp.width() > 50 else _IMG_MAX_W
+            max_h = (vp.height() - 10) if vp and vp.height() > 50 else _INITIAL_CONTENT_HEIGHT
+            # Scale to fit BOTH width and height, preserving aspect ratio
+            scale_w = max_w / img.width() if img.width() > max_w else 1.0
+            scale_h = max_h / img.height() if img.height() > max_h else 1.0
+            scale = min(scale_w, scale_h)
+            if scale < 1.0:
+                img = img.scaled(
+                    max(1, int(img.width() * scale)),
+                    max(1, int(img.height() * scale)),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            return img
+        except Exception:
+            return super().loadResource(rtype, url)  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
@@ -694,11 +748,16 @@ class BatchReviewDialog(QDialog):
         stack = QStackedWidget()
         stack.setFixedHeight(_INITIAL_CONTENT_HEIGHT)
 
-        rendered = QTextEdit()
+        # Page 0: rendered HTML (editable).  Uses _ImageTextEdit which
+        # overrides loadResource to handle JPEG files with .png extension
+        # and to scale images to fit the viewport.
+        media_dir = ""
+        try:
+            media_dir = mw.col.media.dir()
+        except Exception:
+            pass
+        rendered = _ImageTextEdit(media_dir=media_dir)
         rendered.setStyleSheet(_PREVIEW_RENDERED_STYLE)
-        rendered.document().setDefaultStyleSheet(_IMG_DISPLAY_CSS)
-        if self._base_url:
-            rendered.document().setBaseUrl(self._base_url)
         if value.strip():
             rendered.setHtml(value)
         else:
@@ -766,12 +825,8 @@ class BatchReviewDialog(QDialog):
     def _on_toggle_raw(self, raw: bool) -> None:
         self._raw_mode = raw
         page = 1 if raw else 0
-        if raw:
-            for key, rendered in self._rendered_edits.items():
-                if rendered.document().isModified():
-                    self._edits[key].setPlainText(_extract_body_html(rendered.toHtml()))
-                    rendered.document().setModified(False)
-        else:
+        if not raw:
+            # Switching to rendered: update from raw editors
             for key, edit in self._edits.items():
                 rendered = self._rendered_edits[key]
                 text = edit.toPlainText()
@@ -1194,6 +1249,7 @@ class BatchReviewDialog(QDialog):
     # ------------------------------------------------------------------
 
     def _on_apply(self) -> None:
+        # Sync WYSIWYG edits to raw editors before reading values
         if not self._raw_mode:
             for key, rendered in self._rendered_edits.items():
                 if rendered.document().isModified():

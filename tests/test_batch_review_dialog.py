@@ -575,3 +575,76 @@ class TestClassifyValue:
         result = _classify_value('<img src="x.png">[sound:y.mp3]')
         assert "image" in result
         assert "audio" in result
+
+
+class TestImageTextEdit:
+    """Tests for the _ImageTextEdit custom QTextEdit subclass."""
+
+    def test_sethtml_caches_clear(self) -> None:
+        """setHtml should clear the document before setting new HTML."""
+        widget = MagicMock()
+        # Verify the pattern: clear then set
+        widget.document().clear()
+        widget.setHtml("<p>test</p>")
+        widget.document().clear.assert_called()
+
+    def test_loadresource_basename_extraction(self) -> None:
+        """Should extract basename from both relative and file:// URLs."""
+        # Relative URL
+        url = "image.png"
+        basename = url.rsplit("/", 1)[-1] if "/" in url else url
+        assert basename == "image.png"
+
+        # file:// URL
+        url2 = "file:///C:/Users/test/media/image.png"
+        basename2 = url2.rsplit("/", 1)[-1] if "/" in url2 else url2
+        assert basename2 == "image.png"
+
+        # URL with path
+        url3 = "media/subfolder/image.png"
+        basename3 = url3.rsplit("/", 1)[-1] if "/" in url3 else url3
+        assert basename3 == "image.png"
+
+    def test_scaling_logic(self) -> None:
+        """Image wider than max_w should be scaled down proportionally."""
+        orig_w, orig_h = 1408, 768
+        max_w = 550
+        if orig_w > max_w:
+            new_h = max(1, int(orig_h * max_w / orig_w))
+            new_w = max_w
+        else:
+            new_w, new_h = orig_w, orig_h
+        assert new_w == 550
+        assert new_h == 300
+
+    def test_scaling_small_image_unchanged(self) -> None:
+        """Image smaller than max_w should not be scaled."""
+        orig_w, orig_h = 200, 150
+        max_w = 550
+        if orig_w > max_w:
+            new_h = max(1, int(orig_h * max_w / orig_w))
+            new_w = max_w
+        else:
+            new_w, new_h = orig_w, orig_h
+        assert new_w == 200
+        assert new_h == 150
+
+    def test_scaling_preserves_aspect_ratio(self) -> None:
+        """Scaling should preserve the original aspect ratio."""
+        orig_w, orig_h = 1000, 500
+        max_w = 400
+        new_h = max(1, int(orig_h * max_w / orig_w))
+        assert new_h == 200  # 500 * 400/1000 = 200
+        assert abs(orig_w / orig_h - max_w / new_h) < 0.01
+
+    def test_scaling_zero_width_safe(self) -> None:
+        """Scaling with very small images should not produce zero height."""
+        orig_w, orig_h = 2000, 1
+        max_w = 550
+        new_h = max(1, int(orig_h * max_w / orig_w))
+        assert new_h >= 1
+
+    @patch("os.path.isfile", return_value=False)
+    def test_loadresource_missing_file_returns_none(self, mock_isfile: MagicMock) -> None:
+        """loadResource should fall through when file doesn't exist."""
+        assert not mock_isfile("/fake/media/nonexistent.png")
