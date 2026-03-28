@@ -11,7 +11,7 @@ import re
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 from aqt import mw
 from aqt.editor import Editor
@@ -20,6 +20,45 @@ from .config_manager import ConfigManager, FieldInstruction
 from .media_handler import MediaHandler
 from .providers import create_image_provider, create_text_provider, create_tts_provider
 from .providers.base import ProviderError
+
+# ---------------------------------------------------------------------------
+# Retry helper for all generation calls
+# ---------------------------------------------------------------------------
+
+_T = TypeVar("_T")
+
+# Error codes / substrings that indicate unrecoverable failures.
+_NON_RETRYABLE_TOKENS = {"error 401", "error 403", "unauthorized", "forbidden", "invalid_api_key"}
+
+_GENERATION_MAX_RETRIES = 3
+_GENERATION_RETRY_BASE = 1.0  # seconds
+
+
+def _is_retryable(exc: Exception) -> bool:
+    """Return False for authentication / permission errors that will never succeed on retry."""
+    msg = str(exc).lower()
+    return not any(tok in msg for tok in _NON_RETRYABLE_TOKENS)
+
+
+def with_retry(fn: Callable[..., _T], *args: Any, **kwargs: Any) -> _T:
+    """Call *fn* up to ``_GENERATION_MAX_RETRIES`` times with exponential backoff.
+
+    Raises immediately on non-retryable errors (auth / permission).
+    On the final attempt the error propagates as-is.
+    """
+    last_error: Exception | None = None
+    for attempt in range(_GENERATION_MAX_RETRIES):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            last_error = e
+            if not _is_retryable(e) or attempt == _GENERATION_MAX_RETRIES - 1:
+                if attempt > 0:
+                    raise type(e)(f"{e} (failed after {attempt + 1} attempts)") from e
+                raise
+            time.sleep(_GENERATION_RETRY_BASE * (2**attempt))
+    raise last_error  # type: ignore[misc]
+
 
 SYSTEM_PROMPT = """\
 You are an Anki flashcard field assistant. Your job is to fill in blank \
@@ -146,7 +185,9 @@ class FieldFiller:
                             tts_config = self._config.get_active_tts_provider()
                             if tts_config:
                                 tts = create_tts_provider(tts_config)
-                                audio_bytes = tts.synthesize(content, context=tts_context)
+                                audio_bytes = with_retry(
+                                    tts.synthesize, content, context=tts_context
+                                )
                                 results[field_name] = MediaHandler.save_audio(
                                     audio_bytes, field_name
                                 )
@@ -156,7 +197,7 @@ class FieldFiller:
                             img_config = self._config.get_active_image_provider()
                             if img_config:
                                 img_prov = create_image_provider(img_config)
-                                img_bytes = img_prov.generate_image(content)
+                                img_bytes = with_retry(img_prov.generate_image, content)
                                 results[field_name] = MediaHandler.save_image(img_bytes, field_name)
                             else:
                                 results[field_name] = None
@@ -178,7 +219,9 @@ class FieldFiller:
                                     img_config = self._config.get_active_image_provider()
                                     if img_config:
                                         img_prov = create_image_provider(img_config)
-                                        img_bytes = img_prov.generate_image(image_prompt)
+                                        img_bytes = with_retry(
+                                            img_prov.generate_image, image_prompt
+                                        )
                                         img_tag = MediaHandler.save_image(img_bytes, field_name)
                                         html = f"{html}<br><br>{img_tag}"
                                 except Exception as img_err:
@@ -190,6 +233,51 @@ class FieldFiller:
                     except Exception as e:
                         field_errors.append(f"{field_name} (prompt: {content!r}): {e}")
                         results[field_name] = None
+
+                # Targeted retry: if some fields are missing, make a cheaper
+                # follow-up call for just those fields instead of re-running all.
+                missing = [f for f in target_fields if results.get(f) is None]
+                if missing:
+                    try:
+                        retry_msg = self._build_user_prompt(
+                            note_type_name,
+                            field_values,
+                            field_instructions,
+                            missing,
+                            user_prompt,
+                        )
+                        retry_parsed = self._generate_and_parse(SYSTEM_PROMPT, retry_msg)
+                        for fname in missing:
+                            fdata = retry_parsed.get(fname)
+                            if fdata is None:
+                                continue
+                            fc = fdata.get("content", "")
+                            ft = fdata.get("type", "text")
+                            try:
+                                if ft == "audio":
+                                    tc = self._config.get_active_tts_provider()
+                                    if tc:
+                                        t = create_tts_provider(tc)
+                                        ab = with_retry(t.synthesize, fc, context=tts_context)
+                                        results[fname] = MediaHandler.save_audio(ab, fname)
+                                elif ft == "image":
+                                    ic = self._config.get_active_image_provider()
+                                    if ic:
+                                        ip = create_image_provider(ic)
+                                        ib = with_retry(ip.generate_image, fc)
+                                        results[fname] = MediaHandler.save_image(ib, fname)
+                                elif ft == "rich" or self._has_flags(fc):
+                                    h, errs = self._render_rich_content(
+                                        fc, fname, fdata, tts_context=tts_context
+                                    )
+                                    field_errors.extend(errs)
+                                    results[fname] = h
+                                else:
+                                    results[fname] = self._to_html(fc)
+                            except Exception:
+                                pass  # retry for this field also failed
+                    except Exception:
+                        pass  # follow-up call failed — keep the partial results
 
                 def apply() -> None:
                     self._apply_results(editor, results)
@@ -291,20 +379,20 @@ class FieldFiller:
 
         return "\n".join(parts)
 
-    _MAX_RETRIES = 2
-
     def _generate_and_parse(self, system_prompt: str, user_message: str) -> Dict[str, Any]:
-        """Call the AI provider and parse the response, retrying on bad JSON."""
+        """Call the AI provider and parse the response.
+
+        Retries the full generate+parse cycle up to 3 times with exponential
+        backoff.  Non-retryable errors (auth / permissions) propagate immediately.
+        """
         provider_config = self._config.get_active_text_provider()
         provider = create_text_provider(provider_config)
-        last_error: Exception | None = None
-        for _ in range(self._MAX_RETRIES):
+
+        def _attempt() -> Dict[str, Any]:
             response_text = provider.generate(system_prompt, user_message)
-            try:
-                return self._parse_response(response_text)
-            except ProviderError as e:
-                last_error = e
-        raise last_error  # type: ignore[misc]
+            return self._parse_response(response_text)
+
+        return with_retry(_attempt)
 
     def _parse_response(self, response: str) -> Dict[str, Any]:
         """Parse the AI's JSON response into field data."""
@@ -375,14 +463,14 @@ class FieldFiller:
                     img_config = self._config.get_active_image_provider()
                     if img_config:
                         img_prov = create_image_provider(img_config)
-                        img_bytes = img_prov.generate_image(payload)
+                        img_bytes = with_retry(img_prov.generate_image, payload)
                         return MediaHandler.save_image(img_bytes, part_name)
                     return ""
                 else:  # AUDIO
                     tts_config = self._config.get_active_tts_provider()
                     if tts_config:
                         tts = create_tts_provider(tts_config)
-                        audio_bytes = tts.synthesize(payload, context=tts_context)
+                        audio_bytes = with_retry(tts.synthesize, payload, context=tts_context)
                         return MediaHandler.save_audio(audio_bytes, part_name)
                     return ""
             except Exception as e:
@@ -417,7 +505,7 @@ class FieldFiller:
                 img_config = self._config.get_active_image_provider()
                 if img_config:
                     img_prov = create_image_provider(img_config)
-                    img_bytes = img_prov.generate_image(image_prompt)
+                    img_bytes = with_retry(img_prov.generate_image, image_prompt)
                     img_tag = MediaHandler.save_image(img_bytes, field_name)
                     html = f"{html}<br><br>{img_tag}"
             except Exception as img_err:
@@ -598,6 +686,28 @@ class BatchFiller:
                 changes, field_errors = self._render_fields(
                     parsed, blank_targets, tts_context=tts_ctx
                 )
+
+                # Targeted retry: if some fields are missing from the result,
+                # make a cheaper follow-up call for just those fields.
+                missing = [f for f in blank_targets if f not in changes]
+                if missing:
+                    try:
+                        retry_msg = self._filler._build_user_prompt(
+                            note_type_name,
+                            field_values,
+                            field_instructions,
+                            missing,
+                            user_prompt,
+                        )
+                        retry_parsed = self._filler._generate_and_parse(SYSTEM_PROMPT, retry_msg)
+                        retry_changes, retry_errors = self._render_fields(
+                            retry_parsed, missing, tts_context=tts_ctx
+                        )
+                        changes.update(retry_changes)
+                        field_errors.update(retry_errors)
+                    except Exception:
+                        pass  # follow-up failed — keep the partial results we have
+
                 result.proposals.append(
                     BatchProposedChange(
                         note_id=item.note_id,
@@ -651,6 +761,41 @@ class BatchFiller:
                 applied += 1
         return applied
 
+    def regenerate_field(
+        self,
+        note_id: int,
+        field_name: str,
+        user_prompt: str = "",
+        deck_name: Optional[str] = None,
+    ) -> tuple:
+        """Regenerate a single field for a note. Call from a background thread.
+
+        Returns ``(new_value, error)`` where *error* is an empty string on
+        success.
+        """
+        try:
+            note = mw.col.get_note(note_id)
+            note_type_name = note.note_type()["name"]
+            field_values = {name: note[name] for name in note.keys()}
+            field_instructions = self._config.get_field_instructions(
+                note_type_name, deck_name=deck_name
+            )
+            tts_ctx = FieldFiller._build_tts_context(note_type_name, field_values)
+            user_message = self._filler._build_user_prompt(
+                note_type_name,
+                field_values,
+                field_instructions,
+                [field_name],
+                user_prompt,
+            )
+            parsed = self._filler._generate_and_parse(SYSTEM_PROMPT, user_message)
+            changes, field_errors = self._render_fields(parsed, [field_name], tts_context=tts_ctx)
+            new_value = changes.get(field_name, "")
+            error = field_errors.get(field_name, "")
+            return (new_value, error)
+        except Exception as e:
+            return ("", str(e))
+
     def _render_fields(
         self,
         parsed: Dict[str, Any],
@@ -678,7 +823,7 @@ class BatchFiller:
                     tts_config = self._config.get_active_tts_provider()
                     if tts_config:
                         tts = create_tts_provider(tts_config)
-                        audio_bytes = tts.synthesize(content, context=tts_context)
+                        audio_bytes = with_retry(tts.synthesize, content, context=tts_context)
                         changes[field_name] = MediaHandler.save_audio(audio_bytes, field_name)
                     else:
                         html = FieldFiller._to_html(content)
@@ -688,7 +833,7 @@ class BatchFiller:
                     img_config = self._config.get_active_image_provider()
                     if img_config:
                         img_prov = create_image_provider(img_config)
-                        img_bytes = img_prov.generate_image(content)
+                        img_bytes = with_retry(img_prov.generate_image, content)
                         changes[field_name] = MediaHandler.save_image(img_bytes, field_name)
                 elif ftype == "rich" or self._filler._has_flags(content):
                     html, errs = self._filler._render_rich_content(
@@ -706,7 +851,7 @@ class BatchFiller:
                             img_config = self._config.get_active_image_provider()
                             if img_config:
                                 img_prov = create_image_provider(img_config)
-                                img_bytes = img_prov.generate_image(image_prompt)
+                                img_bytes = with_retry(img_prov.generate_image, image_prompt)
                                 img_tag = MediaHandler.save_image(img_bytes, field_name)
                                 html = f"{html}<br><br>{img_tag}"
                         except Exception as img_err:

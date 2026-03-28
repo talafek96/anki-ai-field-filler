@@ -37,3 +37,6 @@ venv/
 # AI
 .devin
 
+# Plans
+plans/
+

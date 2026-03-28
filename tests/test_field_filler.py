@@ -350,8 +350,9 @@ class TestRenderFlags:
         assert part_names[0] == "Field_p1"
         assert part_names[1] == "Field_p2"
 
-    def test_partial_failure_keeps_other_flags(self) -> None:
-        """One flag fails, others still render."""
+    @patch("ai_field_filler.field_filler.time.sleep")
+    def test_partial_failure_keeps_other_flags(self, _mock_sleep) -> None:
+        """One flag fails (all retries), others still render."""
         filler = self._make_filler()
         img_cfg = MagicMock()
         filler._config.get_active_image_provider.return_value = img_cfg
@@ -364,7 +365,8 @@ class TestRenderFlags:
             def generate_side_effect(prompt: str) -> bytes:
                 nonlocal call_count
                 call_count += 1
-                if call_count == 1:
+                # First flag fails on all 3 retry attempts, second flag succeeds
+                if prompt == "bad":
                     raise ProviderError("blocked")
                 return b"PNG"
 
@@ -504,12 +506,13 @@ class TestGenerateAndParse:
         assert result["A"]["content"] == "val"
         assert mock_provider.generate.call_count == 2
 
+    @patch("ai_field_filler.field_filler.time.sleep")
     @patch("ai_field_filler.field_filler.create_text_provider")
-    def test_raises_after_all_retries_fail(self, mock_create, filler) -> None:
+    def test_raises_after_all_retries_fail(self, mock_create, _mock_sleep, filler) -> None:
         filler._config = MagicMock()
         mock_provider = MagicMock()
         mock_provider.generate.return_value = "not json at all"
         mock_create.return_value = mock_provider
         with pytest.raises(ProviderError):
             filler._generate_and_parse("sys", "usr")
-        assert mock_provider.generate.call_count == 2
+        assert mock_provider.generate.call_count == 3
