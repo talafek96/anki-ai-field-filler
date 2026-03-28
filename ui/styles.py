@@ -77,6 +77,7 @@ GLOBAL_STYLE = f"""
         background: white;
         color: {_TEXT_PRIMARY};
         font-weight: 500;
+        outline: none;
     }}
     QPushButton:hover {{
         background: #F0F2F5;
@@ -84,6 +85,11 @@ GLOBAL_STYLE = f"""
     }}
     QPushButton:pressed {{
         background: #E5E8EC;
+    }}
+    QPushButton:focus {{
+        outline: none;
+        background: white;
+        border-color: {_BORDER};
     }}
     QPushButton:default {{
         background: {_ACCENT};
@@ -161,11 +167,28 @@ GLOBAL_STYLE = f"""
         border: none;
         background: transparent;
     }}
+    QScrollBar:vertical {{
+        border: none;
+        background: transparent;
+        width: 8px;
+    }}
+    QScrollBar::handle:vertical {{
+        background: #D1D5DB;
+        border-radius: 4px;
+        min-height: 20px;
+    }}
+    QScrollBar::handle:vertical:hover {{
+        background: #9CA3AF;
+    }}
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+        height: 0px;
+    }}
 
     QToolButton {{
         border: 1px solid {_BORDER};
         border-radius: 6px;
         background: white;
+        outline: none;
     }}
     QToolButton:hover {{
         background: #F0F2F5;
@@ -190,3 +213,65 @@ HEADER_STYLE = f"""
 """
 
 ACCENT_COLOR = _ACCENT
+
+# ---------------------------------------------------------------------------
+# Filter chip style — rounded pill with clear active/inactive states
+# ---------------------------------------------------------------------------
+
+FILTER_CHIP_STYLE = f"""
+    QPushButton {{
+        border: 1px solid {_BORDER};
+        border-radius: 14px;
+        padding: 4px 14px;
+        background: white;
+        color: {_TEXT_MUTED};
+        font-weight: 500;
+        font-size: 12px;
+        outline: none;
+    }}
+    QPushButton:hover {{
+        border-color: {_ACCENT};
+        background: #EEF2FD;
+        color: {_TEXT_PRIMARY};
+    }}
+    QPushButton:checked {{
+        background: {_ACCENT};
+        color: white;
+        border-color: {_ACCENT};
+        font-weight: 600;
+    }}
+    QPushButton:checked:hover {{
+        background: {_ACCENT_HOVER};
+        border-color: {_ACCENT_HOVER};
+    }}
+"""
+
+# ---------------------------------------------------------------------------
+# Regen toggle button — amber when marked for batch regeneration
+# ---------------------------------------------------------------------------
+
+REGEN_TOGGLE_STYLE = f"""
+    QPushButton {{
+        border: 1px solid {_BORDER};
+        border-radius: 6px;
+        padding: 3px 10px;
+        background: white;
+        color: {_TEXT_MUTED};
+        font-size: 12px;
+        outline: none;
+    }}
+    QPushButton:hover {{
+        border-color: #F59E0B;
+        background: #FFFBEB;
+        color: #92400E;
+    }}
+    QPushButton:checked {{
+        background: #F59E0B;
+        color: white;
+        border-color: #D97706;
+    }}
+    QPushButton:checked:hover {{
+        background: #D97706;
+        border-color: #B45309;
+    }}
+"""

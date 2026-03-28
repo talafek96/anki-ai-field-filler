@@ -109,6 +109,9 @@ class BrowserIntegration:
             dry_run=dry_run,
             elapsed_seconds=batch_result.elapsed_seconds,
             parent=browser,
+            batch_filler=BatchFiller(),
+            user_prompt=user_prompt,
+            note_items=items,
         )
         if review.exec() != QDialog.DialogCode.Accepted:
             return

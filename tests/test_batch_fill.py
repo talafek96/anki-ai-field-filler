@@ -14,6 +14,8 @@ from ai_field_filler.field_filler import (
     BatchProgress,
     BatchProposedChange,
     BatchResult,
+    _is_retryable,
+    with_retry,
 )
 from ai_field_filler.providers.base import ProviderError
 
@@ -131,19 +133,24 @@ class TestBatchFiller:
         assert result.succeeded == 1
         mock_urlopen.assert_not_called()
 
+    @patch("ai_field_filler.field_filler.time.sleep")
     @patch("ai_field_filler.providers.http.time.sleep")
     @patch(_HTTP_URLOPEN)
     @patch("ai_field_filler.field_filler.mw")
     def test_error_collected_not_fatal(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock, _mock_sleep: MagicMock
+        self,
+        mock_mw: MagicMock,
+        mock_urlopen: MagicMock,
+        _mock_http_sleep: MagicMock,
+        _mock_retry_sleep: MagicMock,
     ) -> None:
         """Errors are collected without crashing the batch."""
         fields = {"Front": "hello", "Back": ""}
         note, _ = _make_mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
-        # Enough errors for all retries
-        mock_urlopen.side_effect = _make_errors(10)
+        # Enough errors for HTTP retries (4 per attempt) * with_retry (3 attempts) = 12
+        mock_urlopen.side_effect = _make_errors(20)
 
         filler = _make_batch_filler(mock_mw)
         result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
@@ -862,3 +869,182 @@ class TestRichFieldBatch:
         error_str = prop.field_errors["Notes"]
         assert "image policy" in error_str
         assert "TTS quota" in error_str
+
+
+class TestRegenerateField:
+    """Tests for BatchFiller.regenerate_field()."""
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_regenerate_returns_new_value(
+        self, mock_mw: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
+        """Regenerate a single field — returns new generated content."""
+        fields = {"Front": "hello", "Back": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response({"Back": {"content": "regenerated answer", "type": "text"}})
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        new_value, error = filler.regenerate_field(note_id=1, field_name="Back")
+
+        assert new_value == "regenerated answer"
+        assert error == ""
+
+    @patch("ai_field_filler.field_filler.time.sleep")
+    @patch("ai_field_filler.providers.http.time.sleep")
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_regenerate_returns_error_on_failure(
+        self,
+        mock_mw: MagicMock,
+        mock_urlopen: MagicMock,
+        _mock_http_sleep: MagicMock,
+        _mock_retry_sleep: MagicMock,
+    ) -> None:
+        """When AI call fails, regenerate returns error string."""
+        fields = {"Front": "hello", "Back": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        mock_urlopen.side_effect = _make_errors(20)
+
+        filler = _make_batch_filler(mock_mw)
+        new_value, error = filler.regenerate_field(note_id=1, field_name="Back")
+
+        assert new_value == ""
+        assert error  # non-empty error string
+        assert "500" in error
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_regenerate_with_user_prompt(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+        """Regenerate passes user_prompt through to prompt builder."""
+        fields = {"Front": "hello", "Back": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response({"Back": {"content": "custom answer", "type": "text"}})
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        new_value, error = filler.regenerate_field(
+            note_id=1, field_name="Back", user_prompt="Be concise"
+        )
+
+        assert new_value == "custom answer"
+        assert error == ""
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_regenerate_with_deck_name(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+        """Regenerate uses deck_name for field instructions lookup."""
+        fields = {"Front": "hello", "Back": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response({"Back": {"content": "deck answer", "type": "text"}})
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        new_value, error = filler.regenerate_field(
+            note_id=1, field_name="Back", deck_name="Japanese"
+        )
+
+        assert new_value == "deck answer"
+        assert error == ""
+        # Verify get_field_instructions was called with the deck name
+        filler._config.get_field_instructions.assert_called_with("Basic", deck_name="Japanese")
+
+    @patch(_HTTP_URLOPEN)
+    @patch("ai_field_filler.field_filler.mw")
+    def test_regenerate_image_field(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+        """Regenerate an image field — renders media correctly."""
+        fields = {"Front": "hello", "Image": ""}
+        note, _ = _make_mock_note(1, fields)
+        mock_mw.col.get_note.return_value = note
+
+        response = _chat_response({"Image": {"content": "a cat", "type": "image"}})
+        mock_urlopen.return_value = _mock_urlopen(response)
+
+        filler = _make_batch_filler(mock_mw)
+        img_cfg = ProviderConfig(
+            provider_type="openai",
+            api_url="https://fake.test/v1",
+            api_key="test-key",
+            text_model="gpt-4o",
+            max_tokens=4096,
+            image_model="dall-e-3",
+        )
+        filler._config.get_active_image_provider.return_value = img_cfg
+
+        with (
+            patch("ai_field_filler.field_filler.create_image_provider") as mock_img_factory,
+            patch("ai_field_filler.field_filler.MediaHandler.save_image") as mock_save,
+        ):
+            mock_img_prov = MagicMock()
+            mock_img_prov.generate_image.return_value = b"\x89PNG"
+            mock_img_factory.return_value = mock_img_prov
+            mock_save.return_value = '<img src="ai_regen.png">'
+
+            new_value, error = filler.regenerate_field(note_id=1, field_name="Image")
+
+        assert '<img src="ai_regen.png">' in new_value
+        assert error == ""
+
+
+class TestWithRetry:
+    """Tests for the with_retry helper and _is_retryable."""
+
+    def test_is_retryable_transient_error(self) -> None:
+        assert _is_retryable(ProviderError("API error 500: server error")) is True
+
+    def test_is_retryable_timeout(self) -> None:
+        assert _is_retryable(ProviderError("Connection error: timed out")) is True
+
+    def test_not_retryable_401(self) -> None:
+        assert _is_retryable(ProviderError("API error 401: Unauthorized")) is False
+
+    def test_not_retryable_403(self) -> None:
+        assert _is_retryable(ProviderError("API error 403: Forbidden")) is False
+
+    def test_not_retryable_invalid_key(self) -> None:
+        assert _is_retryable(ProviderError("invalid_api_key: check your key")) is False
+
+    @patch("ai_field_filler.field_filler.time.sleep")
+    def test_with_retry_succeeds_first_try(self, _mock_sleep: MagicMock) -> None:
+        fn = MagicMock(return_value="ok")
+        assert with_retry(fn) == "ok"
+        assert fn.call_count == 1
+        _mock_sleep.assert_not_called()
+
+    @patch("ai_field_filler.field_filler.time.sleep")
+    def test_with_retry_succeeds_after_failures(self, _mock_sleep: MagicMock) -> None:
+        fn = MagicMock(side_effect=[ProviderError("500"), ProviderError("502"), "ok"])
+        assert with_retry(fn) == "ok"
+        assert fn.call_count == 3
+        assert _mock_sleep.call_count == 2
+
+    @patch("ai_field_filler.field_filler.time.sleep")
+    def test_with_retry_gives_up_after_max(self, _mock_sleep: MagicMock) -> None:
+        fn = MagicMock(side_effect=ProviderError("500 error"))
+        try:
+            with_retry(fn)
+            assert False, "should have raised"
+        except ProviderError as e:
+            assert "500" in str(e)
+        assert fn.call_count == 3
+
+    @patch("ai_field_filler.field_filler.time.sleep")
+    def test_with_retry_skips_non_retryable(self, _mock_sleep: MagicMock) -> None:
+        """Auth errors propagate immediately, no retries."""
+        fn = MagicMock(side_effect=ProviderError("API error 401: Unauthorized"))
+        try:
+            with_retry(fn)
+            assert False, "should have raised"
+        except ProviderError:
+            pass
+        assert fn.call_count == 1
+        _mock_sleep.assert_not_called()
