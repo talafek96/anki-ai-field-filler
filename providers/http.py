@@ -38,6 +38,11 @@ _MAX_RETRIES = 3
 _BASE_DELAY = 1.0  # seconds
 _MAX_DELAY = 30.0  # seconds
 
+# Some API providers (e.g. xAI/Grok) sit behind Cloudflare, which
+# rejects the default ``Python-urllib/3.x`` User-Agent with a 403
+# (error 1010).  A benign, descriptive UA avoids that.
+_USER_AGENT = "AnkiAIFieldFiller/1.0"
+
 
 # ---------------------------------------------------------------------------
 # Low-level HTTP helpers
@@ -58,7 +63,7 @@ def http_post_json(
     empty responses, or invalid JSON.
     """
     data = json.dumps(payload).encode("utf-8")
-    headers = {**headers, "Content-Type": "application/json"}
+    headers = {"User-Agent": _USER_AGENT, **headers, "Content-Type": "application/json"}
     req = urllib.request.Request(url, data=data, headers=headers)
     raw = _urlopen_with_errors(req, timeout=timeout, label=label)
     return _parse_json(raw, label)
@@ -77,7 +82,7 @@ def http_post_raw(
     Raises :class:`ProviderError` on HTTP or connection errors.
     """
     data = json.dumps(payload).encode("utf-8")
-    headers = {**headers, "Content-Type": "application/json"}
+    headers = {"User-Agent": _USER_AGENT, **headers, "Content-Type": "application/json"}
     req = urllib.request.Request(url, data=data, headers=headers)
     return _urlopen_bytes(req, timeout=timeout, label=label)
 
@@ -94,7 +99,9 @@ def http_get_json(
     Raises :class:`ProviderError` on HTTP errors, connection failures,
     empty responses, or invalid JSON.
     """
-    req = urllib.request.Request(url, headers=headers or {})
+    req = urllib.request.Request(
+        url, headers={"User-Agent": _USER_AGENT, **(headers or {})}
+    )
     raw = _urlopen_with_errors(req, timeout=timeout, label=label)
     return _parse_json(raw, label)
 
