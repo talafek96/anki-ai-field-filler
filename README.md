@@ -1,102 +1,110 @@
-# AI Filler for Anki
+# AI Filler for Anki 🧠
 
-An Anki add-on that uses LLMs (OpenAI, Anthropic, Google Gemini) to intelligently auto-fill blank note fields. It supports text, audio (TTS), and image generation based on per-field instructions and optional user prompts.
+An intelligent, multi-provider auto-fill assistant for Anki that uses Large Language Models (LLMs) to populate your flashcards. Whether you need native-level example sentences, high-quality Text-to-Speech (TTS), or AI-generated illustrations, AI Filler streamlines your card creation workflow.
 
-## Features
+[![GitHub License](https://img.shields.io/github/license/talafek96/anki-ai-field-filler)](https://github.com/talafek96/anki-ai-field-filler/blob/main/LICENSE)
+[![AnkiWeb](https://img.shields.io/badge/AnkiWeb-Addon-blue)](https://ankiweb.net/shared/info/XXXXXXX)
 
-- **Multi-provider support**: OpenAI, Anthropic (Claude), Google (Gemini), and OpenAI-compatible APIs.
-- **Smart filling**: Automatically decides content type (text, audio, image) or follows your strict rules.
-- **Batch processing**: Fill multiple cards at once from the browser with a side-by-side review/edit workflow.
-- **Per-field context**: Define what each field should contain for every note type.
-- **Text-to-Speech**: Integrated TTS (OpenAI, Gemini) for audio fields.
-- **Image Generation**: Integrated image generation (DALL-E, Gemini) for image fields.
-- **Inline Images**: Optionally include small illustrations within text fields.
-- **Flexible UI**: Toolbar buttons, context menus, and configurable keyboard shortcuts.
-- **Settings Portability**: Export/import configuration with optional API key encryption.
+---
 
-## Installation
+## ✨ Key Features
 
-1. Copy the `Anki-AI-Filler` folder to your Anki addons directory:
-   - **Windows**: `%APPDATA%\Anki2\addons21\`
-   - **macOS**: `~/Library/Application Support/Anki2/addons21/`
-   - **Linux**: `~/.local/share/Anki2/addons21/`
-2. Restart Anki.
-3. Configure via **Tools → AI Filler → Settings...**
+- **Multi-Provider Support**: Seamlessly integrate with OpenAI (GPT-4o/o1), Anthropic (Claude 3.5/3), Google (Gemini 1.5 Pro/Flash), and Vercel.
+- **Auto-decide Framework**: The AI intelligently determines the best content type (text, audio, image) for a field based on your instructions.
+- **Batch Processing**: Select dozens or hundreds of cards in the Browser and fill them simultaneously with a side-by-side review/edit interface.
+- **Native TTS & Images**: Generate audio and images directly within the addon, saved automatically to your Anki media folder.
+- **Rich Content Support**: Interleave text, images, and audio flags within a single field for complex learning materials.
+- **Scoped Instructions**: Define field instructions globally or override them for specific decks to tailor content to your learning context.
+- **Developer-Friendly**: Built with a modular architecture, making it easy to add new providers or UI components.
 
-## Quick Start
+---
 
-1. **API Keys**: In **Settings → AI Providers**, enter your API key and click the refresh icon to fetch models.
-2. **Active Providers**: Choose which provider to use for Text, TTS, and Image generation.
-3. **Instructions**: In **Settings → Note Types**, select a note type and describe what each field should contain (e.g., "Example sentence in French").
-4. **Fill**: Open the editor and click **"AI Fill All"** or press `Ctrl+Shift+G`.
+## 🚀 Quick Start in 60 Seconds
 
-## Usage
+1.  **Install**: Copy the `Anki-AI-Filler` folder to your Anki addons directory and restart.
+2.  **Configure API**: Go to **Tools → AI Filler → Settings → General** and enter your API key.
+3.  **Fetch Models**: Click the **Refresh** icon next to the provider to fetch the latest available models.
+4.  **Set Instructions**: In the **Note Types** tab, select your chosen note type and describe what each field should contain (e.g., *"Provide a simple Japanese sentence using the word in the Front field"*).
+5.  **Fill**: Open the editor and click the **Sparkles (\u2728)** icon on the toolbar or press `Ctrl+Shift+G`.
 
-### Editor
+---
 
-- **AI Fill All**: Fills all blank fields using configured instructions.
-- **AI Fill Current**: Fills only the active field, optionally asking for a quick prompt.
-- **Quick Config**: Right-click any field to instantly edit its instructions.
+## 🛠 Usage & Workflow
 
-### Browser (Batch Fill)
+### 1. The Editor Integration
+The addon adds two primary buttons to your Anki editor toolbar:
+- **Fill All Blank Fields (\u2728)**: Analyzes the entire note and fills all empty fields that have instructions.
+- **Fill Current Field (\u26a1)**: Focuses only on the active field. If "Show fill dialog" is enabled, it allows you to provide a one-off quick prompt for that specific field.
 
-1. Select cards of the same note type.
-2. **Right-click → AI: Batch fill...**
-3. Configure target fields and run.
-4. Review changes in the side-by-side diff view, edit if needed, and apply.
+### 2. Browser Batch Fill
+For bulk card creation, the Browser integration is unmatched:
+1. Select the cards you want to process.
+2. Right-click and choose **AI: Batch fill blank fields...**
+3. Select the target fields and run the generation.
+4. **Review & Edit**: A side-by-side diff view appears, showing the original vs. proposed content. You can manually edit the AI's output or regenerate specific fields before applying.
 
-## How It Works
+### 3. Quick Instruction Config
+Need to tweak instructions on the fly? Right-click any field in the editor and select **AI: Configure instructions...** to update its definition without opening the main settings.
 
-1. Gathers all field values and instructions for the current note.
-2. Sends structured context to the selected AI provider.
-3. Parses the AI response and applies content:
-   - **Text**: Formatted as HTML.
-   - **Audio**: Generated via TTS and saved to the media folder.
-   - **Images**: Generated via Image API and saved to the media folder.
-4. Irrelevant fields are left untouched.
+---
 
-## Troubleshooting
+## 🏗 Modular Architecture (`src/`)
 
-- **Connection Error**: Check your API key and internet connection. Ensure the provider's API URL is correct.
-- **Fields Not Filling**: Ensure fields are empty (the add-on won't overwrite), instructions are configured, and "Include in auto-fill" is checked.
-- **Audio/Image Issues**: Verify that TTS/Image providers are not set to "Disabled" and models are selected.
+The project is structured into three distinct layers for maximum maintainability:
 
-## Development
+### **`src/core/` — The Brain**
+- `field_filler.py`: The main orchestrator that builds prompts, calls APIs, and updates cards.
+- `provider_factory.py`: Centralized registry that maps provider types to their implementations.
+- `config_manager.py`: Handles complex configuration hierarchies (Global vs. Deck-specific).
 
-### Setup
+### **`src/api/` — The Connectivity**
+- Contains specific implementations for each AI service: `openai.py`, `anthropic.py`, `google.py`, and `vercel.py`.
+- Each provider follows a standard interface for text, TTS, and image generation.
 
-1. Install [uv](https://github.com/astral-sh/uv) (recommended) or use `pip`.
-2. Install dev dependencies:
+### **`src/ui/` — The Interface**
+- Polished Qt6 components including the multi-tabbed Settings dialog, the Batch Fill Review system, and the progress indicators.
+- Uses a unified design system defined in `styles.py`.
 
-   ```bash
-   uv sync --group dev
-   ```
+---
 
-3. Run tests:
+## 📖 Content Type Reference
 
-   ```bash
-   uv run pytest tests/ -v
-   ```
+When configuring a field, you can set its **Content Type**:
+- **Auto**: The AI analyzes the field name and instructions to decide the format.
+- **Text**: Standard plain text or HTML content.
+- **Audio**: The AI generates a text transcript which is then passed to a TTS provider.
+- **Image**: The AI generates an image prompt which is then passed to an Image generator.
+- **Rich**: Supports mixed content using inline flags like `{{IMAGE: prompt}}` and `{{AUDIO: text}}`.
 
-4. Build the `.ankiaddon` package:
+---
 
-   ```bash
-   python build.py
-   ```
+## 📂 Project Resources
 
-### Project Structure (src/)
+- **`assets/`**: High-quality SVG icons and UI assets.
+- **`ANKIWEB.md`**: Source for the official AnkiWeb listing.
+- **`.github/`**: Workflow configurations and funding metadata.
 
-- `api/` — Communication logic with external provider APIs (OpenAI, Anthropic, Google).
-- `core/` — Primary application logic, configuration management, and card-filling orchestrator.
-- `ui/` — Desktop user interface components built with Qt.
+---
 
-### Requirements
+## 🧪 Development & Contribution
 
-- Anki 2.1.50+ (Qt6 recommended).
-- Active API key for OpenAI, Anthropic, or Google Gemini.
+AI Filler is built with transparency in mind. We use `uv` for dependency management and `pytest` for logic validation.
 
+```bash
+# Setup development environment
+uv sync --group dev
 
-## License & Contributing
+# Run test suite
+uv run pytest tests/ -v
 
-Distributed under the MIT License. Contributions and bug reports are welcome on GitHub!
+# Build .ankiaddon package
+python build_ankiaddon.py
+```
 
+Contributions are welcome! Please see the [Issues](https://github.com/talafek96/anki-ai-field-filler/issues) page for planned features and bug reports.
+
+---
+
+## ⚖\ufe0f License
+
+Distributed under the **MIT License**. See `LICENSE` for more information. Developed with \u2764\ufe0f for the Anki community.

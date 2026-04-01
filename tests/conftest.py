@@ -2,7 +2,7 @@
 
 This conftest runs after ai_field_filler/__init__.py (which handles
 missing aqt gracefully) but before test files are imported. The mocks
-installed here allow submodules like field_filler.py and providers/
+installed here allow submodules like filler.py and providers/
 to be imported without a real Anki installation.
 """
 
@@ -115,8 +115,8 @@ def _install_aqt_mocks() -> None:
 _install_aqt_mocks()
 
 # These imports MUST come after aqt mocks are installed.
-from src.core.config_manager import ProviderConfig  # noqa: E402
-from src.core.field_filler import FieldFiller  # noqa: E402
+from src.core.config import ProviderConfig  # noqa: E402
+from src.core.filler import Filler as FieldFiller  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -143,13 +143,13 @@ def provider_config():
 
 @pytest.fixture()
 def filler():
-    """Create a :class:`FieldFiller` without calling __init__ (skips ConfigManager)."""
+    """Create a :class:`Filler` without calling __init__ (skips Config)."""
     return FieldFiller.__new__(FieldFiller)
 
 
 @pytest.fixture()
 def mock_mw():
-    """Patch ``mw`` inside the media_handler module."""
-    with patch("src.core.media_handler.mw") as m:
+    """Patch ``mw`` inside the media module."""
+    with patch("src.core.media.mw") as m:
         m.col.media.write_data = MagicMock()
         yield m

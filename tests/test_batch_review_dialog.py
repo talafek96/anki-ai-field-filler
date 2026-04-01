@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from src.core.field_filler import BatchProposedChange
+from src.core.filler import BatchProposedChange
 from src.ui.batch_review_dialog import (
     _classify_proposal,
     _classify_value,

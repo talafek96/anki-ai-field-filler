@@ -1,12 +1,12 @@
-"""Tests for prompt building in FieldFiller."""
+"""Tests for Filler dataclasses and prompt building."""
 
 from __future__ import annotations
 
-from src.core.config_manager import FieldInstruction
+from src.core.config import FieldInstruction
 
 
 class TestBuildUserPrompt:
-    """Tests for FieldFiller._build_user_prompt."""
+    """Tests for Filler._build_user_prompt."""
 
     def test_basic_prompt_structure(self, filler) -> None:
         prompt = filler._build_user_prompt(

@@ -23,6 +23,12 @@
             "tts_voice": "Kore",
             "image_model": "gemini-2.5-flash-image",
             "max_tokens": 4096
+        },
+        "vercel": {
+            "api_url": "https://gateway.ai.vercel.com/v1",
+            "api_key": "",
+            "text_model": "gpt-4o",
+            "max_tokens": 4096
         }
     },
     "active_providers": {

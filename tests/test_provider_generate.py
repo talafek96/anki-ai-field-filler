@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.core.config_manager import ProviderConfig
+from src.core.config import ProviderConfig
 from src.api.anthropic_provider import AnthropicTextProvider
 from src.api.base import ProviderError
 from src.api.google_provider import (

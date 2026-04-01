@@ -15,7 +15,7 @@ except ImportError:
 
 def start_addon() -> None:
     """Initialize the addon via the src package."""
-    from .src.core.hooks import start_addon as run_start
+    from .src.ui.integration import start_addon as run_start
     run_start()
 
 

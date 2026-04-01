@@ -7,8 +7,8 @@ import urllib.error
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
-from src.core.config_manager import ProviderConfig
-from src.core.field_filler import (
+from src.core.config import ProviderConfig
+from src.core.filler import (
     BatchFiller,
     BatchNoteItem,
     BatchProgress,
@@ -81,7 +81,7 @@ def _make_errors(n: int) -> list:
 
 class TestBatchFiller:
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_basic_batch(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
         """Process two notes, both succeed."""
         fields1 = {"Front": "hello", "Back": ""}
@@ -104,7 +104,7 @@ class TestBatchFiller:
         assert result.elapsed_seconds > 0
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_skips_already_filled(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
         """Notes with no blank target fields are skipped."""
         fields = {"Front": "hello", "Back": "already filled"}
@@ -119,7 +119,7 @@ class TestBatchFiller:
         mock_urlopen.assert_not_called()
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_dry_run(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
         """Dry run doesn't call the AI."""
         fields = {"Front": "hello", "Back": ""}
@@ -133,10 +133,10 @@ class TestBatchFiller:
         assert result.succeeded == 1
         mock_urlopen.assert_not_called()
 
-    @patch("src.core.field_filler.time.sleep")
+    @patch("src.core.filler.time.sleep")
     @patch("src.api.http.time.sleep")
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_error_collected_not_fatal(
         self,
         mock_mw: MagicMock,
@@ -162,7 +162,7 @@ class TestBatchFiller:
         assert "500" in result.failures[0].error
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_cancellation(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
         """Cancellation stops after the current note completes."""
         fields = {"Front": "hello", "Back": ""}
@@ -185,7 +185,7 @@ class TestBatchFiller:
         assert result.skipped == 4
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_progress_callback(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
         """Progress callback is called before and after each note."""
         fields1 = {"Front": "hello", "Back": ""}
@@ -246,7 +246,7 @@ class TestFilledFieldsNotOverwritten:
     """Verify that already-filled fields are never sent to the AI."""
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_partial_fill_only_targets_blank(
         self, mock_mw: MagicMock, mock_urlopen: MagicMock
     ) -> None:
@@ -275,7 +275,7 @@ class TestFilledFieldsNotOverwritten:
         assert raw["Meaning"] == "world"
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_all_fields_filled_skips_note(
         self, mock_mw: MagicMock, mock_urlopen: MagicMock
     ) -> None:
@@ -296,7 +296,7 @@ class TestFilledFieldsNotOverwritten:
 
 class TestDryRunProposals:
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_dry_run_shows_blank_fields_per_note(
         self, mock_mw: MagicMock, mock_urlopen: MagicMock
     ) -> None:
@@ -322,7 +322,7 @@ class TestDryRunProposals:
 
 class TestProposalsAndApply:
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_proposals_populated_without_writing(
         self, mock_mw: MagicMock, mock_urlopen: MagicMock
     ) -> None:
@@ -346,7 +346,7 @@ class TestProposalsAndApply:
         assert raw["Back"] == ""
         note.flush.assert_not_called()
 
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_apply_proposals_writes_to_notes(self, mock_mw: MagicMock) -> None:
         """apply_proposals writes approved changes and flushes."""
         fields = {"Front": "hello", "Back": ""}
@@ -367,7 +367,7 @@ class TestProposalsAndApply:
         assert raw["Back"] == "new content"
         note.flush.assert_called_once()
 
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_apply_skips_failed_proposals(self, mock_mw: MagicMock) -> None:
         """Proposals with errors are not applied."""
         prop = BatchProposedChange(
@@ -383,7 +383,7 @@ class TestProposalsAndApply:
         assert applied == 0
         mock_mw.col.get_note.assert_not_called()
 
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_apply_edited_proposal(self, mock_mw: MagicMock) -> None:
         """Proposals with user-edited values apply the edited content."""
         fields = {"Front": "hello", "Back": ""}
@@ -412,7 +412,7 @@ class TestPartialFieldFailure:
     """Image/audio failures should not lose successfully generated text fields."""
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_image_failure_keeps_text_fields(
         self, mock_mw: MagicMock, mock_urlopen: MagicMock
     ) -> None:
@@ -442,7 +442,7 @@ class TestPartialFieldFailure:
         filler._config.get_active_image_provider.return_value = img_cfg
 
         # Make the image provider raise an error
-        with patch("src.core.field_filler.create_image_provider") as mock_img_factory:
+        with patch("src.core.filler.create_image_provider") as mock_img_factory:
             mock_img_prov = MagicMock()
             mock_img_prov.generate_image.side_effect = ProviderError("safety filter block")
             mock_img_factory.return_value = mock_img_prov
@@ -464,7 +464,7 @@ class TestPartialFieldFailure:
         assert "a cute cat" in prop.field_errors["Image"]
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_all_fields_fail_still_succeeds_with_field_errors(
         self, mock_mw: MagicMock, mock_urlopen: MagicMock
     ) -> None:
@@ -487,7 +487,7 @@ class TestPartialFieldFailure:
         )
         filler._config.get_active_image_provider.return_value = img_cfg
 
-        with patch("src.core.field_filler.create_image_provider") as mock_img_factory:
+        with patch("src.core.filler.create_image_provider") as mock_img_factory:
             mock_img_prov = MagicMock()
             mock_img_prov.generate_image.side_effect = ProviderError("blocked")
             mock_img_factory.return_value = mock_img_prov
@@ -501,7 +501,7 @@ class TestPartialFieldFailure:
         assert "Image" in prop.field_errors
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_inline_image_failure_keeps_text(
         self, mock_mw: MagicMock, mock_urlopen: MagicMock
     ) -> None:
@@ -532,7 +532,7 @@ class TestPartialFieldFailure:
         )
         filler._config.get_active_image_provider.return_value = img_cfg
 
-        with patch("src.core.field_filler.create_image_provider") as mock_img_factory:
+        with patch("src.core.filler.create_image_provider") as mock_img_factory:
             mock_img_prov = MagicMock()
             mock_img_prov.generate_image.side_effect = ProviderError("content policy")
             mock_img_factory.return_value = mock_img_prov
@@ -555,7 +555,7 @@ class TestRichFieldBatch:
     """Integration tests for rich/flag-based fields through the batch pipeline."""
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_rich_field_text_only_flags(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
         """Rich field with no providers configured — flags removed, text kept."""
         fields = {"Front": "hello", "Notes": ""}
@@ -587,7 +587,7 @@ class TestRichFieldBatch:
         assert "<br>" in html
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_rich_field_with_image_provider(
         self, mock_mw: MagicMock, mock_urlopen: MagicMock
     ) -> None:
@@ -637,7 +637,7 @@ class TestRichFieldBatch:
         mock_img_prov.generate_image.assert_called_once_with("illustration")
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_text_field_with_flags_processed(
         self, mock_mw: MagicMock, mock_urlopen: MagicMock
     ) -> None:
@@ -668,8 +668,8 @@ class TestRichFieldBatch:
         filler._config.get_active_image_provider.return_value = img_cfg
 
         with (
-            patch("src.core.field_filler.create_image_provider") as mock_img_factory,
-            patch("src.core.field_filler.MediaHandler.save_image") as mock_save,
+            patch("src.core.filler.create_image_provider") as mock_img_factory,
+            patch("src.core.filler.Media.save_image") as mock_save,
         ):
             mock_img_prov = MagicMock()
             mock_img_prov.generate_image.return_value = b"\x89PNG"
@@ -685,7 +685,7 @@ class TestRichFieldBatch:
         assert "{{IMAGE" not in html
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_rich_field_flag_failure_keeps_text(
         self, mock_mw: MagicMock, mock_urlopen: MagicMock
     ) -> None:
@@ -715,7 +715,7 @@ class TestRichFieldBatch:
         )
         filler._config.get_active_image_provider.return_value = img_cfg
 
-        with patch("src.core.field_filler.create_image_provider") as mock_img_factory:
+        with patch("src.core.filler.create_image_provider") as mock_img_factory:
             mock_img_prov = MagicMock()
             mock_img_prov.generate_image.side_effect = ProviderError("content policy")
             mock_img_factory.return_value = mock_img_prov
@@ -734,7 +734,7 @@ class TestRichFieldBatch:
         assert "content policy" in prop.field_errors["Notes"]
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_plain_text_without_flags_unchanged(
         self, mock_mw: MagicMock, mock_urlopen: MagicMock
     ) -> None:
@@ -754,7 +754,7 @@ class TestRichFieldBatch:
         assert prop.field_errors == {}
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_rich_with_audio_flag(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
         """Rich field with audio flag — TTS generated inline."""
         fields = {"Front": "hello", "Notes": ""}
@@ -784,8 +784,8 @@ class TestRichFieldBatch:
         filler._config.get_active_tts_provider.return_value = tts_cfg
 
         with (
-            patch("src.core.field_filler.create_tts_provider") as mock_tts_factory,
-            patch("src.core.field_filler.MediaHandler.save_audio") as mock_save,
+            patch("src.core.filler.create_tts_provider") as mock_tts_factory,
+            patch("src.core.filler.Media.save_audio") as mock_save,
         ):
             mock_tts_prov = MagicMock()
             mock_tts_prov.synthesize.return_value = b"\xff\xfb" + b"\x00" * 50
@@ -801,7 +801,7 @@ class TestRichFieldBatch:
         assert "{{AUDIO" not in html
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_multiple_flag_errors_all_preserved(
         self, mock_mw: MagicMock, mock_urlopen: MagicMock
     ) -> None:
@@ -875,7 +875,7 @@ class TestRegenerateField:
     """Tests for BatchFiller.regenerate_field()."""
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_regenerate_returns_new_value(
         self, mock_mw: MagicMock, mock_urlopen: MagicMock
     ) -> None:
@@ -893,10 +893,10 @@ class TestRegenerateField:
         assert new_value == "regenerated answer"
         assert error == ""
 
-    @patch("src.core.field_filler.time.sleep")
+    @patch("src.core.filler.time.sleep")
     @patch("src.providers.http.time.sleep")
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_regenerate_returns_error_on_failure(
         self,
         mock_mw: MagicMock,
@@ -919,7 +919,7 @@ class TestRegenerateField:
         assert "500" in error
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_regenerate_with_user_prompt(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
         """Regenerate passes user_prompt through to prompt builder."""
         fields = {"Front": "hello", "Back": ""}
@@ -938,7 +938,7 @@ class TestRegenerateField:
         assert error == ""
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_regenerate_with_deck_name(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
         """Regenerate uses deck_name for field instructions lookup."""
         fields = {"Front": "hello", "Back": ""}
@@ -959,7 +959,7 @@ class TestRegenerateField:
         filler._config.get_field_instructions.assert_called_with("Basic", deck_name="Japanese")
 
     @patch(_HTTP_URLOPEN)
-    @patch("src.core.field_filler.mw")
+    @patch("src.core.filler.mw")
     def test_regenerate_image_field(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
         """Regenerate an image field — renders media correctly."""
         fields = {"Front": "hello", "Image": ""}
@@ -981,8 +981,8 @@ class TestRegenerateField:
         filler._config.get_active_image_provider.return_value = img_cfg
 
         with (
-            patch("src.core.field_filler.create_image_provider") as mock_img_factory,
-            patch("src.core.field_filler.MediaHandler.save_image") as mock_save,
+            patch("src.core.filler.create_image_provider") as mock_img_factory,
+            patch("src.core.filler.Media.save_image") as mock_save,
         ):
             mock_img_prov = MagicMock()
             mock_img_prov.generate_image.return_value = b"\x89PNG"

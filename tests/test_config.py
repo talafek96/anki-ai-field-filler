@@ -1,4 +1,4 @@
-"""Tests for ConfigManager dataclasses and config logic."""
+"""Tests for Config dataclasses and config logic."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from unittest.mock import MagicMock
 
 import aqt
 
-from src.core.config_manager import (
+from src.core.config import (
     FIELD_TYPES,
-    ConfigManager,
+    Config,
     FieldInstruction,
     GeneralSettings,
     ProviderConfig,
@@ -84,7 +84,7 @@ class TestFieldTypes:
 
 
 # ---------------------------------------------------------------------------
-# ConfigManager tests (mocked Anki addon manager)
+# Config tests (mocked Anki addon manager)
 # ---------------------------------------------------------------------------
 
 _SAMPLE_CONFIG = {
@@ -129,9 +129,9 @@ _SAMPLE_CONFIG = {
 
 
 def _make_config_manager(config: dict | None = None, defaults: dict | None = None):
-    """Create a ConfigManager with mocked Anki addon manager."""
+    """Create a Config with mocked Anki addon manager."""
     # Reset singleton
-    ConfigManager._instance = None
+    Config._instance = None
 
     cfg_data = copy.deepcopy(config if config is not None else _SAMPLE_CONFIG)
     def_data = copy.deepcopy(defaults if defaults is not None else _SAMPLE_CONFIG)
@@ -143,11 +143,11 @@ def _make_config_manager(config: dict | None = None, defaults: dict | None = Non
 
     aqt.mw.addonManager = mock_addon_mgr
 
-    cm = ConfigManager()
+    cm = Config()
     return cm, mock_addon_mgr
 
 
-class TestConfigManagerProviders:
+class TestConfigProviders:
     def test_get_provider_config(self) -> None:
         cm, _ = _make_config_manager()
         cfg = cm.get_provider_config("openai")
@@ -185,7 +185,7 @@ class TestConfigManagerProviders:
         assert "anthropic" in types
 
 
-class TestConfigManagerActiveProviders:
+class TestConfigActiveProviders:
     def test_get_active_provider_type(self) -> None:
         cm, _ = _make_config_manager()
         assert cm.get_active_provider_type("text") == "openai"
@@ -227,7 +227,7 @@ class TestConfigManagerActiveProviders:
         assert cm.get_active_image_provider() is None
 
 
-class TestConfigManagerFieldInstructions:
+class TestConfigFieldInstructions:
     def test_get_field_instructions(self) -> None:
         cm, _ = _make_config_manager()
         instrs = cm.get_field_instructions("Basic")
@@ -266,7 +266,7 @@ class TestConfigManagerFieldInstructions:
         assert "Basic" not in nt_instr
 
 
-class TestConfigManagerGeneralSettings:
+class TestConfigGeneralSettings:
     def test_get_general_settings(self) -> None:
         cm, _ = _make_config_manager()
         gs = cm.get_general_settings()
@@ -290,7 +290,7 @@ class TestConfigManagerGeneralSettings:
         assert gs.show_fill_dialog is False
 
 
-class TestConfigManagerWrite:
+class TestConfigWrite:
     def test_write_calls_addon_manager(self) -> None:
         cm, mock_mgr = _make_config_manager()
         cm.write()
@@ -303,7 +303,7 @@ class TestConfigManagerWrite:
         assert gs.fill_all_shortcut == "Alt+G"
 
 
-class TestConfigManagerEnsureSection:
+class TestConfigEnsureSection:
     def test_ensure_section_creates_missing(self) -> None:
         cm, _ = _make_config_manager(config={})
         cm._ensure_section("providers")
