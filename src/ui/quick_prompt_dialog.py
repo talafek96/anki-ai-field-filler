@@ -27,7 +27,7 @@ class QuickPromptDialog(QDialog):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle("AI Field Filler")
+        self.setWindowTitle("AI Filler")
         self.setMinimumWidth(400)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.setStyleSheet(GLOBAL_STYLE)

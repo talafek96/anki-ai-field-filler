@@ -10,8 +10,8 @@ from unittest.mock import MagicMock
 import aqt
 import pytest
 
-from ai_field_filler.config_manager import ConfigManager
-from ai_field_filler.settings_io import (
+from src.core.config_manager import ConfigManager
+from src.core.settings_io import (
     SettingsIOError,
     _decrypt_value,
     _encrypt_value,

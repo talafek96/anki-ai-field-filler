@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from aqt.qt import *
 
-from ..config_manager import ConfigManager, GeneralSettings
+from ..core.config_manager import ConfigManager, GeneralSettings
 
 
 class GeneralSettingsTab(QWidget):

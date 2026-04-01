@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai_field_filler.field_filler import FieldFiller
-from ai_field_filler.providers.base import ProviderError
+from src.core.field_filler import FieldFiller
+from src.api.base import ProviderError
 
 
 class TestParseResponse:
@@ -197,12 +197,12 @@ class TestRenderFlags:
         img_cfg = MagicMock()
         filler._config.get_active_image_provider.return_value = img_cfg
 
-        with patch("ai_field_filler.field_filler.create_image_provider") as mock_factory:
+        with patch("src.core.field_filler.create_image_provider") as mock_factory:
             mock_prov = MagicMock()
             mock_prov.generate_image.return_value = b"\x89PNG_fake"
             mock_factory.return_value = mock_prov
 
-            with patch("ai_field_filler.field_filler.MediaHandler.save_image") as mock_save:
+            with patch("src.core.field_filler.MediaHandler.save_image") as mock_save:
                 mock_save.return_value = '<img src="ai_filler_test.png">'
                 html, errors = filler._render_flags(
                     "Before\n{{IMAGE: a cute cat}}\nAfter", "TestField"
@@ -219,12 +219,12 @@ class TestRenderFlags:
         tts_cfg = MagicMock()
         filler._config.get_active_tts_provider.return_value = tts_cfg
 
-        with patch("ai_field_filler.field_filler.create_tts_provider") as mock_factory:
+        with patch("src.core.field_filler.create_tts_provider") as mock_factory:
             mock_prov = MagicMock()
             mock_prov.synthesize.return_value = b"\xff\xfb\x90\x00" + b"\x00" * 50
             mock_factory.return_value = mock_prov
 
-            with patch("ai_field_filler.field_filler.MediaHandler.save_audio") as mock_save:
+            with patch("src.core.field_filler.MediaHandler.save_audio") as mock_save:
                 mock_save.return_value = "[sound:ai_filler_test.mp3]"
                 html, errors = filler._render_flags("Listen: {{AUDIO: konnichiwa}}", "TestField")
 
@@ -241,10 +241,10 @@ class TestRenderFlags:
         filler._config.get_active_tts_provider.return_value = tts_cfg
 
         with (
-            patch("ai_field_filler.field_filler.create_image_provider") as mock_img_f,
-            patch("ai_field_filler.field_filler.create_tts_provider") as mock_tts_f,
-            patch("ai_field_filler.field_filler.MediaHandler.save_image") as mock_save_img,
-            patch("ai_field_filler.field_filler.MediaHandler.save_audio") as mock_save_aud,
+            patch("src.core.field_filler.create_image_provider") as mock_img_f,
+            patch("src.core.field_filler.create_tts_provider") as mock_tts_f,
+            patch("src.core.field_filler.MediaHandler.save_image") as mock_save_img,
+            patch("src.core.field_filler.MediaHandler.save_audio") as mock_save_aud,
         ):
             mock_img_prov = MagicMock()
             mock_img_prov.generate_image.return_value = b"PNG"
@@ -272,7 +272,7 @@ class TestRenderFlags:
         img_cfg = MagicMock()
         filler._config.get_active_image_provider.return_value = img_cfg
 
-        with patch("ai_field_filler.field_filler.create_image_provider") as mock_factory:
+        with patch("src.core.field_filler.create_image_provider") as mock_factory:
             mock_prov = MagicMock()
             mock_prov.generate_image.side_effect = ProviderError("safety filter")
             mock_factory.return_value = mock_prov
@@ -292,7 +292,7 @@ class TestRenderFlags:
         tts_cfg = MagicMock()
         filler._config.get_active_tts_provider.return_value = tts_cfg
 
-        with patch("ai_field_filler.field_filler.create_tts_provider") as mock_factory:
+        with patch("src.core.field_filler.create_tts_provider") as mock_factory:
             mock_prov = MagicMock()
             mock_prov.synthesize.side_effect = ProviderError("TTS error")
             mock_factory.return_value = mock_prov
@@ -331,7 +331,7 @@ class TestRenderFlags:
 
         part_names: list[str] = []
 
-        with patch("ai_field_filler.field_filler.create_image_provider") as mock_factory:
+        with patch("src.core.field_filler.create_image_provider") as mock_factory:
             mock_prov = MagicMock()
             mock_prov.generate_image.return_value = b"PNG"
             mock_factory.return_value = mock_prov
@@ -341,7 +341,7 @@ class TestRenderFlags:
                 return f'<img src="{name}.png">'
 
             with patch(
-                "ai_field_filler.field_filler.MediaHandler.save_image",
+                "src.core.field_filler.MediaHandler.save_image",
                 side_effect=track_save,
             ):
                 filler._render_flags("{{IMAGE: cat}} and {{IMAGE: dog}}", "Field")
@@ -350,7 +350,7 @@ class TestRenderFlags:
         assert part_names[0] == "Field_p1"
         assert part_names[1] == "Field_p2"
 
-    @patch("ai_field_filler.field_filler.time.sleep")
+    @patch("src.core.field_filler.time.sleep")
     def test_partial_failure_keeps_other_flags(self, _mock_sleep) -> None:
         """One flag fails (all retries), others still render."""
         filler = self._make_filler()
@@ -359,7 +359,7 @@ class TestRenderFlags:
 
         call_count = 0
 
-        with patch("ai_field_filler.field_filler.create_image_provider") as mock_factory:
+        with patch("src.core.field_filler.create_image_provider") as mock_factory:
             mock_prov = MagicMock()
 
             def generate_side_effect(prompt: str) -> bytes:
@@ -374,7 +374,7 @@ class TestRenderFlags:
             mock_factory.return_value = mock_prov
 
             with patch(
-                "ai_field_filler.field_filler.MediaHandler.save_image",
+                "src.core.field_filler.MediaHandler.save_image",
                 return_value='<img src="ok.png">',
             ):
                 html, errors = filler._render_flags("{{IMAGE: bad}} middle {{IMAGE: good}}", "F")
@@ -421,8 +421,8 @@ class TestRenderRichContent:
         filler._config.get_active_image_provider.return_value = img_cfg
 
         with (
-            patch("ai_field_filler.field_filler.create_image_provider") as mock_factory,
-            patch("ai_field_filler.field_filler.MediaHandler.save_image") as mock_save,
+            patch("src.core.field_filler.create_image_provider") as mock_factory,
+            patch("src.core.field_filler.MediaHandler.save_image") as mock_save,
         ):
             mock_prov = MagicMock()
             mock_prov.generate_image.return_value = b"\x89PNG"
@@ -455,7 +455,7 @@ class TestRenderRichContent:
         img_cfg = MagicMock()
         filler._config.get_active_image_provider.return_value = img_cfg
 
-        with patch("ai_field_filler.field_filler.create_image_provider") as mock_factory:
+        with patch("src.core.field_filler.create_image_provider") as mock_factory:
             mock_prov = MagicMock()
             mock_prov.generate_image.side_effect = ProviderError("quota exceeded")
             mock_factory.return_value = mock_prov
@@ -480,7 +480,7 @@ class TestGenerateAndParse:
         filler._config = MagicMock()
         return filler
 
-    @patch("ai_field_filler.field_filler.create_text_provider")
+    @patch("src.core.field_filler.create_text_provider")
     def test_succeeds_first_try(self, mock_create, filler) -> None:
         filler._config = MagicMock()
         mock_provider = MagicMock()
@@ -492,7 +492,7 @@ class TestGenerateAndParse:
         assert result["A"]["content"] == "ok"
         assert mock_provider.generate.call_count == 1
 
-    @patch("ai_field_filler.field_filler.create_text_provider")
+    @patch("src.core.field_filler.create_text_provider")
     def test_retries_on_bad_json_then_succeeds(self, mock_create, filler) -> None:
         filler._config = MagicMock()
         mock_provider = MagicMock()
@@ -506,8 +506,8 @@ class TestGenerateAndParse:
         assert result["A"]["content"] == "val"
         assert mock_provider.generate.call_count == 2
 
-    @patch("ai_field_filler.field_filler.time.sleep")
-    @patch("ai_field_filler.field_filler.create_text_provider")
+    @patch("src.core.field_filler.time.sleep")
+    @patch("src.core.field_filler.create_text_provider")
     def test_raises_after_all_retries_fail(self, mock_create, _mock_sleep, filler) -> None:
         filler._config = MagicMock()
         mock_provider = MagicMock()

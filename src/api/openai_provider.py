@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import base64
 
-from ..config_manager import ProviderConfig
+from ..core.config_manager import ProviderConfig
 from .base import ImageProvider, ProviderError, TextProvider, TTSProvider
 from .http import http_post_json, http_post_raw
 

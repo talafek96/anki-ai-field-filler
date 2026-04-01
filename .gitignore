@@ -16,27 +16,27 @@ meta.json
 user_files/
 *.ankiaddon
 
-# IDE
+# IDE & OS
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Environment
+# Environments
 .env
 .venv/
 env/
 venv/
+node_modules/
 
-# AI
+# Development
 .devin
-
-# Plans
 plans/
-
+implementation_plan.md
+task.md
+walkthrough.md
+/tmp/

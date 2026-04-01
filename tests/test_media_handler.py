@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ai_field_filler.media_handler import MediaHandler, _pcm_to_wav
+from src.core.media_handler import MediaHandler, _pcm_to_wav
 
 
 class TestMediaHandler:

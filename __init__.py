@@ -1,4 +1,4 @@
-"""AI Field Filler — Anki addon for AI-powered note field completion.
+"""AI Filler — Anki addon for AI-powered note field completion.
 
 Uses LLM-based AI to intelligently auto-fill blank note fields, taking into
 account already-filled fields, configurable per-field instructions, and
@@ -14,27 +14,9 @@ except ImportError:
 
 
 def start_addon() -> None:
-    """Initialize the addon: register hooks, menus, and config actions."""
-    from aqt.qt import QAction, QMenu, qconnect
-
-    from . import browser_hooks, editor_hooks
-    from .config_manager import ConfigManager
-    from .ui.settings_dialog import SettingsDialog
-
-    editor_hooks.EditorIntegration.init()
-    browser_hooks.BrowserIntegration.init()
-
-    menu = QMenu("AI Field Filler", mw)
-    settings_action = QAction("Settings...", menu)
-    qconnect(settings_action.triggered, lambda: SettingsDialog(mw).exec())
-    menu.addAction(settings_action)
-    mw.form.menuTools.addMenu(menu)
-
-    addon_name = mw.addonManager.addonFromModule(__name__)
-    config = ConfigManager()
-
-    mw.addonManager.setConfigAction(addon_name, lambda: SettingsDialog(mw).exec())
-    mw.addonManager.setConfigUpdatedAction(addon_name, config.update_from_addon_manager)
+    """Initialize the addon via the src package."""
+    from .src.core.hooks import start_addon as run_start
+    run_start()
 
 
 if mw and "pytest" not in sys.modules:

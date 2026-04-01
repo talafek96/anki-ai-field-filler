@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from ai_field_filler.field_filler import BatchProposedChange
-from ai_field_filler.ui.batch_review_dialog import (
+from src.core.field_filler import BatchProposedChange
+from src.ui.batch_review_dialog import (
     _classify_proposal,
     _classify_value,
     _extract_body_html,
@@ -516,14 +516,14 @@ class TestMediaBaseUrl:
     """Verify _media_base_url returns a QUrl or None."""
 
     def test_returns_url_when_mw_available(self) -> None:
-        with patch("ai_field_filler.ui.batch_review_dialog.mw") as mock_mw:
+        with patch("src.ui.batch_review_dialog.mw") as mock_mw:
             mock_mw.col.media.dir.return_value = "/fake/media"
             result = _media_base_url()
             # QUrl.fromLocalFile was called (it's a MagicMock so result is truthy)
             assert result is not None
 
     def test_returns_none_on_exception(self) -> None:
-        with patch("ai_field_filler.ui.batch_review_dialog.mw") as mock_mw:
+        with patch("src.ui.batch_review_dialog.mw") as mock_mw:
             mock_mw.col.media.dir.side_effect = AttributeError("no col")
             result = _media_base_url()
             assert result is None

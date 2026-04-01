@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from ..config_manager import ProviderConfig
+from ..core.config_manager import ProviderConfig
 
 
 class ProviderError(Exception):

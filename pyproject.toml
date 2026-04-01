@@ -30,7 +30,7 @@ ignore = [
 "tests/*" = ["E501"]  # allow long lines in tests
 
 [tool.ruff.lint.isort]
-known-first-party = ["ai_field_filler"]
+known-first-party = ["src"]
 known-third-party = ["aqt", "anki", "pytest"]
 
 # --------------------------------------------------------------------------
@@ -46,11 +46,7 @@ warn_return_any = false
 exclude = ["tests/"]
 
 [[tool.mypy.overrides]]
-module = "ai_field_filler.ui.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "ai_field_filler.editor_hooks"
+module = "src.ui.*"
 ignore_errors = true
 
 # --------------------------------------------------------------------------

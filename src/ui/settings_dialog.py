@@ -1,6 +1,6 @@
-"""Main settings dialog for AI Field Filler.
+"""Main settings dialog for AI Filler.
 
-Accessible from Tools -> AI Field Filler -> Settings... or from the
+Accessible from Tools -> AI Filler -> Settings... or from the
 addon manager's Config button.
 """
 
@@ -12,14 +12,14 @@ from aqt import mw
 from aqt.qt import *
 from aqt.utils import restoreGeom, saveGeom, showWarning, tooltip
 
-from ..config_manager import ConfigManager
-from ..settings_io import SettingsIOError, export_settings, import_settings
+from ..core.config_manager import ConfigManager
+from ..core.settings_io import SettingsIOError, export_settings, import_settings
 from .general_settings_tab import GeneralSettingsTab
 from .note_type_settings_tab import NoteTypeSettingsTab
 from .provider_settings_tab import ProviderSettingsTab
 from .styles import GLOBAL_STYLE
 
-_FILE_FILTER = "AI Field Filler Settings (*.aiff-settings);;All Files (*)"
+_FILE_FILTER = "AI Filler Settings (*.aiff-settings);;All Files (*)"
 
 
 class SettingsDialog(QDialog):
@@ -34,7 +34,7 @@ class SettingsDialog(QDialog):
         restoreGeom(self, self._GEOM_KEY, adjustSize=True)
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle("AI Field Filler \u2014 Settings")
+        self.setWindowTitle("AI Filler \u2014 Settings")
         self.setMinimumSize(740, 540)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.setStyleSheet(GLOBAL_STYLE)

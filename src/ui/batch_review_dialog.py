@@ -13,29 +13,23 @@ from aqt import mw
 from aqt.qt import *
 from aqt.sound import av_player
 
-from ..field_filler import BatchProposedChange
+from ..core.field_filler import BatchProposedChange
 from .styles import (
+    CLICKABLE_ARROW_STYLE,
+    FIELD_ERROR_STYLE,
     FILTER_CHIP_STYLE,
     GLOBAL_STYLE,
     HEADER_STYLE,
     MUTED_LABEL_STYLE,
+    PREVIEW_RENDERED_STYLE,
+    PREVIEW_STYLE,
     REGEN_TOGGLE_STYLE,
+    RESIZE_HANDLE_COLOR,
 )
 
-_PREVIEW_STYLE = (
-    "border: 1px solid #DDE1E6; border-radius: 6px; "
-    "padding: 6px 8px; background: #FFFFFF; color: #1F2937; font-size: 13px;"
-)
-
-_PREVIEW_RENDERED_STYLE = (
-    "background: #FFFFFF; border: 1px solid #DDE1E6; border-radius: 6px; "
-    "color: #1F2937; font-size: 13px;"
-)
-
-_FIELD_ERROR_STYLE = (
-    "color: #92400E; font-size: 12px; padding: 4px 8px; "
-    "background: #FEF3C7; border-left: 3px solid #F59E0B; border-radius: 2px;"
-)
+_PREVIEW_STYLE = PREVIEW_STYLE
+_PREVIEW_RENDERED_STYLE = PREVIEW_RENDERED_STYLE
+_FIELD_ERROR_STYLE = FIELD_ERROR_STYLE
 
 _INITIAL_CONTENT_HEIGHT = 200
 
@@ -192,7 +186,7 @@ class _ResizeHandle(QWidget):
     def paintEvent(self, event: object) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor("#C4CAD3"))
+        pen = QPen(QColor(RESIZE_HANDLE_COLOR))
         pen.setWidth(1)
         p.setPen(pen)
         cx = self.width() // 2
@@ -300,9 +294,7 @@ class _ClickableArrow(QLabel):
         super().__init__(_ARROW_EXPANDED, parent)
         self.setFixedSize(22, 22)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setStyleSheet(
-            "font-size: 11px; color: #6B7280; background: transparent; border: none;"
-        )
+        self.setStyleSheet(CLICKABLE_ARROW_STYLE)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip("Collapse / Expand")
 
@@ -373,7 +365,7 @@ class BatchReviewDialog(QDialog):
 
     def _setup_ui(self) -> None:
         title = "Dry Run Preview" if self._dry_run else "Review Changes"
-        self.setWindowTitle(f"AI Field Filler \u2014 {title}")
+        self.setWindowTitle(f"AI Filler \u2014 {title}")
         self.setMinimumSize(680, 540)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.setStyleSheet(GLOBAL_STYLE)
@@ -1184,7 +1176,7 @@ class BatchReviewDialog(QDialog):
 
             showWarning(
                 f"Regeneration failed for '{field_name}':\n{error}",
-                title="AI Field Filler",
+                title="AI Filler",
                 parent=self,
             )
             return
@@ -1200,7 +1192,7 @@ class BatchReviewDialog(QDialog):
                 showWarning(
                     f"'{field_name}' was edited during regeneration.\n"
                     f"Your edits have been preserved.",
-                    title="AI Field Filler",
+                    title="AI Filler",
                     parent=self,
                 )
                 return

@@ -10,15 +10,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai_field_filler.config_manager import ProviderConfig
-from ai_field_filler.providers.anthropic_provider import AnthropicTextProvider
-from ai_field_filler.providers.base import ProviderError
-from ai_field_filler.providers.google_provider import (
+from src.core.config_manager import ProviderConfig
+from src.api.anthropic_provider import AnthropicTextProvider
+from src.api.base import ProviderError
+from src.api.google_provider import (
     GoogleImageProvider,
     GoogleTextProvider,
     GoogleTTSProvider,
 )
-from ai_field_filler.providers.openai_provider import (
+from src.api.openai_provider import (
     OpenAIImageProvider,
     OpenAITextProvider,
     OpenAITTSProvider,
@@ -54,7 +54,7 @@ _GOOGLE_CFG = ProviderConfig(
     image_model="gemini-2.5-flash-image",
 )
 
-_HTTP_POST_JSON = "ai_field_filler.providers.http.urllib.request.urlopen"
+_HTTP_POST_JSON = "src.api.http.urllib.request.urlopen"
 
 
 def _mock_urlopen(response_data: str | bytes):

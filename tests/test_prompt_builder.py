@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ai_field_filler.config_manager import FieldInstruction
+from src.core.config_manager import FieldInstruction
 
 
 class TestBuildUserPrompt:

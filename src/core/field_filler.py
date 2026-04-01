@@ -18,8 +18,8 @@ from aqt.editor import Editor
 
 from .config_manager import ConfigManager, FieldInstruction
 from .media_handler import MediaHandler
-from .providers import create_image_provider, create_text_provider, create_tts_provider
-from .providers.base import ProviderError
+from ..api import create_image_provider, create_text_provider, create_tts_provider
+from ..api.base import ProviderError
 
 # ---------------------------------------------------------------------------
 # Retry helper for all generation calls

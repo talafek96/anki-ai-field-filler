@@ -9,8 +9,8 @@ from aqt import mw
 from aqt.qt import *
 from aqt.utils import showInfo, tooltip
 
-from ..config_manager import ConfigManager, ProviderConfig
-from ..providers import fetch_available_models, test_provider_connection
+from ..core.config_manager import ConfigManager, ProviderConfig
+from ..api import fetch_available_models, test_provider_connection
 
 PROVIDER_CAPABILITIES = {
     "openai": {"text": True, "tts": True, "image": True},
@@ -437,7 +437,7 @@ class ProviderSettingsTab(QWidget):
         if not cfg.api_key:
             showInfo(
                 "Please enter an API key first.",
-                title="AI Field Filler",
+                title="AI Filler",
             )
             return
 
@@ -500,7 +500,7 @@ class ProviderSettingsTab(QWidget):
         if not cfg.api_key:
             showInfo(
                 "Please enter an API key first.",
-                title="AI Field Filler",
+                title="AI Filler",
             )
             return
 
@@ -521,7 +521,7 @@ class ProviderSettingsTab(QWidget):
         else:
             showInfo(
                 f"Connection failed:\n\n{message}",
-                title="AI Field Filler",
+                title="AI Filler",
             )
 
     # ---- save ----------------------------------------------------------

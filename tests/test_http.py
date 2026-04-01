@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai_field_filler.providers.base import ProviderError
-from ai_field_filler.providers.http import (
+from src.api.base import ProviderError
+from src.api.http import (
     _RETRYABLE_STATUS_CODES,
     _backoff_delay,
     _parse_json,
@@ -53,7 +53,7 @@ def _mock_urlopen(response_data: str | bytes, status: int = 200):
 
 
 class TestHttpPostJson:
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_success(self, mock_urlopen) -> None:
         mock_urlopen.return_value = _mock_urlopen('{"result": "ok"}')
         result = http_post_json(
@@ -65,7 +65,7 @@ class TestHttpPostJson:
         assert result == {"result": "ok"}
         mock_urlopen.assert_called_once()
 
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_http_error(self, mock_urlopen) -> None:
         error = urllib.error.HTTPError(
             "https://api.test",
@@ -78,25 +78,25 @@ class TestHttpPostJson:
         with pytest.raises(ProviderError, match="401"):
             http_post_json("https://api.test", {}, {}, label="Test")
 
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_url_error(self, mock_urlopen) -> None:
         mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
         with pytest.raises(ProviderError, match="Connection error"):
             http_post_json("https://api.test", {}, {}, label="Test")
 
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_empty_response(self, mock_urlopen) -> None:
         mock_urlopen.return_value = _mock_urlopen("")
         with pytest.raises(ProviderError, match="Empty response"):
             http_post_json("https://api.test", {}, {}, label="Test")
 
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_invalid_json_response(self, mock_urlopen) -> None:
         mock_urlopen.return_value = _mock_urlopen("not json")
         with pytest.raises(ProviderError, match="Invalid JSON"):
             http_post_json("https://api.test", {}, {}, label="Test")
 
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_content_type_header_set(self, mock_urlopen) -> None:
         mock_urlopen.return_value = _mock_urlopen('{"ok": true}')
         http_post_json("https://api.test", {"X-Custom": "val"}, {}, label="Test")
@@ -107,7 +107,7 @@ class TestHttpPostJson:
 
 
 class TestHttpPostRaw:
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_returns_bytes(self, mock_urlopen) -> None:
         mock_urlopen.return_value = _mock_urlopen(b"\xff\xfb\x90audio-data")
         result = http_post_raw(
@@ -118,7 +118,7 @@ class TestHttpPostRaw:
         )
         assert result == b"\xff\xfb\x90audio-data"
 
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_http_error_non_retryable(self, mock_urlopen) -> None:
         error = urllib.error.HTTPError(
             "https://api.test",
@@ -135,13 +135,13 @@ class TestHttpPostRaw:
 
 
 class TestHttpGetJson:
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_success(self, mock_urlopen) -> None:
         mock_urlopen.return_value = _mock_urlopen('{"data": []}')
         result = http_get_json("https://api.test/models", label="Test")
         assert result == {"data": []}
 
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_with_headers(self, mock_urlopen) -> None:
         mock_urlopen.return_value = _mock_urlopen('{"data": []}')
         http_get_json(
@@ -153,7 +153,7 @@ class TestHttpGetJson:
         req = call_args[0][0]
         assert req.get_header("Authorization") == "Bearer key"
 
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_http_error(self, mock_urlopen) -> None:
         error = urllib.error.HTTPError(
             "https://api.test",
@@ -215,8 +215,8 @@ class TestRetryAfter:
 class TestRetryOnTransientErrors:
     """Verify that retryable status codes trigger retries and others don't."""
 
-    @patch("ai_field_filler.providers.http.time.sleep")
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.time.sleep")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_500_retried_then_succeeds(self, mock_urlopen, mock_sleep) -> None:
         """A single 500 followed by success should work."""
         mock_urlopen.side_effect = [
@@ -228,8 +228,8 @@ class TestRetryOnTransientErrors:
         assert mock_urlopen.call_count == 2
         mock_sleep.assert_called_once()
 
-    @patch("ai_field_filler.providers.http.time.sleep")
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.time.sleep")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_500_exhausts_retries(self, mock_urlopen, mock_sleep) -> None:
         """All attempts fail with 500 → ProviderError raised."""
         mock_urlopen.side_effect = [_make_http_error(500, b"fail") for _ in range(4)]
@@ -239,8 +239,8 @@ class TestRetryOnTransientErrors:
         assert mock_urlopen.call_count == 4
         assert mock_sleep.call_count == 3
 
-    @patch("ai_field_filler.providers.http.time.sleep")
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.time.sleep")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_429_uses_retry_after_header(self, mock_urlopen, mock_sleep) -> None:
         headers = MagicMock()
         headers.get.return_value = "3"
@@ -252,8 +252,8 @@ class TestRetryOnTransientErrors:
         assert result == {"ok": True}
         mock_sleep.assert_called_once_with(3.0)
 
-    @patch("ai_field_filler.providers.http.time.sleep")
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.time.sleep")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_401_not_retried(self, mock_urlopen, mock_sleep) -> None:
         mock_urlopen.side_effect = _make_http_error(401, b"bad key")
         with pytest.raises(ProviderError, match="401"):
@@ -261,8 +261,8 @@ class TestRetryOnTransientErrors:
         assert mock_urlopen.call_count == 1
         mock_sleep.assert_not_called()
 
-    @patch("ai_field_filler.providers.http.time.sleep")
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.time.sleep")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_raw_bytes_retried(self, mock_urlopen, mock_sleep) -> None:
         """http_post_raw also retries on 502."""
         mock_urlopen.side_effect = [
@@ -273,8 +273,8 @@ class TestRetryOnTransientErrors:
         assert result == b"\x00audio"
         assert mock_urlopen.call_count == 2
 
-    @patch("ai_field_filler.providers.http.time.sleep")
-    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    @patch("src.api.http.time.sleep")
+    @patch("src.api.http.urllib.request.urlopen")
     def test_get_json_retried(self, mock_urlopen, mock_sleep) -> None:
         """http_get_json also retries on 503."""
         mock_urlopen.side_effect = [

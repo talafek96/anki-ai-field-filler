@@ -24,10 +24,11 @@ test: ## Run tests
 check: lint typecheck test ## Run all quality checks
 
 build: ## Build .ankiaddon package
-	python build_ankiaddon.py
+	python src/build_ankiaddon.py
 
 clean: ## Remove build artifacts and caches
-	rm -rf .pytest_cache .ruff_cache .mypy_cache __pycache__ tests/__pycache__ providers/__pycache__ ui/__pycache__
+	rm -rf .pytest_cache .ruff_cache .mypy_cache
+	find . -type d -name "__pycache__" -exec rm -rf {} +
 	rm -f ai_field_filler.ankiaddon
 
 release: ## Tag a release (vYYYY.MM.DD or vYYYY.MM.DD-N) and push

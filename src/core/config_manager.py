@@ -1,4 +1,4 @@
-"""Configuration management for AI Field Filler addon."""
+"""Configuration management for AI Filler addon."""
 
 from __future__ import annotations
 

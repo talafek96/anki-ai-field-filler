@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from aqt.qt import *
 
-from ..field_filler import BatchFiller, BatchNoteItem, BatchProgress, BatchResult
+from ..core.field_filler import BatchFiller, BatchNoteItem, BatchProgress, BatchResult
 from .styles import ACCENT_COLOR, GLOBAL_STYLE, MUTED_LABEL_STYLE
 
 
@@ -34,7 +34,7 @@ class BatchProgressDialog(QDialog):
         self._done_signal.connect(self._on_done)
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle("AI Field Filler \u2014 Batch Progress")
+        self.setWindowTitle("AI Filler \u2014 Batch Progress")
         self.setMinimumWidth(460)
         self.setFixedHeight(200)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
@@ -152,7 +152,7 @@ class BatchSummaryDialog(QDialog):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle("AI Field Filler \u2014 Batch Complete")
+        self.setWindowTitle("AI Filler \u2014 Batch Complete")
         self.setMinimumWidth(460)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.setStyleSheet(GLOBAL_STYLE)

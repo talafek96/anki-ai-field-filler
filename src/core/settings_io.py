@@ -163,7 +163,7 @@ def import_settings(
         raise SettingsIOError("Invalid settings file: expected a JSON object.")
 
     if payload.get("_format") != _FORMAT_TAG:
-        raise SettingsIOError("This file does not appear to be an AI Field Filler settings export.")
+        raise SettingsIOError("This file does not appear to be an AI Filler settings export.")
 
     version = payload.get("_version", 0)
     if not isinstance(version, int) or version < 1:
@@ -172,7 +172,7 @@ def import_settings(
         raise SettingsIOError(
             f"This file was created by a newer version of the addon "
             f"(file version {version}, supported up to {_FORMAT_VERSION}).\n"
-            f"Please update AI Field Filler and try again."
+            f"Please update AI Filler and try again."
         )
 
     # -- decryption ----------------------------------------------------------

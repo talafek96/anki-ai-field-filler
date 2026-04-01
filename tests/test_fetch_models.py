@@ -7,15 +7,15 @@ import urllib.error
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
-from ai_field_filler.config_manager import ProviderConfig
-from ai_field_filler.providers import (
+from src.core.config_manager import ProviderConfig
+from src.api import (
     fetch_available_models,
 )
-from ai_field_filler.providers import (
+from src.api import (
     test_provider_connection as _test_provider_connection,
 )
 
-_HTTP_URLOPEN = "ai_field_filler.providers.http.urllib.request.urlopen"
+_HTTP_URLOPEN = "src.api.http.urllib.request.urlopen"
 
 
 def _mock_urlopen(response_data: str | bytes):

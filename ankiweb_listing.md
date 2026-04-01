@@ -1,4 +1,4 @@
-<!-- AnkiWeb Addon Listing — AI Field Filler
+<!-- AnkiWeb Addon Listing — AI Filler
 
 Paste each section into the corresponding field on the AnkiWeb
 upload form at https://ankiweb.net/shared/addons/
@@ -8,7 +8,7 @@ with the codebase. It is excluded from the .ankiaddon package. -->
 
 # Title
 
-AI Field Filler 🧠 Smart Auto-Fill for Notes (Text, TTS, Images)
+AI Filler 🧠 Smart Auto-Fill for Notes (Text, TTS, Images)
 
 # Tags
 
@@ -20,7 +20,7 @@ https://github.com/talafek96/anki-ai-field-filler/issues
 
 # Description
 
-**AI Field Filler** uses AI to intelligently fill blank note fields - text, audio (TTS), and images - based on your existing note content and the per-field instructions you configure.
+**AI Filler** uses AI to intelligently fill blank note fields - text, audio (TTS), and images - based on your existing note content and the per-field instructions you configure.
 
 **Free and open-source.** Use your own API key from OpenAI, Anthropic, or Google. No subscription, no middleman.
 
@@ -96,7 +96,7 @@ Choose different providers for text, TTS, and images. Configure per-field instru
 
 # Quick Start
 
-1. Open **Tools → AI Field Filler → Settings...**
+1. Open **Tools → AI Filler → Settings...**
 2. Enter your API key for your preferred provider
 3. Click **Test Connection**
 4. Go to the **Note Types** tab and describe what each field should contain

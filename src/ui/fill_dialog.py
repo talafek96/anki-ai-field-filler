@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple
 
 from aqt.qt import *
 
-from ..config_manager import FieldInstruction
+from ..core.config_manager import FieldInstruction
 from .styles import GLOBAL_STYLE, HEADER_STYLE, MUTED_LABEL_STYLE
 
 
@@ -35,7 +35,7 @@ class FillDialog(QDialog):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle("AI Field Filler")
+        self.setWindowTitle("AI Filler")
         self.setMinimumWidth(440)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.setStyleSheet(GLOBAL_STYLE)

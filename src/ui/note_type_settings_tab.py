@@ -7,7 +7,7 @@ from typing import Optional
 from aqt import mw
 from aqt.qt import *
 
-from ..config_manager import ConfigManager, FieldInstruction
+from ..core.config_manager import ConfigManager, FieldInstruction
 from . import create_auto_fill_checkbox, create_field_type_combo
 
 

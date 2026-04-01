@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple
 
 from aqt.qt import *
 
-from ..config_manager import FieldInstruction
+from ..core.config_manager import FieldInstruction
 from .styles import GLOBAL_STYLE, HEADER_STYLE, MUTED_LABEL_STYLE
 
 
@@ -34,7 +34,7 @@ class BatchFillDialog(QDialog):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle("AI Field Filler \u2014 Batch Fill")
+        self.setWindowTitle("AI Filler \u2014 Batch Fill")
         self.setMinimumWidth(480)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.setStyleSheet(GLOBAL_STYLE)

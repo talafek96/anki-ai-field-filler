@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Package the AI Field Filler addon into a .ankiaddon file.
+"""Package the AI Filler addon into a .ankiaddon file.
 
 Usage:
-    python build_ankiaddon.py          # creates ai_field_filler.ankiaddon
-    python build_ankiaddon.py --check  # dry-run: list files that would be included
+    python build.py          # creates ai_filler.ankiaddon
+    python build.py --check  # dry-run: list files that would be included
 """
 
 from __future__ import annotations
@@ -29,12 +29,13 @@ EXCLUDE_DIRS = {
     "venv",
     "env",
     "node_modules",
+    "docs",
 }
 
 EXCLUDE_FILES = {
     ".gitignore",
     "AGENTS.md",
-    "build_ankiaddon.py",
+    "build.py",
     "ankiweb_listing.md",
     "pyproject.toml",
     "uv.lock",
@@ -43,6 +44,8 @@ EXCLUDE_FILES = {
     ".DS_Store",
     "Thumbs.db",
     "desktop.ini",
+    "DEVELOPMENT.md",
+    "README.md",  # usually sidecar files are okay, but Anki doesn't need them in the zip
 }
 
 EXCLUDE_EXTENSIONS = {
@@ -53,7 +56,7 @@ EXCLUDE_EXTENSIONS = {
     ".swo",
 }
 
-OUTPUT_NAME = "ai_field_filler.ankiaddon"
+OUTPUT_NAME = "ai_filler.ankiaddon"
 
 ADDON_ROOT = Path(__file__).resolve().parent
 
@@ -116,7 +119,7 @@ def build(check: bool = False) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Package AI Field Filler addon")
+    parser = argparse.ArgumentParser(description="Package AI Filler addon")
     parser.add_argument(
         "--check",
         action="store_true",

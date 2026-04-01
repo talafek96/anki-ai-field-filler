@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from ai_field_filler.providers import (
+from src.api import (
     _classify_google_model,
     _classify_openai_model,
     create_image_provider,
     create_text_provider,
     create_tts_provider,
 )
-from ai_field_filler.providers.base import (
+from src.api.base import (
     ImageProvider,
     ProviderError,
     TextProvider,

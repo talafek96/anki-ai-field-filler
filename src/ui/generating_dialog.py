@@ -19,7 +19,7 @@ class GeneratingDialog(QDialog):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.setWindowTitle("AI Field Filler")
+        self.setWindowTitle("AI Filler")
         self.setFixedSize(340, 160)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.setWindowFlags(

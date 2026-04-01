@@ -115,8 +115,8 @@ def _install_aqt_mocks() -> None:
 _install_aqt_mocks()
 
 # These imports MUST come after aqt mocks are installed.
-from ai_field_filler.config_manager import ProviderConfig  # noqa: E402
-from ai_field_filler.field_filler import FieldFiller  # noqa: E402
+from src.core.config_manager import ProviderConfig  # noqa: E402
+from src.core.field_filler import FieldFiller  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -150,6 +150,6 @@ def filler():
 @pytest.fixture()
 def mock_mw():
     """Patch ``mw`` inside the media_handler module."""
-    with patch("ai_field_filler.media_handler.mw") as m:
+    with patch("src.core.media_handler.mw") as m:
         m.col.media.write_data = MagicMock()
         yield m
