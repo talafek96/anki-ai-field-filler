@@ -25,7 +25,7 @@
             "max_tokens": 4096
         },
         "vercel": {
-            "api_url": "https://gateway.ai.vercel.com/v1",
+            "api_url": "https://ai-gateway.vercel.sh/v1",
             "api_key": "",
             "text_model": "gpt-4o",
             "max_tokens": 4096

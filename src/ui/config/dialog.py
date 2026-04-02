@@ -12,12 +12,12 @@ from aqt import mw
 from aqt.qt import *
 from aqt.utils import restoreGeom, saveGeom, showWarning, tooltip
 
-from ..core.config import Config
-from ..core.storage import SettingsIOError, export_settings, import_settings
-from .config_tab_general import GeneralSettingsTab
-from .config_tab_note_type import NoteTypeSettingsTab
-from .config_tab_models import ModelSettingsTab
-from .theme import GLOBAL_STYLE
+from ...core.config import Config
+from ...core.storage import SettingsIOError, export_settings, import_settings
+from .tab_general import GeneralSettingsTab
+from .tab_note_type import NoteTypeSettingsTab
+from .tab_models import ModelSettingsTab
+from ..common.theme import GLOBAL_STYLE
 
 _FILE_FILTER = "AI Filler Settings (*.aiff-settings);;All Files (*)"
 

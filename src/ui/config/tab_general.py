@@ -9,8 +9,8 @@ from aqt import mw
 from aqt.qt import *
 from aqt.utils import showInfo, tooltip
 
-from ..core.config import Config, GeneralSettings, ProviderConfig
-from ..core.factory import test_provider_connection
+from ...core.config import Config, GeneralSettings, ProviderConfig
+from ...core.factory import test_provider_connection
 
 # Shared constants (could also be imported from provider_settings_tab)
 PROVIDER_LABELS = {
@@ -66,7 +66,7 @@ class GeneralSettingsTab(QWidget):
         self._provider_combo.setMinimumWidth(180)
         
         # Icon paths
-        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         icons_dir = os.path.join(addon_dir, "assets", "icons", "providers")
         provider_icons = {
             "openai": "openai.svg",

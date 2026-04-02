@@ -14,9 +14,29 @@ except ImportError:
 
 
 def start_addon() -> None:
-    """Initialize the addon via the src package."""
-    from .src.ui.integration import start_addon as run_start
-    run_start()
+    """Initialize the addon: register hooks, menus, and config actions."""
+    from aqt.qt import QAction, qconnect
+    from .src.core.config import Config
+    from .src.ui.config.dialog import SettingsDialog
+    from .src.ui.integration import BrowserIntegration, EditorIntegration
+
+    # Initialize sub-integrations
+    EditorIntegration.init()
+    BrowserIntegration.init()
+
+    # Tools menu item
+    settings_action = QAction("Anki AI Filler", mw)
+    qconnect(settings_action.triggered, lambda: SettingsDialog(mw).exec())
+    mw.form.menuTools.addAction(settings_action)
+
+    # Addon manager integration (config button in Anki's addon list)
+    addon_name = mw.addonManager.addonFromModule(__name__)
+    config = Config()
+
+    mw.addonManager.setConfigAction(addon_name, lambda: SettingsDialog(mw).exec())
+    mw.addonManager.setConfigUpdatedAction(
+        addon_name, config.update_from_addon_manager
+    )
 
 
 if mw and "pytest" not in sys.modules:

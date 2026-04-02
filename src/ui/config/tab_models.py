@@ -10,8 +10,8 @@ from aqt import mw
 from aqt.qt import *
 from aqt.utils import showInfo, tooltip
 
-from ..core.config import Config, ProviderConfig
-from ..core.factory import fetch_available_models
+from ...core.config import Config, ProviderConfig
+from ...core.factory import fetch_available_models
 
 # Shared constants
 PROVIDER_LABELS = {
@@ -224,7 +224,7 @@ class ModelSettingsTab(QWidget):
 
     def _setup_provider_combo(self, combo: QComboBox, capability: str) -> None:
         """Helper to populate a provider combo box with icons and labels."""
-        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         icons_dir = os.path.join(addon_dir, "assets", "icons", "providers")
         provider_icons = {
             "openai": "openai.svg",

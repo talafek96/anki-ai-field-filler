@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from aqt.qt import *
 
-from .theme import ACCENT_COLOR, GLOBAL_STYLE
+from ..common.theme import ACCENT_COLOR, GLOBAL_STYLE
 
 
 class GeneratingDialog(QDialog):

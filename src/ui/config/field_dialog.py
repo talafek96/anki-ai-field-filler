@@ -9,9 +9,9 @@ from typing import Optional
 
 from aqt.qt import *
 
-from ..core.config import Config, FieldInstruction
-from .widgets import create_auto_fill_checkbox, create_field_type_combo
-from .theme import GLOBAL_STYLE, HEADER_STYLE
+from ...core.config import Config, FieldInstruction
+from ..common.widgets import create_auto_fill_checkbox, create_field_type_combo
+from ..common.theme import GLOBAL_STYLE, HEADER_STYLE
 
 
 class FieldInstructionDialog(QDialog):

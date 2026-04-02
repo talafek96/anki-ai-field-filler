@@ -7,8 +7,8 @@ from typing import Optional
 from aqt import mw
 from aqt.qt import *
 
-from ..core.config import Config, FieldInstruction
-from .widgets import create_auto_fill_checkbox, create_field_type_combo
+from ...core.config import Config, FieldInstruction
+from ..common.widgets import create_auto_fill_checkbox, create_field_type_combo
 
 
 class _ResizeHandle(QWidget):

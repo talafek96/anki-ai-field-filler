@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from aqt.qt import QCheckBox, QComboBox
 
-from ..core.config import FIELD_TYPES
+from ...core.config import FIELD_TYPES
 
 _TYPE_TOOLTIP = (
     "auto: let the AI decide the best type\n"

@@ -13,8 +13,8 @@ from aqt import mw
 from aqt.qt import *
 from aqt.sound import av_player
 
-from ..core.filler import BatchProposedChange
-from .theme import (
+from ...core.filler import BatchProposedChange
+from ..common.theme import (
     CLICKABLE_ARROW_STYLE,
     FIELD_ERROR_STYLE,
     FILTER_CHIP_STYLE,

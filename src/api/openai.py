@@ -70,6 +70,25 @@ class OpenAITextProvider(_OpenAIRequestMixin, TextProvider):
                 raise
         return result["choices"][0]["message"]["content"]
 
+    def chat(self, messages: list[dict[str, str]]) -> str:
+        url = f"{self._config.base_url}/chat/completions"
+        payload = {
+            "model": self._config.text_model,
+            "messages": messages,
+            "max_completion_tokens": self._config.max_tokens,
+            "temperature": 0.7,
+        }
+        try:
+            result = self._request(url, payload)
+        except ProviderError as e:
+            if "max_completion_tokens" in str(e) and "unsupported" in str(e).lower():
+                payload.pop("max_completion_tokens")
+                payload["max_tokens"] = self._config.max_tokens
+                result = self._request(url, payload)
+            else:
+                raise
+        return result["choices"][0]["message"]["content"]
+
 
 class OpenAITTSProvider(_OpenAIRequestMixin, TTSProvider):
     """OpenAI text-to-speech."""

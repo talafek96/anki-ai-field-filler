@@ -69,6 +69,38 @@ class GoogleTextProvider(_GoogleRequestMixin, TextProvider):
             raise ProviderError("Google API returned empty text in response")
         return text
 
+    def chat(self, messages: list[dict[str, str]]) -> str:
+        model = self._config.text_model
+        system_instruction = None
+        contents = []
+
+        for m in messages:
+            role = m["role"]
+            content = m["content"]
+            if role == "system":
+                system_instruction = {"parts": [{"text": content}]}
+            else:
+                # Google roles are "user" and "model"
+                g_role = "model" if role == "assistant" else "user"
+                contents.append({"role": g_role, "parts": [{"text": content}]})
+
+        payload: dict = {
+            "contents": contents,
+            "generationConfig": {
+                "maxOutputTokens": self._config.max_tokens,
+                "temperature": 0.7,
+            },
+        }
+        if system_instruction:
+            payload["system_instruction"] = system_instruction
+
+        result = self._generate_content(model, payload)
+        parts = self._extract_parts(result)
+        text = parts[0].get("text", "")
+        if not text:
+            raise ProviderError("Google API returned empty text in response")
+        return text
+
 
 class GoogleImageProvider(_GoogleRequestMixin, ImageProvider):
     """Google Gemini native image generation (Nano Banana)."""

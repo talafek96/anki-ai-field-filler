@@ -365,3 +365,72 @@ SIDEBAR_STYLE = f"""
         margin-top: 20px;
     }}
 """
+
+# ---------------------------------------------------------------------------
+# Chat interface styles
+# ---------------------------------------------------------------------------
+
+CHAT_MESSAGE_LIST_STYLE = f"""
+    background-color: transparent;
+    border: none;
+"""
+
+def get_chat_bubble_user_style() -> str:
+    return f"""
+        background-color: {_ACCENT};
+        color: white;
+        border-top-left-radius: 12px;
+        border-top-right-radius: 12px;
+        border-bottom-left-radius: 12px;
+        border-bottom-right-radius: 2px;
+        padding: 10px 14px;
+        margin: 4px 8px;
+    """
+
+def get_chat_bubble_bot_style() -> str:
+    return f"""
+        background-color: {"#333" if IS_DARK else "#EDF2F4"};
+        color: {_TEXT_PRIMARY};
+        border-top-left-radius: 2px;
+        border-top-right-radius: 12px;
+        border-bottom-left-radius: 12px;
+        border-bottom-right-radius: 12px;
+        padding: 10px 14px;
+        margin: 4px 8px;
+        border: 1px solid {"#444" if IS_DARK else "#DDE2E5"};
+    """
+
+CHAT_INPUT_STYLE = f"""
+    background-color: {_BG_INPUT};
+    border: 1px solid {_BORDER};
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: {_TEXT_PRIMARY};
+"""
+
+CHAT_RECEPTION_NAME_STYLE = f"""
+    color: {_TEXT_MUTED};
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 10px;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+"""
+
+CHAT_APPLY_BUTTON_STYLE = f"""
+    QPushButton {{
+        background-color: {"#444" if IS_DARK else "#F3F4F6"};
+        border: 1px solid {_BORDER};
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 11px;
+        color: {_ACCENT};
+        font-weight: 600;
+        margin-top: 5px;
+    }}
+    QPushButton:hover {{
+        background-color: {_ACCENT};
+        color: white;
+    }}
+"""

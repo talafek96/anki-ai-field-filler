@@ -14,35 +14,18 @@ from aqt.utils import showWarning, tooltip
 from ..core.config import Config, FieldInstruction
 from ..core.filler import BatchFiller, BatchNoteItem, Filler
 from ..core.factory import test_provider_connection, fetch_available_models
-from .browser_batch_fill_dialog import BatchFillDialog
-from .browser_batch_progress import BatchProgressDialog, BatchSummaryDialog
-from .browser_batch_review import BatchReviewDialog
-from .config_field_dialog import FieldInstructionDialog
-from .editor_fill_dialog import FillDialog
-from .editor_progress_dialog import GeneratingDialog
-from .editor_prompt_dialog import QuickPromptDialog
-from .config_dialog import SettingsDialog
-from .chat_panel import ChatPanel
+from .browser.fill_dialog import BatchFillDialog
+from .browser.progress import BatchProgressDialog, BatchSummaryDialog
+from .browser.review import BatchReviewDialog
+from .config.field_dialog import FieldInstructionDialog
+from .editor.fill_dialog import FillDialog
+from .editor.progress_dialog import GeneratingDialog
+from .editor.prompt_dialog import QuickPromptDialog
+from .config.dialog import SettingsDialog
+from .panels.chat_panel import ChatPanel
 
 
-def start_addon() -> None:
-    """Initialize the addon: register hooks, menus, and config actions."""
-    from aqt.qt import QAction, QMenu, qconnect
 
-    EditorIntegration.init()
-    BrowserIntegration.init()
-
-    # Tools menu item
-    settings_action = QAction("Anki AI Filler", mw)
-    qconnect(settings_action.triggered, lambda: SettingsDialog(mw).exec())
-    mw.form.menuTools.addAction(settings_action)
-
-    # Addon manager integration
-    addon_name = mw.addonManager.addonFromModule(__name__)
-    config = Config()
-
-    mw.addonManager.setConfigAction(addon_name, lambda: SettingsDialog(mw).exec())
-    mw.addonManager.setConfigUpdatedAction(addon_name, config.update_from_addon_manager)
 
 
 def _current_deck_name(editor: Editor) -> Optional[str]:

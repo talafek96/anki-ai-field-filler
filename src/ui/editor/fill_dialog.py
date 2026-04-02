@@ -10,8 +10,8 @@ from typing import Dict, List, Optional, Tuple
 
 from aqt.qt import *
 
-from ..core.config import FieldInstruction
-from .theme import GLOBAL_STYLE, HEADER_STYLE, MUTED_LABEL_STYLE
+from ...core.config import FieldInstruction
+from ..common.theme import GLOBAL_STYLE, HEADER_STYLE, MUTED_LABEL_STYLE
 
 
 class FillDialog(QDialog):

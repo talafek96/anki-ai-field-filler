@@ -7,8 +7,8 @@ from typing import List, Optional
 
 from aqt.qt import *
 
-from ..core.filler import BatchFiller, BatchNoteItem, BatchProgress, BatchResult
-from .theme import ACCENT_COLOR, GLOBAL_STYLE, MUTED_LABEL_STYLE
+from ...core.filler import BatchFiller, BatchNoteItem, BatchProgress, BatchResult
+from ..common.theme import ACCENT_COLOR, GLOBAL_STYLE, MUTED_LABEL_STYLE
 
 
 def _fmt_time(seconds: float) -> str:

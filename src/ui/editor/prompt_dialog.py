@@ -10,7 +10,7 @@ from typing import Optional
 
 from aqt.qt import *
 
-from .theme import GLOBAL_STYLE, HEADER_STYLE
+from ..common.theme import GLOBAL_STYLE, HEADER_STYLE
 
 
 class QuickPromptDialog(QDialog):
