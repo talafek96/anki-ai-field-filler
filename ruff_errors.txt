@@ -1,0 +1,656 @@
+W293 [*] Blank line contains whitespace
+  --> src\api\anthropic.py:38:1
+   |
+36 |             "anthropic-version": "2023-06-01",
+37 |         }
+38 |         
+   | ^^^^^^^^
+39 |         system_msg = ""
+40 |         other_msgs = []
+   |
+help: Remove whitespace from blank line
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> src\api\vercel.py:6:1
+  |
+4 |   """
+5 |
+6 | / from __future__ import annotations
+7 | |
+8 | | from ..core.config import ProviderConfig
+9 | | from .openai import OpenAITextProvider, OpenAITTSProvider, OpenAIImageProvider
+  | |______________________________________________________________________________^
+  |
+help: Organize imports
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> src\integration.py:3:1
+   |
+ 1 |   """Anki UI integration: toolbar buttons, context menus, and startup."""
+ 2 |
+ 3 | / from __future__ import annotations
+ 4 | |
+ 5 | | import sys
+ 6 | | import os
+ 7 | | from typing import Dict, List, Optional, Sequence
+ 8 | |
+ 9 | | from aqt import gui_hooks, mw
+10 | | from aqt.browser import Browser
+11 | | from aqt.editor import Editor, EditorWebView
+12 | | from aqt.qt import QAction, QDialog, QMenu, qconnect, QSplitter, Qt
+13 | | from aqt.utils import showWarning, tooltip
+14 | |
+15 | | from .core.config import Config, FieldInstruction
+16 | | from .core.filler import BatchFiller, BatchNoteItem, Filler
+17 | | from .core.factory import test_provider_connection, fetch_available_models
+18 | | from .ui.browser.fill_dialog import BatchFillDialog
+19 | | from .ui.browser.progress import BatchProgressDialog, BatchSummaryDialog
+20 | | from .ui.browser.review import BatchReviewDialog
+21 | | from .ui.config.field_dialog import FieldInstructionDialog
+22 | | from .ui.editor.fill_dialog import FillDialog
+23 | |
+24 | | from .ui.config.dialog import SettingsDialog
+   | |____________________________________________^
+   |
+help: Organize imports
+
+F401 [*] `sys` imported but unused
+ --> src\integration.py:5:8
+  |
+3 | from __future__ import annotations
+4 |
+5 | import sys
+  |        ^^^
+6 | import os
+7 | from typing import Dict, List, Optional, Sequence
+  |
+help: Remove unused import: `sys`
+
+F401 [*] `aqt.qt.QAction` imported but unused
+  --> src\integration.py:12:20
+   |
+10 | from aqt.browser import Browser
+11 | from aqt.editor import Editor, EditorWebView
+12 | from aqt.qt import QAction, QDialog, QMenu, qconnect, QSplitter, Qt
+   |                    ^^^^^^^
+13 | from aqt.utils import showWarning, tooltip
+   |
+help: Remove unused import
+
+F401 [*] `aqt.qt.QSplitter` imported but unused
+  --> src\integration.py:12:55
+   |
+10 | from aqt.browser import Browser
+11 | from aqt.editor import Editor, EditorWebView
+12 | from aqt.qt import QAction, QDialog, QMenu, qconnect, QSplitter, Qt
+   |                                                       ^^^^^^^^^
+13 | from aqt.utils import showWarning, tooltip
+   |
+help: Remove unused import
+
+F401 [*] `aqt.qt.Qt` imported but unused
+  --> src\integration.py:12:66
+   |
+10 | from aqt.browser import Browser
+11 | from aqt.editor import Editor, EditorWebView
+12 | from aqt.qt import QAction, QDialog, QMenu, qconnect, QSplitter, Qt
+   |                                                                  ^^
+13 | from aqt.utils import showWarning, tooltip
+   |
+help: Remove unused import
+
+F401 [*] `.core.config.FieldInstruction` imported but unused
+  --> src\integration.py:15:34
+   |
+13 | from aqt.utils import showWarning, tooltip
+14 |
+15 | from .core.config import Config, FieldInstruction
+   |                                  ^^^^^^^^^^^^^^^^
+16 | from .core.filler import BatchFiller, BatchNoteItem, Filler
+17 | from .core.factory import test_provider_connection, fetch_available_models
+   |
+help: Remove unused import: `.core.config.FieldInstruction`
+
+F401 [*] `.core.factory.test_provider_connection` imported but unused
+  --> src\integration.py:17:27
+   |
+15 | from .core.config import Config, FieldInstruction
+16 | from .core.filler import BatchFiller, BatchNoteItem, Filler
+17 | from .core.factory import test_provider_connection, fetch_available_models
+   |                           ^^^^^^^^^^^^^^^^^^^^^^^^
+18 | from .ui.browser.fill_dialog import BatchFillDialog
+19 | from .ui.browser.progress import BatchProgressDialog, BatchSummaryDialog
+   |
+help: Remove unused import
+
+F401 [*] `.core.factory.fetch_available_models` imported but unused
+  --> src\integration.py:17:53
+   |
+15 | from .core.config import Config, FieldInstruction
+16 | from .core.filler import BatchFiller, BatchNoteItem, Filler
+17 | from .core.factory import test_provider_connection, fetch_available_models
+   |                                                     ^^^^^^^^^^^^^^^^^^^^^^
+18 | from .ui.browser.fill_dialog import BatchFillDialog
+19 | from .ui.browser.progress import BatchProgressDialog, BatchSummaryDialog
+   |
+help: Remove unused import
+
+F401 [*] `.ui.config.dialog.SettingsDialog` imported but unused
+  --> src\integration.py:24:31
+   |
+22 | from .ui.editor.fill_dialog import FillDialog
+23 |
+24 | from .ui.config.dialog import SettingsDialog
+   |                               ^^^^^^^^^^^^^^
+   |
+help: Remove unused import: `.ui.config.dialog.SettingsDialog`
+
+F841 Local variable `config` is assigned to but never used
+   --> src\integration.py:265:9
+    |
+263 |     ) -> None:
+264 |         """Execute the AI fill operation with a blocking progress dialog."""
+265 |         config = Config()
+    |         ^^^^^^
+266 |         deck_name = _current_deck_name(editor)
+    |
+help: Remove assignment to unused variable `config`
+
+F821 Undefined name `GeneratingDialog`
+   --> src\integration.py:270:20
+    |
+268 |         combined_prompt = user_prompt.strip()
+269 |
+270 |         progress = GeneratingDialog(parent=editor.widget)
+    |                    ^^^^^^^^^^^^^^^^
+271 |
+272 |         def on_success() -> None:
+    |
+
+F401 `aqt.mw` imported but unused; consider using `importlib.util.find_spec` to test for availability
+ --> src\ui\common\theme.py:6:21
+  |
+5 | try:
+6 |     from aqt import mw
+  |                     ^^
+7 |     from aqt.theme import theme_manager
+8 |     IS_DARK = theme_manager.night_mode if theme_manager else False
+  |
+help: Remove unused import: `aqt.mw`
+
+E501 Line too long (101 > 100)
+  --> src\ui\common\theme.py:35:101
+   |
+33 |     _TAB_HOVER = "#333333"
+34 |     # Gradient tokens (QSS syntax)
+35 |     _USER_BUBBLE_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4F46E5, stop:1 #7C3AED)"
+   |                                                                                                     ^
+36 | else:
+37 |     # Light Mode Palette ΓÇö Clean, modern grayscale with soft accents
+   |
+
+E501 Line too long (101 > 100)
+  --> src\ui\common\theme.py:55:101
+   |
+53 |     _TAB_HOVER = "#E5E7EB"
+54 |     # Gradient tokens (QSS syntax)
+55 |     _USER_BUBBLE_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4F46E5, stop:1 #7C3AED)"
+   |                                                                                                     ^
+56 |
+57 | # ---------------------------------------------------------------------------
+   |
+
+E501 Line too long (104 > 100)
+   --> src\ui\common\theme.py:282:101
+    |
+280 | )
+281 |
+282 | CLICKABLE_ARROW_STYLE = f"font-size: 11px; color: {_TEXT_MUTED}; background: transparent; border: none;"
+    |                                                                                                     ^^^^
+283 |
+284 | RESIZE_HANDLE_COLOR = "#555" if IS_DARK else "#C4CAD3"
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> src\ui\config\dialog.py:7:1
+   |
+ 5 |   """
+ 6 |
+ 7 | / from __future__ import annotations
+ 8 | |
+ 9 | | import json
+10 | |
+11 | | from aqt import mw
+12 | | from aqt.qt import *
+13 | | from aqt.utils import restoreGeom, saveGeom, showWarning, tooltip
+14 | |
+15 | | from ...core.config import Config
+16 | | from ...core.storage import SettingsIOError, export_settings, import_settings
+17 | | from .tab_general import GeneralSettingsTab
+18 | | from .tab_note_type import NoteTypeSettingsTab
+19 | | from .tab_models import ModelSettingsTab
+20 | | from ..common.theme import GLOBAL_STYLE
+   | |_______________________________________^
+21 |
+22 |   _FILE_FILTER = "AI Filler Settings (*.aiff-settings);;All Files (*)"
+   |
+help: Organize imports
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> src\ui\config\field_dialog.py:6:1
+   |
+ 4 |   """
+ 5 |
+ 6 | / from __future__ import annotations
+ 7 | |
+ 8 | | from typing import Optional
+ 9 | |
+10 | | from aqt.qt import *
+11 | |
+12 | | from ...core.config import Config, FieldInstruction
+13 | | from ..common.widgets import create_auto_fill_checkbox, create_field_type_combo
+14 | | from ..common.theme import GLOBAL_STYLE, HEADER_STYLE
+   | |_____________________________________________________^
+   |
+help: Organize imports
+
+W293 [*] Blank line contains whitespace
+  --> src\ui\config\tab_general.py:59:1
+   |
+57 |         self._provider_group = QGroupBox("API Config")
+58 |         prov_layout = QVBoxLayout()
+59 |         
+   | ^^^^^^^^
+60 |         # Selector inside the group
+61 |         sel_row = QHBoxLayout()
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> src\ui\config\tab_general.py:67:1
+   |
+65 |         self._provider_combo = QComboBox()
+66 |         self._provider_combo.setMinimumWidth(180)
+67 |         
+   | ^^^^^^^^
+68 |         # Icon paths
+69 |         addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> src\ui\config\tab_general.py:86:1
+   |
+84 |             else:
+85 |                 self._provider_combo.addItem(label, ptype)
+86 |         
+   | ^^^^^^^^
+87 |         qconnect(self._provider_combo.currentIndexChanged, self._on_provider_changed)
+88 |         sel_row.addWidget(self._provider_combo)
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> src\ui\config\tab_general.py:93:1
+   |
+92 |         prov_layout.addSpacing(4)
+93 |         
+   | ^^^^^^^^
+94 |         # Connection fields inside the same group
+95 |         cf = QFormLayout()
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_general.py:123:1
+    |
+121 |         test_row.addWidget(self._test_btn)
+122 |         cf.addRow("", test_row)
+123 |         
+    | ^^^^^^^^
+124 |         prov_layout.addLayout(cf)
+125 |         self._provider_group.setLayout(prov_layout)
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_general.py:131:1
+    |
+129 |         automation_group = QGroupBox("Keyboard Shortcuts")
+130 |         auto_layout = QVBoxLayout()
+131 |         
+    | ^^^^^^^^
+132 |         # Shortcuts row
+133 |         shortcut_layout = QFormLayout()
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_general.py:142:1
+    |
+142 |         
+    | ^^^^^^^^
+143 |         automation_group.setLayout(auto_layout)
+144 |         layout.addWidget(automation_group)
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_general.py:149:1
+    |
+147 |         prompt_group = QGroupBox("Prompts")
+148 |         prompt_layout = QVBoxLayout()
+149 |         
+    | ^^^^^^^^
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_general.py:151:1
+    |
+151 |         
+    | ^^^^^^^^
+152 |         prompt_layout.addSpacing(6)
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_general.py:153:1
+    |
+152 |         prompt_layout.addSpacing(6)
+153 |         
+    | ^^^^^^^^
+154 |         # Fill All Prompt
+155 |         fa_lbl = QLabel("Global Prompt (prepended to AI instructions):")
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_general.py:161:1
+    |
+159 |         self._fill_all_prompt.setMaximumHeight(60)
+160 |         prompt_layout.addWidget(self._fill_all_prompt)
+161 |         
+    | ^^^^^^^^
+162 |         prompt_group.setLayout(prompt_layout)
+163 |         layout.addWidget(prompt_group)
+    |
+help: Remove whitespace from blank line
+
+F401 [*] `...core.config.ProviderConfig` imported but unused
+  --> src\ui\config\tab_models.py:13:36
+   |
+11 | from aqt.utils import showInfo, tooltip
+12 |
+13 | from ...core.config import Config, ProviderConfig
+   |                                    ^^^^^^^^^^^^^^
+14 | from ...core.factory import fetch_available_models
+   |
+help: Remove unused import: `...core.config.ProviderConfig`
+
+E501 Line too long (105 > 100)
+  --> src\ui\config\tab_models.py:60:101
+   |
+58 |     modelsRequested = pyqtSignal()
+59 |
+60 |     def __init__(self, placeholder: str = "", tool_tip: str = "", parent: QWidget | None = None) -> None:
+   |                                                                                                     ^^^^^
+61 |         super().__init__(parent)
+62 |         lay = QHBoxLayout()
+   |
+
+E501 Line too long (109 > 100)
+   --> src\ui\config\tab_models.py:150:101
+    |
+148 |         self._active_text_combo = QComboBox()
+149 |         self._setup_provider_combo(self._active_text_combo, "text")
+150 |         qconnect(self._active_text_combo.currentIndexChanged, lambda: self._load_capability_settings("text"))
+    |                                                                                                     ^^^^^^^^^
+151 |         tf.addRow("Text Provider:", self._active_text_combo)
+    |
+
+E501 Line too long (107 > 100)
+   --> src\ui\config\tab_models.py:179:101
+    |
+177 |         self._active_tts_combo = QComboBox()
+178 |         self._setup_provider_combo(self._active_tts_combo, "tts")
+179 |         qconnect(self._active_tts_combo.currentIndexChanged, lambda: self._load_capability_settings("tts"))
+    |                                                                                                     ^^^^^^^
+180 |         tsf.addRow("TTS Provider:", self._active_tts_combo)
+    |
+
+E501 Line too long (111 > 100)
+   --> src\ui\config\tab_models.py:207:101
+    |
+205 |         self._active_image_combo = QComboBox()
+206 |         self._setup_provider_combo(self._active_image_combo, "image")
+207 |         qconnect(self._active_image_combo.currentIndexChanged, lambda: self._load_capability_settings("image"))
+    |                                                                                                     ^^^^^^^^^^^
+208 |         imf.addRow("Image Provider:", self._active_image_combo)
+    |
+
+E501 Line too long (102 > 100)
+   --> src\ui\config\tab_models.py:216:101
+    |
+214 |         )
+215 |         qconnect(self._image_model_combo.modelsRequested, lambda: self._fetch_models("image"))
+216 |         qconnect(self._image_model_combo.refreshButton().clicked, lambda: self._fetch_models("image"))
+    |                                                                                                     ^^
+217 |         imf.addRow("Model ID:", self._image_model_combo)
+218 |         self._image_group.setLayout(imf)
+    |
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_models.py:241:1
+    |
+239 |             label = PROVIDER_LABELS.get(ptype, ptype)
+240 |             caps = PROVIDER_CAPABILITIES.get(ptype, {})
+241 |             
+    | ^^^^^^^^^^^^
+242 |             # Check if provider supports the capability
+243 |             if capability != "text" and not caps.get(capability):
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_models.py:245:1
+    |
+243 |             if capability != "text" and not caps.get(capability):
+244 |                 continue
+245 |                 
+    | ^^^^^^^^^^^^^^^^
+246 |             icon_file = provider_icons.get(ptype)
+247 |             if icon_file:
+    |
+help: Remove whitespace from blank line
+
+E701 Multiple statements on one line (colon)
+   --> src\ui\config\tab_models.py:265:35
+    |
+263 |         ptype = combo_map[capability].currentData()
+264 |         if not ptype or ptype == "disabled":
+265 |             if capability == "tts": self._tts_group.setVisible(False)
+    |                                   ^
+266 |             if capability == "image": self._image_group.setVisible(False)
+267 |             return
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src\ui\config\tab_models.py:266:37
+    |
+264 |         if not ptype or ptype == "disabled":
+265 |             if capability == "tts": self._tts_group.setVisible(False)
+266 |             if capability == "image": self._image_group.setVisible(False)
+    |                                     ^
+267 |             return
+    |
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_models.py:271:1
+    |
+269 |         cfg = self._config.get_provider_config(ptype)
+270 |         cached = self._config.get_all_cached_models(ptype)
+271 |         
+    | ^^^^^^^^
+272 |         if capability == "text":
+273 |             self._text_model_combo.setModels(cached.get("text", []))
+    |
+help: Remove whitespace from blank line
+
+E701 Multiple statements on one line (colon)
+   --> src\ui\config\tab_models.py:282:22
+    |
+280 |             self._tts_voice_combo.clear()
+281 |             voices = KNOWN_TTS_VOICES.get(ptype, [])
+282 |             if voices: self._tts_voice_combo.addItems(voices)
+    |                      ^
+283 |             self._tts_voice_combo.setEditText(cfg.tts_voice or "")
+284 |         elif capability == "image":
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src\ui\config\tab_models.py:298:48
+    |
+296 |             }
+297 |             ptype = combo_map[cap].currentData()
+298 |             if not ptype or ptype == "disabled": continue
+    |                                                ^
+299 |             
+300 |             existing = self._config.get_provider_config(ptype)
+    |
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_models.py:299:1
+    |
+297 |             ptype = combo_map[cap].currentData()
+298 |             if not ptype or ptype == "disabled": continue
+299 |             
+    | ^^^^^^^^^^^^
+300 |             existing = self._config.get_provider_config(ptype)
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_models.py:301:1
+    |
+300 |             existing = self._config.get_provider_config(ptype)
+301 |             
+    | ^^^^^^^^^^^^
+302 |             # We only update the fields relevant to the current capability group's UI
+303 |             # to avoid overwriting other fields if multiple caps use the same provider.
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_models.py:312:1
+    |
+310 |             elif cap == "image":
+311 |                 existing.image_model = self._image_model_combo.currentText().strip()
+312 |             
+    | ^^^^^^^^^^^^
+313 |             self._config.set_provider_config(ptype, existing)
+    |
+help: Remove whitespace from blank line
+
+E701 Multiple statements on one line (colon)
+   --> src\ui\config\tab_models.py:322:44
+    |
+320 |         }
+321 |         ptype = combo_map[capability].currentData()
+322 |         if not ptype or ptype == "disabled": return
+    |                                            ^
+323 |
+324 |         cfg = self._config.get_provider_config(ptype)
+    |
+
+E501 Line too long (137 > 100)
+   --> src\ui\config\tab_models.py:326:101
+    |
+324 | ΓÇª
+325 | ΓÇª
+326 | ΓÇªr {PROVIDER_LABELS.get(ptype, ptype)} in the General tab first.", title="AI Filler")
+    |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+327 | ΓÇª
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src\ui\config\tab_models.py:335:22
+    |
+333 |         }
+334 |         target = ui_combo_map.get(capability)
+335 |         if not target: return
+    |                      ^
+336 |
+337 |         target.setRefreshing(True)
+    |
+
+F841 [*] Local variable `e` is assigned to but never used
+   --> src\ui\config\tab_models.py:345:33
+    |
+343 |                     lambda: self._on_models_fetched(ptype, capability, target, models, None)
+344 |                 )
+345 |             except Exception as e:
+    |                                 ^
+346 |                 mw.taskman.run_on_main(
+347 |                     lambda: self._on_models_fetched(ptype, capability, target, [], str(e))
+    |
+help: Remove assignment to unused variable `e`
+
+F821 Undefined name `e`
+   --> src\ui\config\tab_models.py:347:88
+    |
+345 |             except Exception as e:
+346 |                 mw.taskman.run_on_main(
+347 |                     lambda: self._on_models_fetched(ptype, capability, target, [], str(e))
+    |                                                                                        ^
+348 |                 )
+    |
+
+E501 Line too long (141 > 100)
+   --> src\ui\config\tab_models.py:352:101
+    |
+350 | ΓÇªstart()
+351 | ΓÇª
+352 | ΓÇª: str, combo: ModelComboWithRefresh, models: List[str], error: Optional[str]) -> None:
+    |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+353 | ΓÇª
+354 | ΓÇª
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src\ui\config\tab_models.py:383:34
+    |
+381 |                 if cap in ("tts", "image"):
+382 |                     d_idx = combo.findData("disabled")
+383 |                     if d_idx >= 0: combo.setCurrentIndex(d_idx)
+    |                                  ^
+384 |                 else:
+385 |                     combo.setCurrentIndex(0)
+    |
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_models.py:386:1
+    |
+384 |                 else:
+385 |                     combo.setCurrentIndex(0)
+386 |         
+    | ^^^^^^^^
+387 |         self._active_text_combo.blockSignals(False)
+388 |         self._active_tts_combo.blockSignals(False)
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> src\ui\config\tab_models.py:390:1
+    |
+388 |         self._active_tts_combo.blockSignals(False)
+389 |         self._active_image_combo.blockSignals(False)
+390 |         
+    | ^^^^^^^^
+391 |         # Initial load of all capability settings
+392 |         self._load_capability_settings("text")
+    |
+help: Remove whitespace from blank line
+
+Found 55 errors.
+[*] 34 fixable with the `--fix` option (1 hidden fix can be enabled with the `--unsafe-fixes` option).

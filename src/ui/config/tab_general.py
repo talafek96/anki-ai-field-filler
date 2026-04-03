@@ -53,8 +53,8 @@ class GeneralSettingsTab(QWidget):
         layout.setSpacing(14)
         layout.setContentsMargins(4, 4, 4, 4)
 
-        # --- 1. AI Service & Connection ---
-        self._provider_group = QGroupBox("AI Service & Connection")
+        # --- 1. API Config ---
+        self._provider_group = QGroupBox("API Config")
         prov_layout = QVBoxLayout()
         
         # Selector inside the group
@@ -125,39 +125,40 @@ class GeneralSettingsTab(QWidget):
         self._provider_group.setLayout(prov_layout)
         layout.addWidget(self._provider_group)
 
-        # --- 2. Shortcuts & Automation ---
-        automation_group = QGroupBox("Shortcuts & Automation")
+        # --- 2. Keyboard Shortcuts ---
+        automation_group = QGroupBox("Keyboard Shortcuts")
         auto_layout = QVBoxLayout()
         
         # Shortcuts row
         shortcut_layout = QFormLayout()
         self._fill_all_shortcut = QLineEdit()
         self._fill_all_shortcut.setPlaceholderText("e.g. Ctrl+Shift+G")
-        shortcut_layout.addRow("Fill All Blank Fields:", self._fill_all_shortcut)
-
-        self._fill_field_shortcut = QLineEdit()
-        self._fill_field_shortcut.setPlaceholderText("e.g. Ctrl+Shift+F")
-        shortcut_layout.addRow("Fill Current Field:", self._fill_field_shortcut)
+        shortcut_layout.addRow("Fill Shortcut (opens selection dialog):", self._fill_all_shortcut)
         auto_layout.addLayout(shortcut_layout)
 
         auto_layout.addSpacing(4)
 
-        # Behavior check
-        self._show_dialog_check = QCheckBox("Show confirmation dialog before filling")
-        auto_layout.addWidget(self._show_dialog_check)
+
         
         automation_group.setLayout(auto_layout)
         layout.addWidget(automation_group)
 
-        # --- 3. Field Prompts ---
-        prompt_group = QGroupBox("Field Prompts")
+        # --- 3. Prompt Config ---
+        prompt_group = QGroupBox("Prompts")
         prompt_layout = QVBoxLayout()
-        prompt_lbl = QLabel("Default user instruction applied to all fields:")
-        prompt_lbl.setStyleSheet("color: gray; font-size: 11px;")
-        prompt_layout.addWidget(prompt_lbl)
-        self._default_prompt = QPlainTextEdit()
-        self._default_prompt.setMaximumHeight(80)
-        prompt_layout.addWidget(self._default_prompt)
+        
+
+        
+        prompt_layout.addSpacing(6)
+        
+        # Fill All Prompt
+        fa_lbl = QLabel("Global Prompt (prepended to AI instructions):")
+        fa_lbl.setStyleSheet("color: gray; font-size: 11px;")
+        prompt_layout.addWidget(fa_lbl)
+        self._fill_all_prompt = QPlainTextEdit()
+        self._fill_all_prompt.setMaximumHeight(60)
+        prompt_layout.addWidget(self._fill_all_prompt)
+        
         prompt_group.setLayout(prompt_layout)
         layout.addWidget(prompt_group)
 
@@ -229,9 +230,7 @@ class GeneralSettingsTab(QWidget):
         # Load general settings
         settings = self._config.get_general_settings()
         self._fill_all_shortcut.setText(settings.fill_all_shortcut)
-        self._fill_field_shortcut.setText(settings.fill_field_shortcut)
-        self._show_dialog_check.setChecked(settings.show_fill_dialog)
-        self._default_prompt.setPlainText(settings.default_user_prompt)
+        self._fill_all_prompt.setPlainText(settings.fill_all_prompt)
 
         # Load first provider
         self._load_provider("openai")
@@ -243,10 +242,6 @@ class GeneralSettingsTab(QWidget):
         # Save general settings
         settings = GeneralSettings(
             fill_all_shortcut=self._fill_all_shortcut.text().strip(),
-            fill_field_shortcut=self._fill_field_shortcut.text().strip(),
-            default_user_prompt=self._default_prompt.toPlainText().strip(),
-            show_fill_dialog=self._show_dialog_check.isChecked(),
+            fill_all_prompt=self._fill_all_prompt.toPlainText().strip(),
         )
-        self._config.set_general_settings(settings)
-
         self._config.set_general_settings(settings)

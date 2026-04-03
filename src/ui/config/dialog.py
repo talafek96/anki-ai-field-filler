@@ -54,9 +54,6 @@ class SettingsDialog(QDialog):
         self._tabs.addTab(self._model_tab, "Models")
         self._tabs.addTab(self._note_type_tab, "Note Types")
 
-        # Sync provider selection between tabs
-        qconnect(self._general_tab.providerChanged, self._model_tab.set_current_provider)
-
         layout.addWidget(self._tabs)
 
         # --- Bottom bar: export/import on the left, OK/Cancel on the right ---

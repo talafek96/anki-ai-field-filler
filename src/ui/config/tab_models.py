@@ -121,9 +121,8 @@ class ModelSettingsTab(QWidget):
     def __init__(self, config: Config) -> None:
         super().__init__()
         self._config = config
-        self._current_provider = "openai"
         self._setup_ui()
-        self._load_provider("openai")
+        self.load()
 
     def _setup_ui(self) -> None:
         outer = QVBoxLayout()
@@ -138,8 +137,8 @@ class ModelSettingsTab(QWidget):
         layout.setSpacing(16)
         layout.setContentsMargins(4, 4, 4, 4)
 
-        # --- 1. Text Models ---
-        text_group = QGroupBox("Text Models")
+        # --- 1. Text Generation ---
+        text_group = QGroupBox("Text Generation")
         tf = QFormLayout()
         tf.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         tf.setHorizontalSpacing(12)
@@ -148,6 +147,7 @@ class ModelSettingsTab(QWidget):
         # Provider selection for Text
         self._active_text_combo = QComboBox()
         self._setup_provider_combo(self._active_text_combo, "text")
+        qconnect(self._active_text_combo.currentIndexChanged, lambda: self._load_capability_settings("text"))
         tf.addRow("Text Provider:", self._active_text_combo)
 
         # Model selection for Text
@@ -166,8 +166,8 @@ class ModelSettingsTab(QWidget):
         text_group.setLayout(tf)
         layout.addWidget(text_group)
 
-        # --- 2. Audio (TTS) ---
-        self._tts_group = QGroupBox("Audio (TTS)")
+        # --- 2. TTS ---
+        self._tts_group = QGroupBox("TTS")
         tsf = QFormLayout()
         tsf.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         tsf.setHorizontalSpacing(12)
@@ -176,6 +176,7 @@ class ModelSettingsTab(QWidget):
         # Provider selection for TTS
         self._active_tts_combo = QComboBox()
         self._setup_provider_combo(self._active_tts_combo, "tts")
+        qconnect(self._active_tts_combo.currentIndexChanged, lambda: self._load_capability_settings("tts"))
         tsf.addRow("TTS Provider:", self._active_tts_combo)
 
         # Model selection for TTS
@@ -193,8 +194,8 @@ class ModelSettingsTab(QWidget):
         self._tts_group.setLayout(tsf)
         layout.addWidget(self._tts_group)
 
-        # --- 3. Images ---
-        self._image_group = QGroupBox("Images")
+        # --- 3. Image Generation ---
+        self._image_group = QGroupBox("Image Generation")
         imf = QFormLayout()
         imf.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         imf.setHorizontalSpacing(12)
@@ -203,6 +204,7 @@ class ModelSettingsTab(QWidget):
         # Provider selection for Image
         self._active_image_combo = QComboBox()
         self._setup_provider_combo(self._active_image_combo, "image")
+        qconnect(self._active_image_combo.currentIndexChanged, lambda: self._load_capability_settings("image"))
         imf.addRow("Image Provider:", self._active_image_combo)
 
         # Model selection for Image
@@ -251,67 +253,86 @@ class ModelSettingsTab(QWidget):
         if capability in ("tts", "image"):
             combo.addItem("Disabled", "disabled")
 
-    def set_current_provider(self, ptype: str) -> None:
-        self._save_current_provider()
-        self._current_provider = ptype
-        self._load_provider(ptype)
-
-    def _load_provider(self, ptype: str) -> None:
-        cfg = self._config.get_provider_config(ptype)
-        self._max_tokens_spin.setValue(cfg.max_tokens)
-
-        # Restore cached models
-        cached = self._config.get_all_cached_models(ptype)
-        self._text_model_combo.setModels(cached.get("text", []))
-        self._tts_model_combo.setModels(cached.get("tts", []))
-        self._image_model_combo.setModels(cached.get("image", []))
-
-        self._text_model_combo.setCurrentText(cfg.text_model)
-        self._tts_model_combo.setCurrentText(cfg.tts_model)
-        self._image_model_combo.setCurrentText(cfg.image_model)
-
-        self._tts_voice_combo.clear()
-        voices = KNOWN_TTS_VOICES.get(ptype, [])
-        if voices:
-            self._tts_voice_combo.addItems(voices)
-        self._tts_voice_combo.setEditText(cfg.tts_voice or "")
-
-        # Visibility based on capabilities
-        caps = PROVIDER_CAPABILITIES.get(ptype, {})
-        self._tts_group.setVisible(caps.get("tts", False))
-        self._image_group.setVisible(caps.get("image", False))
-
-    def _save_current_provider(self) -> None:
-        ptype = self._current_provider
-        existing = self._config.get_provider_config(ptype)
-        cfg = ProviderConfig(
-            provider_type=ptype,
-            api_url=existing.api_url,
-            api_key=existing.api_key,
-            text_model=self._text_model_combo.currentText().strip(),
-            max_tokens=self._max_tokens_spin.value(),
-            tts_model=self._tts_model_combo.currentText().strip(),
-            tts_voice=self._tts_voice_combo.currentText().strip(),
-            image_model=self._image_model_combo.currentText().strip(),
-        )
-        self._config.set_provider_config(ptype, cfg)
-
-    def _fetch_models(self, capability: str) -> None:
-        self._save_current_provider()
-        ptype = self._current_provider
-        cfg = self._config.get_provider_config(ptype)
-        if not cfg.api_key:
-            showInfo("Please configure an API key in the General tab first.", title="AI Filler")
+    def _load_capability_settings(self, capability: str) -> None:
+        """Load specific settings for a capability when its provider changes."""
+        combo_map = {
+            "text": self._active_text_combo,
+            "tts": self._active_tts_combo,
+            "image": self._active_image_combo,
+        }
+        ptype = combo_map[capability].currentData()
+        if not ptype or ptype == "disabled":
+            if capability == "tts": self._tts_group.setVisible(False)
+            if capability == "image": self._image_group.setVisible(False)
             return
 
+        cfg = self._config.get_provider_config(ptype)
+        cached = self._config.get_all_cached_models(ptype)
+        
+        if capability == "text":
+            self._text_model_combo.setModels(cached.get("text", []))
+            self._text_model_combo.setCurrentText(cfg.text_model)
+            self._max_tokens_spin.setValue(cfg.max_tokens)
+        elif capability == "tts":
+            self._tts_group.setVisible(True)
+            self._tts_model_combo.setModels(cached.get("tts", []))
+            self._tts_model_combo.setCurrentText(cfg.tts_model)
+            self._tts_voice_combo.clear()
+            voices = KNOWN_TTS_VOICES.get(ptype, [])
+            if voices: self._tts_voice_combo.addItems(voices)
+            self._tts_voice_combo.setEditText(cfg.tts_voice or "")
+        elif capability == "image":
+            self._image_group.setVisible(True)
+            self._image_model_combo.setModels(cached.get("image", []))
+            self._image_model_combo.setCurrentText(cfg.image_model)
+
+    def _save_all_configs(self) -> None:
+        """Save settings for all currently selected providers."""
+        for cap in ["text", "tts", "image"]:
+            combo_map = {
+                "text": self._active_text_combo,
+                "tts": self._active_tts_combo,
+                "image": self._active_image_combo,
+            }
+            ptype = combo_map[cap].currentData()
+            if not ptype or ptype == "disabled": continue
+            
+            existing = self._config.get_provider_config(ptype)
+            
+            # We only update the fields relevant to the current capability group's UI
+            # to avoid overwriting other fields if multiple caps use the same provider.
+            if cap == "text":
+                existing.text_model = self._text_model_combo.currentText().strip()
+                existing.max_tokens = self._max_tokens_spin.value()
+            elif cap == "tts":
+                existing.tts_model = self._tts_model_combo.currentText().strip()
+                existing.tts_voice = self._tts_voice_combo.currentText().strip()
+            elif cap == "image":
+                existing.image_model = self._image_model_combo.currentText().strip()
+            
+            self._config.set_provider_config(ptype, existing)
+
+    def _fetch_models(self, capability: str) -> None:
         combo_map = {
+            "text": self._active_text_combo,
+            "tts": self._active_tts_combo,
+            "image": self._active_image_combo,
+        }
+        ptype = combo_map[capability].currentData()
+        if not ptype or ptype == "disabled": return
+
+        cfg = self._config.get_provider_config(ptype)
+        if not cfg.api_key:
+            showInfo(f"Please configure an API key for {PROVIDER_LABELS.get(ptype, ptype)} in the General tab first.", title="AI Filler")
+            return
+
+        ui_combo_map = {
             "text": self._text_model_combo,
             "tts": self._tts_model_combo,
             "image": self._image_model_combo,
         }
-        target = combo_map.get(capability)
-        if not target:
-            return
+        target = ui_combo_map.get(capability)
+        if not target: return
 
         target.setRefreshing(True)
 
@@ -322,8 +343,9 @@ class ModelSettingsTab(QWidget):
                     lambda: self._on_models_fetched(ptype, capability, target, models, None)
                 )
             except Exception as e:
+                err_msg = str(e)
                 mw.taskman.run_on_main(
-                    lambda: self._on_models_fetched(ptype, capability, target, [], str(e))
+                    lambda: self._on_models_fetched(ptype, capability, target, [], err_msg)
                 )
 
         threading.Thread(target=do_fetch, daemon=True).start()
@@ -340,7 +362,12 @@ class ModelSettingsTab(QWidget):
             tooltip("No models found.", parent=self)
 
     def load(self) -> None:
-        """Load active provider choices."""
+        """Load active provider choices and their settings."""
+        # Block signals briefly to avoid multiple redundant loads
+        self._active_text_combo.blockSignals(True)
+        self._active_tts_combo.blockSignals(True)
+        self._active_image_combo.blockSignals(True)
+
         for combo, cap in [
             (self._active_text_combo, "text"),
             (self._active_tts_combo, "tts"),
@@ -350,11 +377,26 @@ class ModelSettingsTab(QWidget):
             idx = combo.findData(active)
             if idx >= 0:
                 combo.setCurrentIndex(idx)
-        self._load_provider(self._current_provider)
+            else:
+                # Default to index 0 or disabled
+                if cap in ("tts", "image"):
+                    d_idx = combo.findData("disabled")
+                    if d_idx >= 0: combo.setCurrentIndex(d_idx)
+                else:
+                    combo.setCurrentIndex(0)
+        
+        self._active_text_combo.blockSignals(False)
+        self._active_tts_combo.blockSignals(False)
+        self._active_image_combo.blockSignals(False)
+        
+        # Initial load of all capability settings
+        self._load_capability_settings("text")
+        self._load_capability_settings("tts")
+        self._load_capability_settings("image")
 
     def save(self) -> None:
         """Save both specific model settings and active provider choices."""
-        self._save_current_provider()
+        self._save_all_configs()
         self._config.set_active_provider_type("text", self._active_text_combo.currentData())
         self._config.set_active_provider_type("tts", self._active_tts_combo.currentData())
         self._config.set_active_provider_type("image", self._active_image_combo.currentData())

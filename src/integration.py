@@ -2,28 +2,24 @@
 
 from __future__ import annotations
 
-import sys
+import os
 from typing import Dict, List, Optional, Sequence
 
 from aqt import gui_hooks, mw
 from aqt.browser import Browser
 from aqt.editor import Editor, EditorWebView
-from aqt.qt import QAction, QDialog, QMenu, qconnect
+from aqt.qt import QDialog, QMenu, qconnect, Qt
 from aqt.utils import showWarning, tooltip
 
-from ..core.config import Config, FieldInstruction
-from ..core.filler import BatchFiller, BatchNoteItem, Filler
-from ..core.factory import test_provider_connection, fetch_available_models
-from .browser.fill_dialog import BatchFillDialog
-from .browser.progress import BatchProgressDialog, BatchSummaryDialog
-from .browser.review import BatchReviewDialog
-from .config.field_dialog import FieldInstructionDialog
-from .editor.fill_dialog import FillDialog
-from .editor.progress_dialog import GeneratingDialog
-from .editor.prompt_dialog import QuickPromptDialog
-from .config.dialog import SettingsDialog
-from .panels.chat_panel import ChatPanel
+from .core.config import Config
+from .core.filler import BatchFiller, BatchNoteItem, Filler
 
+from .ui.browser.fill_dialog import BatchFillDialog
+from .ui.browser.progress import BatchProgressDialog, BatchSummaryDialog
+from .ui.browser.review import BatchReviewDialog
+from .ui.config.field_dialog import FieldInstructionDialog
+from .ui.editor.fill_dialog import FillDialog
+from .ui.editor.progress_dialog import GeneratingDialog
 
 
 
@@ -37,9 +33,9 @@ def _current_deck_name(editor: Editor) -> Optional[str]:
     if note.id:
         cards = note.cards()
         if cards:
-            deck = mw.col.decks.get(cards[0].did)
-            if deck:
-                return deck["name"]
+            did = mw.col.decks.get(cards[0].did)
+            if did:
+                return did["name"]
 
     parent = getattr(editor, "parentWindow", None)
     chooser = getattr(parent, "deckChooser", None)
@@ -176,52 +172,26 @@ class EditorIntegration:
         cls._filler = Filler()
         gui_hooks.editor_did_init_buttons.append(cls._add_toolbar_buttons)
         gui_hooks.editor_will_show_context_menu.append(cls._add_context_menu)
-        gui_hooks.editor_did_load_note.append(cls._on_note_loaded)
 
     @classmethod
     def _add_toolbar_buttons(cls, buttons: List[str], editor: Editor) -> None:
         config = Config()
         general = config.get_general_settings()
 
-        import os
-        # __file__ is src/ui/hooks.py, so we go up 3 levels to reach the addon root
-        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        # Moved integration.py to src/, assets is now at ../assets
+        addon_dir = os.path.dirname(os.path.dirname(__file__))
         icons_dir = os.path.join(addon_dir, "assets", "icons", "app")
 
         sparkles_icon = os.path.join(icons_dir, "sparkles.svg")
-        zap_icon = os.path.join(icons_dir, "zap.svg")
-        chat_icon = os.path.join(icons_dir, "chat.svg")
-
         btn_all = editor.addButton(
             icon=sparkles_icon,
             cmd="ai_filler_fill_all",
             func=lambda ed: cls._on_fill_all(ed),
-            tip=f"AI: Fill all blank fields ({general.fill_all_shortcut})",
+            tip=f"AI: Select fields to fill ({general.fill_all_shortcut})",
             keys=general.fill_all_shortcut or None,
             label="",
         )
         buttons.append(btn_all)
-
-        btn_field = editor.addButton(
-            icon=zap_icon,
-            cmd="ai_filler_fill_field",
-            func=lambda ed: cls._on_fill_field(ed),
-            tip=f"AI: Fill current field ({general.fill_field_shortcut})",
-            keys=general.fill_field_shortcut or None,
-            label="",
-        )
-        buttons.append(btn_field)
-
-        btn_chat = editor.addButton(
-            icon=chat_icon,
-            cmd="ai_filler_chat",
-            func=lambda ed: cls._on_chat(ed),
-            tip="AI: Custom fill (select fields & prompt)",
-            keys=None,
-            label="",
-        )
-        buttons.append(btn_chat)
-
     @classmethod
     def _add_context_menu(cls, webview: EditorWebView, menu: QMenu) -> None:
         editor = webview.editor
@@ -230,23 +200,8 @@ class EditorIntegration:
 
         menu.addSeparator()
 
-        if editor.currentField is not None:
-            field_name = editor.note.keys()[editor.currentField]
-            action_fill = menu.addAction(f"AI: Fill '{field_name}'")
-            qconnect(action_fill.triggered, lambda: cls._on_fill_field(editor))
-
-        action_all = menu.addAction("AI: Fill all blank fields")
+        action_all = menu.addAction("AI: Select fields to fill...")
         qconnect(action_all.triggered, lambda: cls._on_fill_all(editor))
-
-        menu.addSeparator()
-
-        if editor.currentField is not None:
-            field_name = editor.note.keys()[editor.currentField]
-            action_cfg = menu.addAction(f"AI: Configure '{field_name}' instructions...")
-            qconnect(
-                action_cfg.triggered,
-                lambda: cls._on_configure_field(editor, field_name),
-            )
 
     @classmethod
     def _on_fill_all(cls, editor: Editor) -> None:
@@ -255,118 +210,36 @@ class EditorIntegration:
             return
 
         config = Config()
-        general = config.get_general_settings()
         note = editor.note
         note_type_name = note.note_type()["name"]
         deck_name = _current_deck_name(editor)
         field_instructions = config.get_field_instructions(note_type_name, deck_name=deck_name)
 
-        if general.show_fill_dialog:
-            field_names = list(note.keys())
-            field_values = {name: note[name] for name in field_names}
-            blank_fields = [n for n in field_names if not note[n].strip()]
+        field_names = list(note.keys())
+        field_values = {name: note[name] for name in field_names}
+        blank_fields = [n for n in field_names if not note[n].strip()]
 
-            dialog = FillDialog(
-                field_names=field_names,
-                field_values=field_values,
-                field_instructions=field_instructions,
-                pre_selected=blank_fields,
-                parent=editor.widget,
-            )
-            if dialog.exec() != QDialog.DialogCode.Accepted:
-                return
-            result = dialog.get_result()
-            if not result:
-                return
-            target_fields, user_prompt = result
-        else:
-            target_fields = [
-                n
-                for n in note.keys()
-                if not note[n].strip() and field_instructions.get(n, FieldInstruction()).auto_fill
-            ]
-            user_prompt = general.default_user_prompt
+        dialog = FillDialog(
+            field_names=field_names,
+            field_values=field_values,
+            field_instructions=field_instructions,
+            pre_selected=blank_fields,
+            parent=editor.widget,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        result = dialog.get_result()
+        if not result:
+            return
+        target_fields, user_prompt = result
 
         if not target_fields:
-            tooltip("No blank fields to fill.", parent=editor.widget)
+            tooltip("No fields selected to fill.", parent=editor.widget)
             return
 
         cls._run_fill(editor, target_fields, user_prompt)
 
-    @classmethod
-    def _on_chat(cls, editor: Editor) -> None:
-        """Handle 'Custom fill' action (now shows side panel)."""
-        if not editor.note:
-            return
 
-        panel: ChatPanel = getattr(editor, "ai_chat_panel", None)
-        if not panel:
-            panel = ChatPanel(editor)
-            setattr(editor, "ai_chat_panel", panel)
-            panel.on_fill_requested = lambda fields, prompt: cls._run_fill(
-                editor, fields, prompt
-            )
-            cls._inject_side_panel(editor, panel)
-
-        panel.toggle_visibility()
-
-    @classmethod
-    def _on_note_loaded(cls, editor: Editor) -> None:
-        """Refresh side panel when a new note is loaded."""
-        panel: ChatPanel = getattr(editor, "ai_chat_panel", None)
-        if panel and panel.isVisible():
-            panel.refresh_fields()
-
-    @classmethod
-    def _inject_side_panel(cls, editor: Editor, panel: ChatPanel) -> None:
-        """Safely inject the panel to the right of the editor fields."""
-        from aqt.qt import QHBoxLayout, QWidget
-
-        # Get the widget that holds the editor fields
-        ed_widget = editor.widget
-        parent_widget = ed_widget.parent()
-        if not parent_widget:
-            return
-
-        p_layout = parent_widget.layout()
-        if not p_layout:
-            return
-
-        # Create a container to hold both editor and panel
-        container = QWidget()
-        container.setObjectName("aiChatContainer")
-        h_layout = QHBoxLayout(container)
-        h_layout.setContentsMargins(0, 0, 0, 0)
-        h_layout.setSpacing(0)
-
-        # Replace editor with container in parent layout
-        idx = p_layout.indexOf(ed_widget)
-        if idx != -1:
-            p_layout.takeAt(idx)
-            h_layout.addWidget(ed_widget)
-            h_layout.addWidget(panel)
-            p_layout.insertWidget(idx, container)
-
-    @classmethod
-    def _on_fill_field(cls, editor: Editor) -> None:
-        """Handle 'Fill current field' action."""
-        if not editor.note or editor.currentField is None:
-            return
-
-        config = Config()
-        general = config.get_general_settings()
-        note = editor.note
-        field_name = note.keys()[editor.currentField]
-
-        if general.show_fill_dialog:
-            dialog = QuickPromptDialog(field_name, parent=editor.widget)
-            if dialog.exec() != QDialog.DialogCode.Accepted:
-                return
-            user_prompt = dialog.get_user_prompt() or ""
-        else:
-            user_prompt = general.default_user_prompt
-
-        cls._run_fill(editor, [field_name], user_prompt)
 
     @classmethod
     def _on_configure_field(cls, editor: Editor, field_name: str) -> None:
@@ -388,16 +261,9 @@ class EditorIntegration:
         user_prompt: str,
     ) -> None:
         """Execute the AI fill operation with a blocking progress dialog."""
-        config = Config()
-        general = config.get_general_settings()
         deck_name = _current_deck_name(editor)
 
-        prompts = []
-        if general.default_user_prompt.strip():
-            prompts.append(general.default_user_prompt.strip())
-        if user_prompt.strip():
-            prompts.append(user_prompt.strip())
-        combined_prompt = "\n\n".join(prompts)
+        combined_prompt = user_prompt.strip()
 
         progress = GeneratingDialog(parent=editor.widget)
 

@@ -21,6 +21,7 @@ if IS_DARK:
     _BG_WINDOW = "#1C1C1C"  # Matches Anki's deep dark background
     _BG_CARD = "#2D2D2D"    # Slightly lighter for grouping
     _BG_INPUT = "#333333"   # Subtle contrast for fields
+    _BG_GLASS = "rgba(45, 45, 45, 0.7)"
     _BORDER = "#444444"
     _BORDER_FOCUS = "#72A1ED"
     _TEXT_PRIMARY = "#E0E0E0"
@@ -30,6 +31,8 @@ if IS_DARK:
     _BTN_PRESSED = "#2D2D2D"
     _TAB_BG = "#262626"
     _TAB_HOVER = "#333333"
+    # Gradient tokens (QSS syntax)
+    _USER_BUBBLE_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4F46E5, stop:1 #7C3AED)"
 else:
     # Light Mode Palette — Clean, modern grayscale with soft accents
     _ACCENT = "#4F46E5"
@@ -38,6 +41,7 @@ else:
     _BG_WINDOW = "#F3F4F6"
     _BG_CARD = "#FFFFFF"
     _BG_INPUT = "#F9FAFB"
+    _BG_GLASS = "rgba(255, 255, 255, 0.7)"
     _BORDER = "#E5E7EB"
     _BORDER_FOCUS = "#4F46E5"
     _TEXT_PRIMARY = "#111827"
@@ -47,6 +51,8 @@ else:
     _BTN_PRESSED = "#E5E7EB"
     _TAB_BG = "#F3F4F6"
     _TAB_HOVER = "#E5E7EB"
+    # Gradient tokens (QSS syntax)
+    _USER_BUBBLE_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4F46E5, stop:1 #7C3AED)"
 
 # ---------------------------------------------------------------------------
 # Reusable stylesheet fragments
@@ -339,98 +345,5 @@ REGEN_TOGGLE_STYLE = f"""
     }}
 """
 
-# ---------------------------------------------------------------------------
-# Side Panel (AI Chat) Styles
-# ---------------------------------------------------------------------------
+RESIZE_HANDLE_COLOR = "#555" if IS_DARK else "#C4CAD3"
 
-SIDEBAR_STYLE = f"""
-    QWidget#aiChatPanel {{
-        background-color: {_BG_WINDOW};
-        border-left: 1px solid {_BORDER};
-    }}
-    
-    QScrollArea#aiChatScrollArea {{
-        border: none;
-        background-color: transparent;
-    }}
-    
-    QLabel#aiChatHeader {{
-        font-size: 16px;
-        font-weight: 700;
-        color: {_ACCENT};
-        padding: 4px 0 8px 0;
-    }}
-    
-    QGroupBox#aiChatFieldsGroup {{
-        margin-top: 20px;
-    }}
-"""
-
-# ---------------------------------------------------------------------------
-# Chat interface styles
-# ---------------------------------------------------------------------------
-
-CHAT_MESSAGE_LIST_STYLE = f"""
-    background-color: transparent;
-    border: none;
-"""
-
-def get_chat_bubble_user_style() -> str:
-    return f"""
-        background-color: {_ACCENT};
-        color: white;
-        border-top-left-radius: 12px;
-        border-top-right-radius: 12px;
-        border-bottom-left-radius: 12px;
-        border-bottom-right-radius: 2px;
-        padding: 10px 14px;
-        margin: 4px 8px;
-    """
-
-def get_chat_bubble_bot_style() -> str:
-    return f"""
-        background-color: {"#333" if IS_DARK else "#EDF2F4"};
-        color: {_TEXT_PRIMARY};
-        border-top-left-radius: 2px;
-        border-top-right-radius: 12px;
-        border-bottom-left-radius: 12px;
-        border-bottom-right-radius: 12px;
-        padding: 10px 14px;
-        margin: 4px 8px;
-        border: 1px solid {"#444" if IS_DARK else "#DDE2E5"};
-    """
-
-CHAT_INPUT_STYLE = f"""
-    background-color: {_BG_INPUT};
-    border: 1px solid {_BORDER};
-    border-radius: 12px;
-    padding: 8px 12px;
-    font-size: 13px;
-    color: {_TEXT_PRIMARY};
-"""
-
-CHAT_RECEPTION_NAME_STYLE = f"""
-    color: {_TEXT_MUTED};
-    font-size: 10px;
-    font-weight: 700;
-    margin-left: 10px;
-    margin-bottom: 2px;
-    text-transform: uppercase;
-"""
-
-CHAT_APPLY_BUTTON_STYLE = f"""
-    QPushButton {{
-        background-color: {"#444" if IS_DARK else "#F3F4F6"};
-        border: 1px solid {_BORDER};
-        border-radius: 4px;
-        padding: 4px 8px;
-        font-size: 11px;
-        color: {_ACCENT};
-        font-weight: 600;
-        margin-top: 5px;
-    }}
-    QPushButton:hover {{
-        background-color: {_ACCENT};
-        color: white;
-    }}
-"""

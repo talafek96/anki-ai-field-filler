@@ -18,7 +18,7 @@ def start_addon() -> None:
     from aqt.qt import QAction, qconnect
     from .src.core.config import Config
     from .src.ui.config.dialog import SettingsDialog
-    from .src.ui.integration import BrowserIntegration, EditorIntegration
+    from .src.integration import BrowserIntegration, EditorIntegration
 
     # Initialize sub-integrations
     EditorIntegration.init()
