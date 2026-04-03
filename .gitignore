@@ -197,3 +197,4 @@ login/
 *.backup
 *.bak
 dump.rdb
+config.json
