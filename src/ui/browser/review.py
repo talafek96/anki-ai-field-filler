@@ -14,6 +14,7 @@ from aqt.qt import *
 from aqt.sound import av_player
 
 from ...core.filler import BatchProposedChange
+from ..common.icons import get_themed_icon
 from ..common.theme import (
     CLICKABLE_ARROW_STYLE,
     FIELD_ERROR_STYLE,
@@ -378,8 +379,16 @@ class BatchReviewDialog(QDialog):
         failed = [p for p in self._proposals if not p.success]
         partial = [p for p in successful if p.field_errors]
 
-        icon = "\U0001f50d" if self._dry_run else "\u2705"
-        parts = [f"{icon}  {len(successful)} notes to {'process' if self._dry_run else 'update'}"]
+        # Header row with icon
+        header_h_layout = QHBoxLayout()
+        header_h_layout.setSpacing(10)
+        
+        icon_path = self._icons["search"] if self._dry_run else self._icons["check"]
+        header_icon = QLabel()
+        header_icon.setPixmap(get_themed_icon(icon_path, 22).pixmap(22, 22))
+        header_h_layout.addWidget(header_icon)
+
+        parts = [f"{len(successful)} notes to {'process' if self._dry_run else 'update'}"]
         if partial:
             parts.append(f"{len(partial)} partially failed")
         if failed:
@@ -387,7 +396,9 @@ class BatchReviewDialog(QDialog):
         self._header_label = QLabel(", ".join(parts))
         self._header_label.setStyleSheet(HEADER_STYLE)
         self._header_label.setWordWrap(True)
-        layout.addWidget(self._header_label)
+        header_h_layout.addWidget(self._header_label)
+        header_h_layout.addStretch()
+        layout.addLayout(header_h_layout)
 
         if self._elapsed_seconds > 0 and successful:
             avg = self._elapsed_seconds / len(successful)
@@ -448,15 +459,16 @@ class BatchReviewDialog(QDialog):
                 batch_menu.addAction("Mark All for Regen", self._regen_select_all)
                 batch_menu.addAction("Unmark All for Regen", self._regen_deselect_all)
 
-            batch_btn = QPushButton("\u2699 Batch Actions")
+            batch_btn = QPushButton(" Batch Actions")
             batch_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             batch_btn.setMenu(batch_menu)
+            # Use a standard settings/cog icon if possible, but for now just text
             toolbar.addWidget(batch_btn)
 
             if self._batch_filler is not None:
-                self._batch_regen_btn = self._flat_btn("\u21bb Regenerate Marked")
+                self._batch_regen_btn = self._flat_btn(" Regenerate Marked")
                 self._batch_regen_btn.setToolTip(
-                    "Regenerate all fields with amber \u21bb toggle active"
+                    "Regenerate all fields with amber toggle active"
                 )
                 qconnect(self._batch_regen_btn.clicked, self._on_batch_regenerate)
                 toolbar.addWidget(self._batch_regen_btn)
@@ -473,7 +485,8 @@ class BatchReviewDialog(QDialog):
         btn_layout.addWidget(cancel_btn)
 
         if not self._dry_run:
-            self._apply_btn = QPushButton("  \u2705  Apply Selected  ")
+            self._apply_btn = QPushButton("  Apply Selected  ")
+            self._apply_btn.setIcon(get_themed_icon(self._icons["check"], 18))
             self._apply_btn.setDefault(True)
             self._apply_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             qconnect(self._apply_btn.clicked, self._on_apply)
@@ -598,9 +611,16 @@ class BatchReviewDialog(QDialog):
         content_layout.setContentsMargins(0, 4, 0, 0)
 
         if not prop.success:
-            self._add_error_block(
-                content_layout, f"\u274c Error: {prop.error}", "color: #DC2626; font-size: 12px;"
-            )
+            err_row = QHBoxLayout()
+            err_icon = QLabel()
+            err_icon.setPixmap(get_themed_icon(self._icons["warning"], 14).pixmap(14, 14))
+            err_row.addWidget(err_icon)
+            err_text = QLabel(f"Error: {prop.error}")
+            err_text.setStyleSheet("color: #DC2626; font-size: 12px;")
+            err_row.addWidget(err_text)
+            err_row.addStretch()
+            content_layout.addLayout(err_row)
+            
             # Show blank fields with context so user can retry
             for field_name in prop.blank_fields:
                 self._add_field_preview(content_layout, idx, field_name, "")
@@ -617,11 +637,16 @@ class BatchReviewDialog(QDialog):
                 if field_name not in prop.changes:
                     # Field completely failed — show it as blank with regen option
                     self._add_field_preview(content_layout, idx, field_name, "")
-                self._add_error_block(
-                    content_layout,
-                    f"\u26a0\ufe0f <b>{field_name}</b>: {err_msg}",
-                    _FIELD_ERROR_STYLE,
-                )
+                
+                err_row = QHBoxLayout()
+                err_icon = QLabel()
+                err_icon.setPixmap(get_themed_icon(self._icons["warning"], 14).pixmap(14, 14))
+                err_row.addWidget(err_icon)
+                err_text = QLabel(f"<b>{field_name}</b>: {err_msg}")
+                err_text.setStyleSheet(_FIELD_ERROR_STYLE)
+                err_row.addWidget(err_text)
+                err_row.addStretch()
+                content_layout.addLayout(err_row)
 
         content_container.setLayout(content_layout)
         group_layout.addWidget(content_container)
@@ -723,7 +748,7 @@ class BatchReviewDialog(QDialog):
             self._regen_checks[(prop_idx, field_name)] = regen_cb
 
             # Regen button — simple click = immediate single regen
-            regen_btn = QPushButton("\u21bb Regen")
+            regen_btn = QPushButton(" Regen")
             regen_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             regen_btn.setToolTip(f"Regenerate '{field_name}' now")
             regen_btn.setStyleSheet(REGEN_TOGGLE_STYLE)

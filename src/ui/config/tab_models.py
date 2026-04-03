@@ -12,6 +12,7 @@ from aqt.utils import showInfo, tooltip
 
 from ...core.config import Config, ProviderConfig
 from ...core.factory import fetch_available_models
+from ..common.icons import get_themed_icon
 
 # Shared constants
 PROVIDER_LABELS = {
@@ -246,7 +247,7 @@ class ModelSettingsTab(QWidget):
             icon_file = provider_icons.get(ptype)
             if icon_file:
                 icon_path = os.path.join(icons_dir, icon_file)
-                combo.addItem(QIcon(icon_path), label, ptype)
+                combo.addItem(get_themed_icon(icon_path, 18, should_tint=False), label, ptype)
             else:
                 combo.addItem(label, ptype)
 
@@ -261,9 +262,21 @@ class ModelSettingsTab(QWidget):
             "image": self._active_image_combo,
         }
         ptype = combo_map[capability].currentData()
-        if not ptype or ptype == "disabled":
-            if capability == "tts": self._tts_group.setVisible(False)
-            if capability == "image": self._image_group.setVisible(False)
+        
+        # If disabled for multi-capability groups (TTS/Image)
+        is_disabled = not ptype or ptype == "disabled"
+        
+        if capability == "text":
+            self._text_model_combo.setEnabled(not is_disabled)
+            self._max_tokens_spin.setEnabled(not is_disabled)
+        elif capability == "tts":
+            # We keep groups visible but disable contents
+            self._tts_model_combo.setEnabled(not is_disabled)
+            self._tts_voice_combo.setEnabled(not is_disabled)
+        elif capability == "image":
+            self._image_model_combo.setEnabled(not is_disabled)
+
+        if is_disabled:
             return
 
         cfg = self._config.get_provider_config(ptype)

@@ -14,6 +14,7 @@ from aqt.utils import showWarning, tooltip
 from .core.config import Config
 from .core.filler import BatchFiller, BatchNoteItem, Filler
 
+from .ui.common.icons import get_themed_icon
 from .ui.browser.fill_dialog import BatchFillDialog
 from .ui.browser.progress import BatchProgressDialog, BatchSummaryDialog
 from .ui.browser.review import BatchReviewDialog
@@ -178,19 +179,23 @@ class EditorIntegration:
         config = Config()
         general = config.get_general_settings()
 
-        # Moved integration.py to src/, assets is now at ../assets
         addon_dir = os.path.dirname(os.path.dirname(__file__))
         icons_dir = os.path.join(addon_dir, "assets", "icons", "app")
 
-        sparkles_icon = os.path.join(icons_dir, "sparkles.svg")
+        sparkles_icon_path = os.path.join(icons_dir, "sparkles.svg")
         btn_all = editor.addButton(
-            icon=sparkles_icon,
+            icon=sparkles_icon_path,
             cmd="ai_filler_fill_all",
             func=lambda ed: cls._on_fill_all(ed),
             tip=f"AI: Select fields to fill ({general.fill_all_shortcut})",
             keys=general.fill_all_shortcut or None,
             label="",
         )
+        if btn_all and hasattr(btn_all, "setIcon"):
+            btn_all.setIcon(get_themed_icon(sparkles_icon_path, 20))
+        # Note: Anki's addButton creates a button that is enabled as long as a note is loaded.
+        # It doesn't require field focus by default, but some older Anki versions or setups might.
+        # We ensure the function _on_fill_all handles 'no note' correctly.
         buttons.append(btn_all)
     @classmethod
     def _add_context_menu(cls, webview: EditorWebView, menu: QMenu) -> None:

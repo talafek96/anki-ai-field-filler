@@ -1,9 +1,10 @@
 {
     "package": "Anki-AI-Filler",
-    "name": "AI Filler",
+    "name": "AI Filler: Auto-Fill Fields with LLMs",
     "version": "0.1.0",
-    "desc": "Intelligently auto-fill Anki note fields using LLM-based AI (OpenAI, Anthropic, Google Gemini). Supports text, audio, and image generation.",
+    "desc": "Intelligently auto-fill Anki note fields using LLM-based AI (OpenAI, Anthropic, Google Gemini). Supports text, high-quality TTS audio, and image generation. Boost your card creation speed with AI-powered content.",
     "author": "Josh Minh",
     "homepage": "https://github.com/JoshiMinh/Anki-AI-Filler",
-    "conflicts": []
+    "conflicts": [],
+    "min_aqt_ver": "2.1.54"
 }

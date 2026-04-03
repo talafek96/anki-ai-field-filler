@@ -1,13 +1,13 @@
 {
     "providers": {
         "openai": {
-            "api_url": "https://api.openai.com/v1",
+            "api_url": "",
             "api_key": "",
             "text_model": "gpt-5.4",
+            "max_tokens": 4096,
             "tts_model": "gpt-4o-mini-tts",
             "tts_voice": "alloy",
-            "image_model": "gpt-image-1",
-            "max_tokens": 4096
+            "image_model": "gpt-image-1"
         },
         "anthropic": {
             "api_url": "https://api.anthropic.com/v1",
@@ -26,22 +26,176 @@
         },
         "vercel": {
             "api_url": "https://ai-gateway.vercel.sh/v1",
-            "api_key": "",
-            "text_model": "gpt-4o",
-            "max_tokens": 4096
+            "api_key": "vck_4dZFcrmhInUV9NmJw0jIMjDwWgfA5SVmHmGaSMTfjgxBkwRivx1KASOW",
+            "text_model": "google/gemini-2.5-flash",
+            "max_tokens": 4096,
+            "tts_model": "",
+            "tts_voice": "",
+            "image_model": ""
         }
     },
     "active_providers": {
-        "text": "openai",
+        "text": "vercel",
         "tts": "openai",
-        "image": "openai"
+        "image": "disabled"
     },
-    "note_type_field_instructions": {},
+    "note_type_field_instructions": {
+        "Administrative of Africa": {
+            "English Short Name": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Capital": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Largest City": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Official Languages": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Other Major Langs": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Ethnic Composition": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Religious Composition": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Flag": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Image": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Image Unhighlighted": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            }
+        },
+        "Image Occlusion": {
+            "Occlusion": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Image": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Header": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Back Extra": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Comments": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            }
+        },
+        "Kaishi 1.5k": {
+            "Word": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Word Reading": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Word Meaning": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Word Furigana": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Word Audio": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Sentence": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Sentence Meaning": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Sentence Furigana": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Sentence Audio": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Notes": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Pitch Accent": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Pitch Accent Notes": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Frequency": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            },
+            "Picture": {
+                "instruction": "",
+                "field_type": "auto",
+                "auto_fill": true
+            }
+        }
+    },
     "deck_field_instructions": {},
     "general": {
         "fill_all_shortcut": "Ctrl+Shift+G",
-        "fill_field_shortcut": "Ctrl+Shift+F",
-        "default_user_prompt": "",
-        "show_fill_dialog": true
+        "fill_all_prompt": "",
+        "last_configured_provider": "vercel"
     }
 }

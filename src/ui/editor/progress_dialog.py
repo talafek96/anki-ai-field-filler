@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from aqt.qt import *
 
+from ..common.icons import get_themed_icon
 from ..common.theme import ACCENT_COLOR, GLOBAL_STYLE
 
 
@@ -33,10 +35,14 @@ class GeneratingDialog(QDialog):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.setSpacing(12)
 
-        self._emoji = QLabel("\u2728")
-        self._emoji.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._emoji.setStyleSheet("font-size: 36px;")
-        layout.addWidget(self._emoji)
+        self._icon_label = QLabel()
+        self._icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        self._sparkles_icon_path = os.path.join(addon_dir, "assets", "icons", "app", "sparkles.svg")
+        self._icon_label.setPixmap(get_themed_icon(self._sparkles_icon_path, 36).pixmap(36, 36))
+        
+        layout.addWidget(self._icon_label)
 
         self._label = QLabel("Generating\u2026")
         self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -51,13 +57,6 @@ class GeneratingDialog(QDialog):
         self.setLayout(layout)
 
         # Pulse animation on the sparkle emoji
-        self._anim = QPropertyAnimation(self._emoji, b"windowOpacity")
-        self._anim.setDuration(900)
-        self._anim.setStartValue(1.0)
-        self._anim.setEndValue(0.3)
-        self._anim.setLoopCount(-1)
-        # windowOpacity only works on top-level widgets; use a timer to
-        # swap emoji size instead for a gentle pulse effect.
         self._timer = QTimer(self)
         self._timer.setInterval(600)
         self._timer.timeout.connect(self._pulse)
@@ -65,8 +64,8 @@ class GeneratingDialog(QDialog):
         self._timer.start()
 
     def _pulse(self) -> None:
-        size = "36px" if self._big else "30px"
-        self._emoji.setStyleSheet(f"font-size: {size};")
+        size = 36 if self._big else 28
+        self._icon_label.setPixmap(get_themed_icon(self._sparkles_icon_path, size).pixmap(size, size))
         self._big = not self._big
 
     # ------------------------------------------------------------------

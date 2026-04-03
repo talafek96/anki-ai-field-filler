@@ -6,11 +6,13 @@ Allows selecting which fields to fill and adding an optional prompt.
 
 from __future__ import annotations
 
+import os
 from typing import Dict, List, Optional, Tuple
 
 from aqt.qt import *
 
 from ...core.config import FieldInstruction
+from ..common.icons import get_themed_icon
 from ..common.theme import GLOBAL_STYLE, HEADER_STYLE, MUTED_LABEL_STYLE
 
 
@@ -45,9 +47,23 @@ class FillDialog(QDialog):
         layout.setContentsMargins(18, 18, 18, 18)
 
         # --- Header ---
-        header = QLabel("\u2728  Select Fields to Fill")
+        header_row = QHBoxLayout()
+        header_row.setSpacing(10)
+        
+        # Icon
+        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        sparkles_icon = os.path.join(addon_dir, "assets", "icons", "app", "sparkles.svg")
+        
+        icon_label = QLabel()
+        icon_label.setPixmap(get_themed_icon(sparkles_icon, 20).pixmap(20, 20))
+        header_row.addWidget(icon_label)
+
+        header = QLabel("Fields to Generate")
         header.setStyleSheet(HEADER_STYLE)
-        layout.addWidget(header)
+        header_row.addWidget(header)
+        header_row.addStretch()
+        
+        layout.addLayout(header_row)
 
         # --- Field selection ---
         fields_group = QGroupBox("Fields")
@@ -92,7 +108,7 @@ class FillDialog(QDialog):
         layout.addWidget(fields_group)
 
         # --- User prompt ---
-        prompt_group = QGroupBox("Additional Instructions (optional)")
+        prompt_group = QGroupBox("Prompt / Instructions")
         prompt_layout = QVBoxLayout()
         self._prompt_edit = QPlainTextEdit()
         self._prompt_edit.setPlaceholderText(
@@ -112,7 +128,7 @@ class FillDialog(QDialog):
         qconnect(cancel_btn.clicked, self.reject)
         button_layout.addWidget(cancel_btn)
 
-        self._fill_btn = QPushButton("  \u2728  Fill Fields  ")
+        self._fill_btn = QPushButton(" Fill Fields ")
         self._fill_btn.setDefault(True)
         qconnect(self._fill_btn.clicked, self._on_fill)
         button_layout.addWidget(self._fill_btn)

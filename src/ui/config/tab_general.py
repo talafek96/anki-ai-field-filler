@@ -233,7 +233,12 @@ class GeneralSettingsTab(QWidget):
         self._fill_all_prompt.setPlainText(settings.fill_all_prompt)
 
         # Load first provider
-        self._load_provider("openai")
+        last_p = settings.last_configured_provider
+        idx = self._provider_combo.findData(last_p)
+        if idx >= 0:
+            self._provider_combo.setCurrentIndex(idx)
+        else:
+            self._load_provider("openai")
 
     def save(self) -> None:
         """Save general settings to the config manager."""
@@ -243,5 +248,6 @@ class GeneralSettingsTab(QWidget):
         settings = GeneralSettings(
             fill_all_shortcut=self._fill_all_shortcut.text().strip(),
             fill_all_prompt=self._fill_all_prompt.toPlainText().strip(),
+            last_configured_provider=self._provider_combo.currentData(),
         )
         self._config.set_general_settings(settings)
