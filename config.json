@@ -1,0 +1,49 @@
+{
+    "providers": {
+        "openai": {
+            "api_url": "https://api.openai.com/v1",
+            "api_key": "",
+            "text_model": "gpt-4o",
+            "max_tokens": 4096,
+            "tts_model": "tts-1",
+            "tts_voice": "alloy",
+            "image_model": "dall-e-3"
+        },
+        "anthropic": {
+            "api_url": "https://api.anthropic.com/v1",
+            "api_key": "",
+            "text_model": "claude-3-5-sonnet-20240620",
+            "max_tokens": 4096
+        },
+        "google": {
+            "api_url": "https://generativelanguage.googleapis.com/v1beta",
+            "api_key": "",
+            "text_model": "gemini-1.5-flash",
+            "tts_model": "",
+            "tts_voice": "",
+            "image_model": "imagen-3",
+            "max_tokens": 4096
+        },
+        "vercel": {
+            "api_url": "https://ai-gateway.vercel.sh/v1",
+            "api_key": "",
+            "text_model": "google/gemini-1.5-flash",
+            "max_tokens": 4096,
+            "tts_model": "",
+            "tts_voice": "",
+            "image_model": ""
+        }
+    },
+    "active_providers": {
+        "text": "vercel",
+        "tts": "disabled",
+        "image": "disabled"
+    },
+    "note_type_field_instructions": {},
+    "deck_field_instructions": {},
+    "general": {
+        "fill_all_shortcut": "Ctrl+Shift+G",
+        "fill_all_prompt": "",
+        "last_configured_provider": "vercel"
+    }
+}

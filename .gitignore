@@ -1,13 +1,8 @@
-# --- Byte-compiled / optimized / DLL files ---
+## Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-
-# --- C extensions ---
-*.so
-
-# --- Distribution / packaging ---
 .Python
 build/
 develop-eggs/
@@ -27,17 +22,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# --- PyInstaller ---
-#  Usually these files are written by a python script or a single command line
-#  before generating executable
-*.manifest
-*.spec
-
-# --- Installer logs ---
-pip-log.txt
-pip-delete-this-directory.txt
-
-# --- Unit test / coverage reports ---
+## Tests / Coverage
 htmlcov/
 .tox/
 .nox/
@@ -47,75 +32,10 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
-*.py,cover
-.hypothesis/
 .pytest_cache/
-cover/
+.mypy_cache/
 
-# --- Translations ---
-*.mo
-*.pot
-
-# --- Django stuff: ---
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# --- Flask stuff: ---
-instance/
-.webassets-cache
-
-# --- Scrapy stuff: ---
-.scrapy
-
-# --- Sphinx documentation ---
-docs/_build/
-
-# --- PyBuilder ---
-.pybuilder/
-target/
-
-# --- Jupyter Notebook ---
-.ipynb_checkpoints
-
-# --- IPython ---
-profile_default/
-ipython_config.py
-
-# --- pyenv ---
-#   For a library or package, you might want to ignore these files since the 
-#   version is often specific to the developer's environment.
-# .python-version
-
-# --- pipenv ---
-#   According to pypa/pipenv#1191, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies 
-#   having no cross-platform support, pipenv may install dependencies that don't work, 
-#   or even fail to install.
-# Pipfile.lock
-
-# --- poetry ---
-#   Similar to Pipenv, see below.
-# poetry.lock
-
-# --- pdm ---
-#   Similar to Pipenv, see below.
-# .pdm.toml
-# .pdm-python
-# .pdm-build/
-
-# --- PEP 582; used by e.g. github.com/pdm-project/pdm ---
-__pypackages__/
-
-# --- Celery stuff ---
-celerybeat-schedule
-celerybeat.pid
-
-# --- SageMath parses ---
-*.sage.py
-
-# --- Environments ---
+## Environments
 .env
 .venv
 env/
@@ -124,38 +44,11 @@ ENV/
 env.bak/
 venv.bak/
 
-# --- Spyder project settings ---
-.spyderproject
-.spyproject
-
-# --- Rope project settings ---
-.ropeproject
-
-# --- mkdocs documentation ---
-/site/
-
-# --- mypy ---
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# --- Pyre type checker ---
-.pyre/
-
-# --- pytype static type analyzer ---
-.pytype/
-
-# --- Cython debug symbols ---
-cython_debug/
-
-# --- PyCharm ---
-#  JetBrains specific template is maintained in a separate file from here
+## IDEs
 .idea/
-
-# --- VS Code ---
 .vscode/
 
-# --- OS specific files ---
+## OS Files
 .DS_Store
 .DS_Store?
 ._*
@@ -164,37 +57,21 @@ cython_debug/
 ehthumbs.db
 Thumbs.db
 
-# --- Anki Add-on Specific ---
+## Anki Addon
+# Track config.json (defaults)
+!config.json
+
+# Ignore meta.json (private user settings)
 meta.json
-user_files/
+
+# Ignore build artifacts
 *.ankiaddon
 backup/
 
-# --- Project Specific & Refactoring Artifacts ---
-.devin/
-plans/
-implementation_plan.md
-task.md
-walkthrough.md
-/tmp/
+## Planning & Logs
 .gemini/
 brain/
-logs/
-overview.txt
-results.php
-mapping.php
-columns.php
-schema.php
-connect.php
-config.php
-results.php
-lib/
-core/
-admin/
-dashboard/
-login/
-*.sql
-*.backup
-*.bak
-dump.rdb
-config.json
+task.md
+implementation_plan.md
+walkthrough.md
+/tmp/

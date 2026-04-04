@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.api.base import ProviderError
+from src.core.interfaces import ProviderError
 from src.core.network import (
     _RETRYABLE_STATUS_CODES,
     _backoff_delay,
@@ -41,21 +41,10 @@ class TestParseJson:
             _parse_json("", "MyProvider")
 
 
-def _mock_urlopen(response_data: str | bytes, status: int = 200):
-    """Create a mock for urllib.request.urlopen."""
-    mock_resp = MagicMock()
-    if isinstance(response_data, str):
-        response_data = response_data.encode("utf-8")
-    mock_resp.read.return_value = response_data
-    mock_resp.__enter__ = lambda s: s
-    mock_resp.__exit__ = MagicMock(return_value=False)
-    return mock_resp
-
-
 class TestHttpPostJson:
-    @patch("src.core.network.urllib.request.urlopen")
     def test_success(self, mock_urlopen) -> None:
-        mock_urlopen.return_value = _mock_urlopen('{"result": "ok"}')
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = b'{"result": "ok"}'
         result = http_post_json(
             "https://api.test/v1/endpoint",
             {"Authorization": "Bearer test"},
@@ -65,7 +54,6 @@ class TestHttpPostJson:
         assert result == {"result": "ok"}
         mock_urlopen.assert_called_once()
 
-    @patch("src.core.network.urllib.request.urlopen")
     def test_http_error(self, mock_urlopen) -> None:
         error = urllib.error.HTTPError(
             "https://api.test",
@@ -78,27 +66,26 @@ class TestHttpPostJson:
         with pytest.raises(ProviderError, match="401"):
             http_post_json("https://api.test", {}, {}, label="Test")
 
-    @patch("src.core.network.urllib.request.urlopen")
     def test_url_error(self, mock_urlopen) -> None:
         mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
         with pytest.raises(ProviderError, match="Connection error"):
             http_post_json("https://api.test", {}, {}, label="Test")
 
-    @patch("src.core.network.urllib.request.urlopen")
     def test_empty_response(self, mock_urlopen) -> None:
-        mock_urlopen.return_value = _mock_urlopen("")
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = b""
         with pytest.raises(ProviderError, match="Empty response"):
             http_post_json("https://api.test", {}, {}, label="Test")
 
-    @patch("src.core.network.urllib.request.urlopen")
     def test_invalid_json_response(self, mock_urlopen) -> None:
-        mock_urlopen.return_value = _mock_urlopen("not json")
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = b"not json"
         with pytest.raises(ProviderError, match="Invalid JSON"):
             http_post_json("https://api.test", {}, {}, label="Test")
 
-    @patch("src.core.network.urllib.request.urlopen")
     def test_content_type_header_set(self, mock_urlopen) -> None:
-        mock_urlopen.return_value = _mock_urlopen('{"ok": true}')
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = b'{"ok": true}'
         http_post_json("https://api.test", {"X-Custom": "val"}, {}, label="Test")
         call_args = mock_urlopen.call_args
         req = call_args[0][0]
@@ -107,9 +94,9 @@ class TestHttpPostJson:
 
 
 class TestHttpPostRaw:
-    @patch("src.core.network.urllib.request.urlopen")
     def test_returns_bytes(self, mock_urlopen) -> None:
-        mock_urlopen.return_value = _mock_urlopen(b"\xff\xfb\x90audio-data")
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = b"\xff\xfb\x90audio-data"
         result = http_post_raw(
             "https://api.test/audio",
             {},
@@ -118,7 +105,6 @@ class TestHttpPostRaw:
         )
         assert result == b"\xff\xfb\x90audio-data"
 
-    @patch("src.core.network.urllib.request.urlopen")
     def test_http_error_non_retryable(self, mock_urlopen) -> None:
         error = urllib.error.HTTPError(
             "https://api.test",
@@ -135,15 +121,15 @@ class TestHttpPostRaw:
 
 
 class TestHttpGetJson:
-    @patch("src.core.network.urllib.request.urlopen")
     def test_success(self, mock_urlopen) -> None:
-        mock_urlopen.return_value = _mock_urlopen('{"data": []}')
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = b'{"data": []}'
         result = http_get_json("https://api.test/models", label="Test")
         assert result == {"data": []}
 
-    @patch("src.core.network.urllib.request.urlopen")
     def test_with_headers(self, mock_urlopen) -> None:
-        mock_urlopen.return_value = _mock_urlopen('{"data": []}')
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = b'{"data": []}'
         http_get_json(
             "https://api.test/models",
             {"Authorization": "Bearer key"},
@@ -153,7 +139,6 @@ class TestHttpGetJson:
         req = call_args[0][0]
         assert req.get_header("Authorization") == "Bearer key"
 
-    @patch("src.core.network.urllib.request.urlopen")
     def test_http_error(self, mock_urlopen) -> None:
         error = urllib.error.HTTPError(
             "https://api.test",
@@ -216,12 +201,15 @@ class TestRetryOnTransientErrors:
     """Verify that retryable status codes trigger retries and others don't."""
 
     @patch("src.core.network.time.sleep")
-    @patch("src.core.network.urllib.request.urlopen")
-    def test_500_retried_then_succeeds(self, mock_urlopen, mock_sleep) -> None:
+    def test_500_retried_then_succeeds(self, mock_sleep, mock_urlopen) -> None:
         """A single 500 followed by success should work."""
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"ok": true}'
+        mock_resp.__enter__.return_value = mock_resp
+
         mock_urlopen.side_effect = [
             _make_http_error(500, b"server error"),
-            _mock_urlopen('{"ok": true}'),
+            mock_resp,
         ]
         result = http_post_json("https://api.test", {}, {}, label="Test")
         assert result == {"ok": True}
@@ -229,8 +217,7 @@ class TestRetryOnTransientErrors:
         mock_sleep.assert_called_once()
 
     @patch("src.core.network.time.sleep")
-    @patch("src.core.network.urllib.request.urlopen")
-    def test_500_exhausts_retries(self, mock_urlopen, mock_sleep) -> None:
+    def test_500_exhausts_retries(self, mock_sleep, mock_urlopen) -> None:
         """All attempts fail with 500 → ProviderError raised."""
         mock_urlopen.side_effect = [_make_http_error(500, b"fail") for _ in range(4)]
         with pytest.raises(ProviderError, match="500"):
@@ -240,21 +227,23 @@ class TestRetryOnTransientErrors:
         assert mock_sleep.call_count == 3
 
     @patch("src.core.network.time.sleep")
-    @patch("src.core.network.urllib.request.urlopen")
-    def test_429_uses_retry_after_header(self, mock_urlopen, mock_sleep) -> None:
+    def test_429_uses_retry_after_header(self, mock_sleep, mock_urlopen) -> None:
         headers = MagicMock()
         headers.get.return_value = "3"
         err = urllib.error.HTTPError(
             "https://api.test", 429, "Rate limited", headers, BytesIO(b"slow down")
         )
-        mock_urlopen.side_effect = [err, _mock_urlopen('{"ok": true}')]
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"ok": true}'
+        mock_resp.__enter__.return_value = mock_resp
+
+        mock_urlopen.side_effect = [err, mock_resp]
         result = http_post_json("https://api.test", {}, {}, label="Test")
         assert result == {"ok": True}
         mock_sleep.assert_called_once_with(3.0)
 
     @patch("src.core.network.time.sleep")
-    @patch("src.core.network.urllib.request.urlopen")
-    def test_401_not_retried(self, mock_urlopen, mock_sleep) -> None:
+    def test_401_not_retried(self, mock_sleep, mock_urlopen) -> None:
         mock_urlopen.side_effect = _make_http_error(401, b"bad key")
         with pytest.raises(ProviderError, match="401"):
             http_post_json("https://api.test", {}, {}, label="Test")
@@ -262,24 +251,30 @@ class TestRetryOnTransientErrors:
         mock_sleep.assert_not_called()
 
     @patch("src.core.network.time.sleep")
-    @patch("src.core.network.urllib.request.urlopen")
-    def test_raw_bytes_retried(self, mock_urlopen, mock_sleep) -> None:
+    def test_raw_bytes_retried(self, mock_sleep, mock_urlopen) -> None:
         """http_post_raw also retries on 502."""
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b"\x00audio"
+        mock_resp.__enter__.return_value = mock_resp
+
         mock_urlopen.side_effect = [
             _make_http_error(502, b"bad gateway"),
-            _mock_urlopen(b"\x00audio"),
+            mock_resp,
         ]
         result = http_post_raw("https://api.test", {}, {}, label="Test")
         assert result == b"\x00audio"
         assert mock_urlopen.call_count == 2
 
     @patch("src.core.network.time.sleep")
-    @patch("src.core.network.urllib.request.urlopen")
-    def test_get_json_retried(self, mock_urlopen, mock_sleep) -> None:
+    def test_get_json_retried(self, mock_sleep, mock_urlopen) -> None:
         """http_get_json also retries on 503."""
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"models": []}'
+        mock_resp.__enter__.return_value = mock_resp
+
         mock_urlopen.side_effect = [
             _make_http_error(503, b"unavailable"),
-            _mock_urlopen('{"models": []}'),
+            mock_resp,
         ]
         result = http_get_json("https://api.test/models", label="Test")
         assert result == {"models": []}

@@ -225,7 +225,7 @@ class TestApplySyncLogic:
         )
         dialog._on_apply()
 
-        # No sync should happen — raw mode means the raw editor is active
+        # No sync should happen \u2014 raw mode means the raw editor is active
         raw_mock.setPlainText.assert_not_called()
         assert prop.changes["Back"] == "raw edited"
 
@@ -264,7 +264,7 @@ class TestPerFieldSelection:
         return dialog
 
     def test_all_fields_checked(self) -> None:
-        """All fields checked → all fields in approved proposal."""
+        """All fields checked \u2192 all fields in approved proposal."""
         prop = BatchProposedChange(
             note_id=1,
             note_preview="test",
@@ -300,7 +300,7 @@ class TestPerFieldSelection:
         assert "Extra" not in dialog._approved[0].changes
 
     def test_all_fields_unchecked_excludes_proposal(self) -> None:
-        """All fields unchecked → proposal excluded entirely."""
+        """All fields unchecked \u2192 proposal excluded entirely."""
         prop = BatchProposedChange(
             note_id=1,
             note_preview="test",
@@ -515,18 +515,16 @@ class TestFmtSeconds:
 class TestMediaBaseUrl:
     """Verify _media_base_url returns a QUrl or None."""
 
-    def test_returns_url_when_mw_available(self) -> None:
-        with patch("src.ui.batch_review_dialog.mw") as mock_mw:
-            mock_mw.col.media.dir.return_value = "/fake/media"
-            result = _media_base_url()
-            # QUrl.fromLocalFile was called (it's a MagicMock so result is truthy)
-            assert result is not None
+    def test_returns_url_when_mw_available(self, mock_mw) -> None:
+        mock_mw.col.media.dir.return_value = "/fake/media"
+        result = _media_base_url()
+        # QUrl.fromLocalFile was called (it's a MagicMock so result is truthy)
+        assert result is not None
 
-    def test_returns_none_on_exception(self) -> None:
-        with patch("src.ui.batch_review_dialog.mw") as mock_mw:
-            mock_mw.col.media.dir.side_effect = AttributeError("no col")
-            result = _media_base_url()
-            assert result is None
+    def test_returns_none_on_exception(self, mock_mw) -> None:
+        mock_mw.col.media.dir.side_effect = AttributeError("no col")
+        result = _media_base_url()
+        assert result is None
 
 
 class TestPlaySound:

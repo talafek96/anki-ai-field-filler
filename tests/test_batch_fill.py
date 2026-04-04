@@ -7,6 +7,8 @@ import urllib.error
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from src.core.config import ProviderConfig
 from src.core.filler import (
     BatchFiller,
@@ -17,9 +19,7 @@ from src.core.filler import (
     _is_retryable,
     with_retry,
 )
-from src.api.base import ProviderError
-
-_HTTP_URLOPEN = "src.api.http.urllib.request.urlopen"
+from src.core.interfaces import ProviderError
 
 _FAKE_PROVIDER_CFG = ProviderConfig(
     provider_type="openai",
@@ -36,41 +36,6 @@ def _chat_response(fields_json: dict) -> str:
     return json.dumps({"choices": [{"message": {"content": inner}}]})
 
 
-def _mock_urlopen(response_data: str | bytes):
-    mock_resp = MagicMock()
-    if isinstance(response_data, str):
-        response_data = response_data.encode("utf-8")
-    mock_resp.read.return_value = response_data
-    mock_resp.__enter__ = lambda s: s
-    mock_resp.__exit__ = MagicMock(return_value=False)
-    return mock_resp
-
-
-def _make_mock_note(nid: int, fields: dict[str, str], note_type: str = "Basic"):
-    """Create a mock note object."""
-    note = MagicMock()
-    note.id = nid
-    note.note_type.return_value = {"name": note_type}
-    note.keys.return_value = list(fields.keys())
-    note.__getitem__ = lambda self, k: fields[k]
-    note.__setitem__ = lambda self, k, v: fields.__setitem__(k, v)
-    note.__contains__ = lambda self, k: k in fields
-    return note, fields
-
-
-def _make_batch_filler(mock_mw: MagicMock) -> BatchFiller:
-    """Create a BatchFiller with mocked config."""
-    filler = BatchFiller()
-    mock_config = MagicMock()
-    mock_config.get_field_instructions.return_value = {}
-    mock_config.get_active_text_provider.return_value = _FAKE_PROVIDER_CFG
-    mock_config.get_active_tts_provider.return_value = None
-    mock_config.get_active_image_provider.return_value = None
-    filler._config = mock_config
-    filler._filler._config = mock_config
-    return filler
-
-
 def _make_errors(n: int) -> list:
     """Create n distinct HTTPError objects."""
     return [
@@ -79,55 +44,43 @@ def _make_errors(n: int) -> list:
     ]
 
 
-class TestBatchFiller:
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_basic_batch(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
-        """Process two notes, both succeed."""
-        fields1 = {"Front": "hello", "Back": ""}
-        fields2 = {"Front": "world", "Back": ""}
-        note1, _ = _make_mock_note(1, fields1)
-        note2, _ = _make_mock_note(2, fields2)
 
+class TestBatchFiller:
+    def test_basic_batch(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
+        """Process two notes, both succeed."""
+        note1, _ = mock_note(1, {"Front": "hello", "Back": ""})
+        note2, _ = mock_note(2, {"Front": "world", "Back": ""})
         mock_mw.col.get_note.side_effect = [note1, note2]
 
         response = _chat_response({"Back": {"content": "answer", "type": "text"}})
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
         items = [BatchNoteItem(note_id=1), BatchNoteItem(note_id=2)]
-        result = filler.run(items, target_fields=["Back"])
+        result = batch_filler.run(items, target_fields=["Back"])
 
         assert result.total == 2
         assert result.succeeded == 2
         assert result.failed == 0
         assert result.elapsed_seconds > 0
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_skips_already_filled(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+    def test_skips_already_filled(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Notes with no blank target fields are skipped."""
-        fields = {"Front": "hello", "Back": "already filled"}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, {"Front": "hello", "Back": "already filled"})
         mock_mw.col.get_note.return_value = note
 
-        filler = _make_batch_filler(mock_mw)
-        result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
+        result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
 
         assert result.skipped == 1
         assert result.succeeded == 0
         mock_urlopen.assert_not_called()
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_dry_run(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+    def test_dry_run(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Dry run doesn't call the AI."""
-        fields = {"Front": "hello", "Back": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, {"Front": "hello", "Back": ""})
         mock_mw.col.get_note.return_value = note
 
-        filler = _make_batch_filler(mock_mw)
-        result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"], dry_run=True)
+        result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"], dry_run=True)
 
         assert result.dry_run is True
         assert result.succeeded == 1
@@ -135,25 +88,23 @@ class TestBatchFiller:
 
     @patch("src.core.filler.time.sleep")
     @patch("src.api.http.time.sleep")
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
     def test_error_collected_not_fatal(
         self,
-        mock_mw: MagicMock,
-        mock_urlopen: MagicMock,
-        _mock_http_sleep: MagicMock,
-        _mock_retry_sleep: MagicMock,
+        _mock_http_sleep,
+        _mock_retry_sleep,
+        batch_filler,
+        mock_mw,
+        mock_urlopen,
+        mock_note
     ) -> None:
         """Errors are collected without crashing the batch."""
-        fields = {"Front": "hello", "Back": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, {"Front": "hello", "Back": ""})
         mock_mw.col.get_note.return_value = note
 
         # Enough errors for HTTP retries (4 per attempt) * with_retry (3 attempts) = 12
         mock_urlopen.side_effect = _make_errors(20)
 
-        filler = _make_batch_filler(mock_mw)
-        result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
+        result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
 
         assert result.failed == 1
         assert result.succeeded == 0
@@ -161,45 +112,40 @@ class TestBatchFiller:
         assert result.failures[0].note_id == 1
         assert "500" in result.failures[0].error
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_cancellation(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+    def test_cancellation(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Cancellation stops after the current note completes."""
-        fields = {"Front": "hello", "Back": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, {"Front": "hello", "Back": ""})
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response({"Back": {"content": "x", "type": "text"}})
-        mock_urlopen.return_value = _mock_urlopen(response)
-
-        filler = _make_batch_filler(mock_mw)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
         def cancel_after_first(p: BatchProgress) -> None:
             if p.completed == 1:
-                filler.cancel()
+                batch_filler.cancel()
 
         items = [BatchNoteItem(note_id=i) for i in range(5)]
-        result = filler.run(items, target_fields=["Back"], on_progress=cancel_after_first)
+        # We need more notes to be returned by get_note for the cancellation to be visible
+        mock_mw.col.get_note.side_effect = [mock_note(i, {"F": "v", "Back": ""})[0] for i in range(5)]
+        
+        result = batch_filler.run(items, target_fields=["Back"], on_progress=cancel_after_first)
 
         assert result.succeeded == 1
         assert result.skipped == 4
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_progress_callback(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+    def test_progress_callback(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Progress callback is called before and after each note."""
-        fields1 = {"Front": "hello", "Back": ""}
-        fields2 = {"Front": "world", "Back": ""}
-        note1, _ = _make_mock_note(1, fields1)
-        note2, _ = _make_mock_note(2, fields2)
+        note1, _ = mock_note(1, {"Front": "hello", "Back": ""})
+        note2, _ = mock_note(2, {"Front": "world", "Back": ""})
         mock_mw.col.get_note.side_effect = [note1, note2]
 
         response = _chat_response({"Back": {"content": "x", "type": "text"}})
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
         progress_calls: list[BatchProgress] = []
-        filler = _make_batch_filler(mock_mw)
-        filler.run(
+        batch_filler.run(
             [BatchNoteItem(note_id=1), BatchNoteItem(note_id=2)],
             target_fields=["Back"],
             on_progress=progress_calls.append,
@@ -245,21 +191,17 @@ class TestBatchDataclasses:
 class TestFilledFieldsNotOverwritten:
     """Verify that already-filled fields are never sent to the AI."""
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_partial_fill_only_targets_blank(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock
-    ) -> None:
+    def test_partial_fill_only_targets_blank(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Expression is filled, Back is blank — only Back is targeted."""
         fields = {"Expression": "hello", "Meaning": "world", "Back": ""}
-        note, raw = _make_mock_note(1, fields)
+        note, raw = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response({"Back": {"content": "answer", "type": "text"}})
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
-        result = filler.run(
+        result = batch_filler.run(
             [BatchNoteItem(note_id=1)],
             target_fields=["Expression", "Meaning", "Back"],
         )
@@ -274,18 +216,13 @@ class TestFilledFieldsNotOverwritten:
         assert raw["Expression"] == "hello"
         assert raw["Meaning"] == "world"
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_all_fields_filled_skips_note(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock
-    ) -> None:
+    def test_all_fields_filled_skips_note(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """When every target field is already filled, the note is skipped."""
         fields = {"Front": "hello", "Back": "world"}
-        note, raw = _make_mock_note(1, fields)
+        note, raw = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
-        filler = _make_batch_filler(mock_mw)
-        result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Front", "Back"])
+        result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Front", "Back"])
 
         assert result.skipped == 1
         assert result.succeeded == 0
@@ -295,18 +232,13 @@ class TestFilledFieldsNotOverwritten:
 
 
 class TestDryRunProposals:
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_dry_run_shows_blank_fields_per_note(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock
-    ) -> None:
+    def test_dry_run_shows_blank_fields_per_note(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Dry run proposals list which fields would be targeted."""
         fields = {"Front": "hello", "Back": "", "Extra": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
-        filler = _make_batch_filler(mock_mw)
-        result = filler.run(
+        result = batch_filler.run(
             [BatchNoteItem(note_id=1)],
             target_fields=["Front", "Back", "Extra"],
             dry_run=True,
@@ -321,21 +253,17 @@ class TestDryRunProposals:
 
 
 class TestProposalsAndApply:
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_proposals_populated_without_writing(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock
-    ) -> None:
+    def test_proposals_populated_without_writing(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Real run populates proposals but doesn't write to notes."""
         fields = {"Front": "hello", "Back": ""}
-        note, raw = _make_mock_note(1, fields)
+        note, raw = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response({"Back": {"content": "generated", "type": "text"}})
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
-        result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
+        result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
 
         assert result.succeeded == 1
         assert len(result.proposals) == 1
@@ -346,11 +274,10 @@ class TestProposalsAndApply:
         assert raw["Back"] == ""
         note.flush.assert_not_called()
 
-    @patch("src.core.filler.mw")
-    def test_apply_proposals_writes_to_notes(self, mock_mw: MagicMock) -> None:
+    def test_apply_proposals_writes_to_notes(self, mock_mw, mock_note) -> None:
         """apply_proposals writes approved changes and flushes."""
         fields = {"Front": "hello", "Back": ""}
-        note, raw = _make_mock_note(1, fields)
+        note, raw = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         prop = BatchProposedChange(
@@ -367,8 +294,7 @@ class TestProposalsAndApply:
         assert raw["Back"] == "new content"
         note.flush.assert_called_once()
 
-    @patch("src.core.filler.mw")
-    def test_apply_skips_failed_proposals(self, mock_mw: MagicMock) -> None:
+    def test_apply_skips_failed_proposals(self, mock_mw) -> None:
         """Proposals with errors are not applied."""
         prop = BatchProposedChange(
             note_id=1,
@@ -383,11 +309,10 @@ class TestProposalsAndApply:
         assert applied == 0
         mock_mw.col.get_note.assert_not_called()
 
-    @patch("src.core.filler.mw")
-    def test_apply_edited_proposal(self, mock_mw: MagicMock) -> None:
+    def test_apply_edited_proposal(self, mock_mw, mock_note) -> None:
         """Proposals with user-edited values apply the edited content."""
         fields = {"Front": "hello", "Back": ""}
-        note, raw = _make_mock_note(1, fields)
+        note, raw = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         prop = BatchProposedChange(
@@ -411,14 +336,10 @@ class TestProposalsAndApply:
 class TestPartialFieldFailure:
     """Image/audio failures should not lose successfully generated text fields."""
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_image_failure_keeps_text_fields(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock
-    ) -> None:
+    def test_image_failure_keeps_text_fields(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """When image generation fails, text fields are still returned."""
         fields = {"Front": "hello", "Back": "", "Image": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response(
@@ -427,9 +348,9 @@ class TestPartialFieldFailure:
                 "Image": {"content": "a cute cat", "type": "image"},
             }
         )
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
         # Enable image provider so the code actually tries to generate
         img_cfg = ProviderConfig(
             provider_type="openai",
@@ -439,7 +360,7 @@ class TestPartialFieldFailure:
             max_tokens=4096,
             image_model="dall-e-3",
         )
-        filler._config.get_active_image_provider.return_value = img_cfg
+        batch_filler._config.get_active_image_provider.return_value = img_cfg
 
         # Make the image provider raise an error
         with patch("src.core.filler.create_image_provider") as mock_img_factory:
@@ -447,7 +368,7 @@ class TestPartialFieldFailure:
             mock_img_prov.generate_image.side_effect = ProviderError("safety filter block")
             mock_img_factory.return_value = mock_img_prov
 
-            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Back", "Image"])
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Back", "Image"])
 
         # Note should still succeed (partial)
         assert result.succeeded == 1
@@ -463,20 +384,16 @@ class TestPartialFieldFailure:
         assert "safety filter block" in prop.field_errors["Image"]
         assert "a cute cat" in prop.field_errors["Image"]
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_all_fields_fail_still_succeeds_with_field_errors(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock
-    ) -> None:
+    def test_all_fields_fail_still_succeeds_with_field_errors(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Even if all fields fail in _render_fields, the note is not marked as error."""
         fields = {"Front": "hello", "Image": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response({"Image": {"content": "a sunset", "type": "image"}})
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
         img_cfg = ProviderConfig(
             provider_type="openai",
             api_url="https://fake.test/v1",
@@ -485,14 +402,14 @@ class TestPartialFieldFailure:
             max_tokens=4096,
             image_model="dall-e-3",
         )
-        filler._config.get_active_image_provider.return_value = img_cfg
+        batch_filler._config.get_active_image_provider.return_value = img_cfg
 
         with patch("src.core.filler.create_image_provider") as mock_img_factory:
             mock_img_prov = MagicMock()
             mock_img_prov.generate_image.side_effect = ProviderError("blocked")
             mock_img_factory.return_value = mock_img_prov
 
-            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Image"])
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Image"])
 
         assert result.succeeded == 1
         prop = result.proposals[0]
@@ -500,14 +417,10 @@ class TestPartialFieldFailure:
         assert prop.changes == {}
         assert "Image" in prop.field_errors
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_inline_image_failure_keeps_text(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock
-    ) -> None:
+    def test_inline_image_failure_keeps_text(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Text field with inline image_prompt: text kept, image skipped."""
         fields = {"Front": "hello", "Definition": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response(
@@ -519,9 +432,9 @@ class TestPartialFieldFailure:
                 }
             }
         )
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
         img_cfg = ProviderConfig(
             provider_type="openai",
             api_url="https://fake.test/v1",
@@ -530,14 +443,14 @@ class TestPartialFieldFailure:
             max_tokens=4096,
             image_model="dall-e-3",
         )
-        filler._config.get_active_image_provider.return_value = img_cfg
+        batch_filler._config.get_active_image_provider.return_value = img_cfg
 
         with patch("src.core.filler.create_image_provider") as mock_img_factory:
             mock_img_prov = MagicMock()
             mock_img_prov.generate_image.side_effect = ProviderError("content policy")
             mock_img_factory.return_value = mock_img_prov
 
-            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Definition"])
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Definition"])
 
         prop = result.proposals[0]
         assert prop.success is True
@@ -554,12 +467,10 @@ class TestPartialFieldFailure:
 class TestRichFieldBatch:
     """Integration tests for rich/flag-based fields through the batch pipeline."""
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_rich_field_text_only_flags(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+    def test_rich_field_text_only_flags(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Rich field with no providers configured — flags removed, text kept."""
         fields = {"Front": "hello", "Notes": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response(
@@ -570,10 +481,10 @@ class TestRichFieldBatch:
                 }
             }
         )
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
-        result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
+        result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
 
         assert result.succeeded == 1
         prop = result.proposals[0]
@@ -586,14 +497,10 @@ class TestRichFieldBatch:
         assert "More text" in html
         assert "<br>" in html
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_rich_field_with_image_provider(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock
-    ) -> None:
+    def test_rich_field_with_image_provider(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Rich field with image flag — image generated and inlined."""
         fields = {"Front": "hello", "Notes": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response(
@@ -604,9 +511,9 @@ class TestRichFieldBatch:
                 }
             }
         )
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
         img_cfg = ProviderConfig(
             provider_type="openai",
             api_url="https://fake.test/v1",
@@ -615,18 +522,18 @@ class TestRichFieldBatch:
             max_tokens=4096,
             image_model="dall-e-3",
         )
-        filler._config.get_active_image_provider.return_value = img_cfg
+        batch_filler._config.get_active_image_provider.return_value = img_cfg
 
         with (
-            patch("src.core.field_filler.create_image_provider") as mock_img_factory,
-            patch("src.core.field_filler.MediaHandler.save_image") as mock_save,
+            patch("src.core.filler.create_image_provider") as mock_img_factory,
+            patch("src.core.filler.Media.save_image") as mock_save,
         ):
             mock_img_prov = MagicMock()
             mock_img_prov.generate_image.return_value = b"\x89PNG"
             mock_img_factory.return_value = mock_img_prov
             mock_save.return_value = '<img src="ai_filler_pic.png">'
 
-            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
 
         prop = result.proposals[0]
         assert prop.success is True
@@ -636,14 +543,10 @@ class TestRichFieldBatch:
         assert "End" in html
         mock_img_prov.generate_image.assert_called_once_with("illustration")
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_text_field_with_flags_processed(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock
-    ) -> None:
+    def test_text_field_with_flags_processed(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """A text field that contains flags should still process them."""
         fields = {"Front": "hello", "Back": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response(
@@ -654,9 +557,9 @@ class TestRichFieldBatch:
                 }
             }
         )
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
         img_cfg = ProviderConfig(
             provider_type="openai",
             api_url="https://fake.test/v1",
@@ -665,7 +568,7 @@ class TestRichFieldBatch:
             max_tokens=4096,
             image_model="dall-e-3",
         )
-        filler._config.get_active_image_provider.return_value = img_cfg
+        batch_filler._config.get_active_image_provider.return_value = img_cfg
 
         with (
             patch("src.core.filler.create_image_provider") as mock_img_factory,
@@ -676,7 +579,7 @@ class TestRichFieldBatch:
             mock_img_factory.return_value = mock_img_prov
             mock_save.return_value = '<img src="inline.png">'
 
-            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
 
         prop = result.proposals[0]
         html = prop.changes["Back"]
@@ -684,14 +587,10 @@ class TestRichFieldBatch:
         assert "Answer" in html
         assert "{{IMAGE" not in html
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_rich_field_flag_failure_keeps_text(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock
-    ) -> None:
+    def test_rich_field_flag_failure_keeps_text(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """When a flag's media generation fails, text is kept and error reported."""
         fields = {"Front": "hello", "Notes": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response(
@@ -702,9 +601,9 @@ class TestRichFieldBatch:
                 }
             }
         )
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
         img_cfg = ProviderConfig(
             provider_type="openai",
             api_url="https://fake.test/v1",
@@ -713,52 +612,44 @@ class TestRichFieldBatch:
             max_tokens=4096,
             image_model="dall-e-3",
         )
-        filler._config.get_active_image_provider.return_value = img_cfg
+        batch_filler._config.get_active_image_provider.return_value = img_cfg
 
         with patch("src.core.filler.create_image_provider") as mock_img_factory:
             mock_img_prov = MagicMock()
             mock_img_prov.generate_image.side_effect = ProviderError("content policy")
             mock_img_factory.return_value = mock_img_prov
 
-            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
 
         prop = result.proposals[0]
         assert prop.success is True
         html = prop.changes["Notes"]
-        # Text kept, flag removed
         assert "Intro" in html
         assert "Conclusion" in html
         assert "{{IMAGE" not in html
-        # Error recorded
         assert "Notes" in prop.field_errors
         assert "content policy" in prop.field_errors["Notes"]
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_plain_text_without_flags_unchanged(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock
-    ) -> None:
+    def test_plain_text_without_flags_unchanged(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Regular text fields without flags work exactly as before."""
         fields = {"Front": "hello", "Back": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response({"Back": {"content": "plain answer", "type": "text"}})
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
-        result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
+        result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
 
         prop = result.proposals[0]
         assert prop.changes == {"Back": "plain answer"}
         assert prop.field_errors == {}
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_rich_with_audio_flag(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+    def test_rich_with_audio_flag(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Rich field with audio flag — TTS generated inline."""
         fields = {"Front": "hello", "Notes": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response(
@@ -769,9 +660,9 @@ class TestRichFieldBatch:
                 }
             }
         )
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
         tts_cfg = ProviderConfig(
             provider_type="openai",
             api_url="https://fake.test/v1",
@@ -781,7 +672,7 @@ class TestRichFieldBatch:
             tts_model="tts-1",
             tts_voice="alloy",
         )
-        filler._config.get_active_tts_provider.return_value = tts_cfg
+        batch_filler._config.get_active_tts_provider.return_value = tts_cfg
 
         with (
             patch("src.core.filler.create_tts_provider") as mock_tts_factory,
@@ -792,7 +683,7 @@ class TestRichFieldBatch:
             mock_tts_factory.return_value = mock_tts_prov
             mock_save.return_value = "[sound:ai_filler_voice.mp3]"
 
-            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
 
         prop = result.proposals[0]
         html = prop.changes["Notes"]
@@ -800,14 +691,10 @@ class TestRichFieldBatch:
         assert "Pronunciation:" in html
         assert "{{AUDIO" not in html
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_multiple_flag_errors_all_preserved(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock
-    ) -> None:
+    def test_multiple_flag_errors_all_preserved(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """When multiple flags fail, all errors should be reported (not just the last)."""
         fields = {"Front": "hello", "Notes": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response(
@@ -818,9 +705,9 @@ class TestRichFieldBatch:
                 }
             }
         )
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
         img_cfg = ProviderConfig(
             provider_type="openai",
             api_url="https://fake.test/v1",
@@ -838,12 +725,12 @@ class TestRichFieldBatch:
             tts_model="tts-1",
             tts_voice="alloy",
         )
-        filler._config.get_active_image_provider.return_value = img_cfg
-        filler._config.get_active_tts_provider.return_value = tts_cfg
+        batch_filler._config.get_active_image_provider.return_value = img_cfg
+        batch_filler._config.get_active_tts_provider.return_value = tts_cfg
 
         with (
-            patch("src.core.field_filler.create_image_provider") as mock_img_factory,
-            patch("src.core.field_filler.create_tts_provider") as mock_tts_factory,
+            patch("src.core.filler.create_image_provider") as mock_img_factory,
+            patch("src.core.filler.create_tts_provider") as mock_tts_factory,
         ):
             mock_img_prov = MagicMock()
             mock_img_prov.generate_image.side_effect = ProviderError("image policy")
@@ -853,18 +740,16 @@ class TestRichFieldBatch:
             mock_tts_prov.synthesize.side_effect = ProviderError("TTS quota")
             mock_tts_factory.return_value = mock_tts_prov
 
-            result = filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
 
         prop = result.proposals[0]
         assert prop.success is True
         html = prop.changes["Notes"]
-        # Text preserved, flags removed
         assert "Start" in html
         assert "Middle" in html
         assert "End" in html
         assert "{{IMAGE" not in html
         assert "{{AUDIO" not in html
-        # Both errors reported in the same field_errors entry
         assert "Notes" in prop.field_errors
         error_str = prop.field_errors["Notes"]
         assert "image policy" in error_str
@@ -874,102 +759,88 @@ class TestRichFieldBatch:
 class TestRegenerateField:
     """Tests for BatchFiller.regenerate_field()."""
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_regenerate_returns_new_value(
-        self, mock_mw: MagicMock, mock_urlopen: MagicMock
-    ) -> None:
+    def test_regenerate_returns_new_value(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Regenerate a single field — returns new generated content."""
-        fields = {"Front": "hello", "Back": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, {"Front": "hello", "Back": ""})
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response({"Back": {"content": "regenerated answer", "type": "text"}})
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
-        new_value, error = filler.regenerate_field(note_id=1, field_name="Back")
+        new_value, error = batch_filler.regenerate_field(note_id=1, field_name="Back")
 
         assert new_value == "regenerated answer"
         assert error == ""
 
     @patch("src.core.filler.time.sleep")
-    @patch("src.providers.http.time.sleep")
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
+    @patch("src.core.network.time.sleep")
     def test_regenerate_returns_error_on_failure(
         self,
-        mock_mw: MagicMock,
-        mock_urlopen: MagicMock,
-        _mock_http_sleep: MagicMock,
-        _mock_retry_sleep: MagicMock,
+        _mock_http_sleep,
+        _mock_retry_sleep,
+        batch_filler,
+        mock_mw,
+        mock_urlopen,
+        mock_note
     ) -> None:
         """When AI call fails, regenerate returns error string."""
-        fields = {"Front": "hello", "Back": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, {"Front": "hello", "Back": ""})
         mock_mw.col.get_note.return_value = note
 
         mock_urlopen.side_effect = _make_errors(20)
 
-        filler = _make_batch_filler(mock_mw)
-        new_value, error = filler.regenerate_field(note_id=1, field_name="Back")
+        new_value, error = batch_filler.regenerate_field(note_id=1, field_name="Back")
 
         assert new_value == ""
-        assert error  # non-empty error string
+        assert error
         assert "500" in error
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_regenerate_with_user_prompt(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+    def test_regenerate_with_user_prompt(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Regenerate passes user_prompt through to prompt builder."""
-        fields = {"Front": "hello", "Back": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, {"Front": "hello", "Back": ""})
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response({"Back": {"content": "custom answer", "type": "text"}})
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
-        new_value, error = filler.regenerate_field(
+        new_value, error = batch_filler.regenerate_field(
             note_id=1, field_name="Back", user_prompt="Be concise"
         )
 
         assert new_value == "custom answer"
         assert error == ""
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_regenerate_with_deck_name(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+    def test_regenerate_with_deck_name(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Regenerate uses deck_name for field instructions lookup."""
-        fields = {"Front": "hello", "Back": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, {"Front": "hello", "Back": ""})
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response({"Back": {"content": "deck answer", "type": "text"}})
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
-        new_value, error = filler.regenerate_field(
+        # Set up expectations for config mock
+        batch_filler._config.get_field_instructions = MagicMock(return_value={})
+
+        new_value, error = batch_filler.regenerate_field(
             note_id=1, field_name="Back", deck_name="Japanese"
         )
 
         assert new_value == "deck answer"
         assert error == ""
-        # Verify get_field_instructions was called with the deck name
-        filler._config.get_field_instructions.assert_called_with("Basic", deck_name="Japanese")
+        batch_filler._config.get_field_instructions.assert_called_with("Basic", deck_name="Japanese")
 
-    @patch(_HTTP_URLOPEN)
-    @patch("src.core.filler.mw")
-    def test_regenerate_image_field(self, mock_mw: MagicMock, mock_urlopen: MagicMock) -> None:
+    def test_regenerate_image_field(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Regenerate an image field — renders media correctly."""
-        fields = {"Front": "hello", "Image": ""}
-        note, _ = _make_mock_note(1, fields)
+        note, _ = mock_note(1, {"Front": "hello", "Image": ""})
         mock_mw.col.get_note.return_value = note
 
         response = _chat_response({"Image": {"content": "a cat", "type": "image"}})
-        mock_urlopen.return_value = _mock_urlopen(response)
+        mock_urlopen.side_effect = None
+        mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        filler = _make_batch_filler(mock_mw)
         img_cfg = ProviderConfig(
             provider_type="openai",
             api_url="https://fake.test/v1",
@@ -978,7 +849,7 @@ class TestRegenerateField:
             max_tokens=4096,
             image_model="dall-e-3",
         )
-        filler._config.get_active_image_provider.return_value = img_cfg
+        batch_filler._config.get_active_image_provider.return_value = img_cfg
 
         with (
             patch("src.core.filler.create_image_provider") as mock_img_factory,
@@ -989,7 +860,7 @@ class TestRegenerateField:
             mock_img_factory.return_value = mock_img_prov
             mock_save.return_value = '<img src="ai_regen.png">'
 
-            new_value, error = filler.regenerate_field(note_id=1, field_name="Image")
+            new_value, error = batch_filler.regenerate_field(note_id=1, field_name="Image")
 
         assert '<img src="ai_regen.png">' in new_value
         assert error == ""
@@ -1013,21 +884,21 @@ class TestWithRetry:
     def test_not_retryable_invalid_key(self) -> None:
         assert _is_retryable(ProviderError("invalid_api_key: check your key")) is False
 
-    @patch("src.core.field_filler.time.sleep")
+    @patch("src.core.filler.time.sleep")
     def test_with_retry_succeeds_first_try(self, _mock_sleep: MagicMock) -> None:
         fn = MagicMock(return_value="ok")
         assert with_retry(fn) == "ok"
         assert fn.call_count == 1
         _mock_sleep.assert_not_called()
 
-    @patch("src.core.field_filler.time.sleep")
+    @patch("src.core.filler.time.sleep")
     def test_with_retry_succeeds_after_failures(self, _mock_sleep: MagicMock) -> None:
         fn = MagicMock(side_effect=[ProviderError("500"), ProviderError("502"), "ok"])
         assert with_retry(fn) == "ok"
         assert fn.call_count == 3
         assert _mock_sleep.call_count == 2
 
-    @patch("src.core.field_filler.time.sleep")
+    @patch("src.core.filler.time.sleep")
     def test_with_retry_gives_up_after_max(self, _mock_sleep: MagicMock) -> None:
         fn = MagicMock(side_effect=ProviderError("500 error"))
         try:
@@ -1037,7 +908,7 @@ class TestWithRetry:
             assert "500" in str(e)
         assert fn.call_count == 3
 
-    @patch("src.core.field_filler.time.sleep")
+    @patch("src.core.filler.time.sleep")
     def test_with_retry_skips_non_retryable(self, _mock_sleep: MagicMock) -> None:
         """Auth errors propagate immediately, no retries."""
         fn = MagicMock(side_effect=ProviderError("API error 401: Unauthorized"))

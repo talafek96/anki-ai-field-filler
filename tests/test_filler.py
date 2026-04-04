@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.core.filler import Filler as FieldFiller
-from src.api.base import ProviderError
+from src.core.interfaces import ProviderError
 
 
 class TestParseResponse:
@@ -179,21 +179,12 @@ class TestHasFlags:
 class TestRenderFlags:
     """Tests for Filler._render_flags."""
 
-    def _make_filler(self) -> FieldFiller:
-        filler = FieldFiller.__new__(FieldFiller)
-        filler._config = MagicMock()
-        filler._config.get_active_image_provider.return_value = None
-        filler._config.get_active_tts_provider.return_value = None
-        return filler
-
-    def test_no_flags_passthrough(self) -> None:
-        filler = self._make_filler()
+    def test_no_flags_passthrough(self, filler) -> None:
         html, errors = filler._render_flags("plain text\nnewline", "Field")
         assert html == "plain text<br>newline"
         assert errors == []
 
-    def test_image_flag_replaced(self) -> None:
-        filler = self._make_filler()
+    def test_image_flag_replaced(self, filler) -> None:
         img_cfg = MagicMock()
         filler._config.get_active_image_provider.return_value = img_cfg
 
@@ -214,8 +205,7 @@ class TestRenderFlags:
         assert "<br>After" in html
         mock_prov.generate_image.assert_called_once_with("a cute cat")
 
-    def test_audio_flag_replaced(self) -> None:
-        filler = self._make_filler()
+    def test_audio_flag_replaced(self, filler) -> None:
         tts_cfg = MagicMock()
         filler._config.get_active_tts_provider.return_value = tts_cfg
 
@@ -233,8 +223,7 @@ class TestRenderFlags:
         assert "Listen: " in html
         mock_prov.synthesize.assert_called_once_with("konnichiwa", context="")
 
-    def test_mixed_flags(self) -> None:
-        filler = self._make_filler()
+    def test_mixed_flags(self, filler) -> None:
         img_cfg = MagicMock()
         tts_cfg = MagicMock()
         filler._config.get_active_image_provider.return_value = img_cfg
@@ -267,8 +256,7 @@ class TestRenderFlags:
         assert "Word meaning" in html
         assert "Done" in html
 
-    def test_image_failure_removes_flag(self) -> None:
-        filler = self._make_filler()
+    def test_image_failure_removes_flag(self, filler) -> None:
         img_cfg = MagicMock()
         filler._config.get_active_image_provider.return_value = img_cfg
 
@@ -287,8 +275,7 @@ class TestRenderFlags:
         assert "Before" in html
         assert "After" in html
 
-    def test_audio_failure_removes_flag(self) -> None:
-        filler = self._make_filler()
+    def test_audio_failure_removes_flag(self, filler) -> None:
         tts_cfg = MagicMock()
         filler._config.get_active_tts_provider.return_value = tts_cfg
 
@@ -304,9 +291,10 @@ class TestRenderFlags:
         assert "{{AUDIO" not in html
         assert "Say " in html
 
-    def test_no_provider_configured_removes_flag(self) -> None:
-        filler = self._make_filler()
+    def test_no_provider_configured_removes_flag(self, filler) -> None:
         # Providers return None (disabled)
+        filler._config.get_active_image_provider.return_value = None
+        filler._config.get_active_tts_provider.return_value = None
         html, errors = filler._render_flags(
             "See {{IMAGE: something}} and hear {{AUDIO: text}}", "Field"
         )
@@ -316,16 +304,14 @@ class TestRenderFlags:
         assert "See " in html
         assert " and hear " in html
 
-    def test_empty_flag_payload_removed(self) -> None:
-        filler = self._make_filler()
+    def test_empty_flag_payload_removed(self, filler) -> None:
         html, errors = filler._render_flags("Text {{IMAGE:  }} more", "Field")
         assert "{{IMAGE" not in html
         assert "Text " in html
         assert " more" in html
 
-    def test_multiple_image_flags_indexed(self) -> None:
+    def test_multiple_image_flags_indexed(self, filler) -> None:
         """Each flag gets a unique part name suffix for file naming."""
-        filler = self._make_filler()
         img_cfg = MagicMock()
         filler._config.get_active_image_provider.return_value = img_cfg
 
@@ -351,9 +337,8 @@ class TestRenderFlags:
         assert part_names[1] == "Field_p2"
 
     @patch("src.core.filler.time.sleep")
-    def test_partial_failure_keeps_other_flags(self, _mock_sleep) -> None:
+    def test_partial_failure_keeps_other_flags(self, _mock_sleep, filler) -> None:
         """One flag fails (all retries), others still render."""
-        filler = self._make_filler()
         img_cfg = MagicMock()
         filler._config.get_active_image_provider.return_value = img_cfg
 
@@ -384,9 +369,9 @@ class TestRenderFlags:
         assert '<img src="ok.png">' in html
         assert "middle" in html
 
-    def test_html_content_newlines_not_converted(self) -> None:
+    def test_html_content_newlines_not_converted(self, filler) -> None:
         """Content with HTML tags should not have newlines converted to <br>."""
-        filler = self._make_filler()
+        filler._config.get_active_image_provider.return_value = None
         html, errors = filler._render_flags(
             "<p>Definition</p>\n{{IMAGE: cat}}\n<p>Example</p>", "Field"
         )
@@ -396,9 +381,9 @@ class TestRenderFlags:
         assert "<p>Definition</p>" in html
         assert "<p>Example</p>" in html
 
-    def test_html_with_br_tags_not_double_converted(self) -> None:
+    def test_html_with_br_tags_not_double_converted(self, filler) -> None:
         """Content that already has <br> tags should be left untouched."""
-        filler = self._make_filler()
+        filler._config.get_active_image_provider.return_value = None
         html, errors = filler._render_flags("Line one<br>{{IMAGE: cat}}<br>Line two", "Field")
         assert errors == []
         assert html == "Line one<br><br>Line two"
@@ -407,16 +392,8 @@ class TestRenderFlags:
 class TestRenderRichContent:
     """Tests for Filler._render_rich_content."""
 
-    def _make_filler(self) -> FieldFiller:
-        filler = FieldFiller.__new__(FieldFiller)
-        filler._config = MagicMock()
-        filler._config.get_active_image_provider.return_value = None
-        filler._config.get_active_tts_provider.return_value = None
-        return filler
-
-    def test_flags_with_legacy_image_prompt(self) -> None:
+    def test_flags_with_legacy_image_prompt(self, filler) -> None:
         """Both inline flags and legacy image_prompt should be processed."""
-        filler = self._make_filler()
         img_cfg = MagicMock()
         filler._config.get_active_image_provider.return_value = img_cfg
 
@@ -449,9 +426,8 @@ class TestRenderRichContent:
         assert '<img src="img2.png">' in html  # legacy image_prompt
         assert "Text" in html
 
-    def test_legacy_image_prompt_failure_reported(self) -> None:
+    def test_legacy_image_prompt_failure_reported(self, filler) -> None:
         """Legacy image_prompt failure should be reported in errors."""
-        filler = self._make_filler()
         img_cfg = MagicMock()
         filler._config.get_active_image_provider.return_value = img_cfg
 
@@ -475,14 +451,8 @@ class TestRenderRichContent:
 class TestGenerateAndParse:
     """Tests for Filler._generate_and_parse retry logic."""
 
-    def _make_filler(self):
-        filler = FieldFiller.__new__(FieldFiller)
-        filler._config = MagicMock()
-        return filler
-
     @patch("src.core.filler.create_text_provider")
     def test_succeeds_first_try(self, mock_create, filler) -> None:
-        filler._config = MagicMock()
         mock_provider = MagicMock()
         mock_provider.generate.return_value = json.dumps(
             {"fields": {"A": {"content": "ok", "type": "text"}}}
@@ -494,7 +464,6 @@ class TestGenerateAndParse:
 
     @patch("src.core.filler.create_text_provider")
     def test_retries_on_bad_json_then_succeeds(self, mock_create, filler) -> None:
-        filler._config = MagicMock()
         mock_provider = MagicMock()
         # First call returns truncated JSON, second returns valid
         mock_provider.generate.side_effect = [
@@ -509,7 +478,6 @@ class TestGenerateAndParse:
     @patch("src.core.filler.time.sleep")
     @patch("src.core.filler.create_text_provider")
     def test_raises_after_all_retries_fail(self, mock_create, _mock_sleep, filler) -> None:
-        filler._config = MagicMock()
         mock_provider = MagicMock()
         mock_provider.generate.return_value = "not json at all"
         mock_create.return_value = mock_provider

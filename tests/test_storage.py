@@ -7,7 +7,6 @@ import json
 import os
 from unittest.mock import MagicMock
 
-import aqt
 import pytest
 
 from src.core.config import Config
@@ -69,18 +68,6 @@ _SAMPLE_CONFIG = {
         "show_fill_dialog": True,
     },
 }
-
-
-def _make_config(config=None, defaults=None):
-    Config._instance = None
-    cfg = copy.deepcopy(config if config is not None else _SAMPLE_CONFIG)
-    dfl = copy.deepcopy(defaults if defaults is not None else _SAMPLE_CONFIG)
-    mock_addon_mgr = MagicMock()
-    mock_addon_mgr.addonFromModule.return_value = "src"
-    mock_addon_mgr.getConfig.return_value = cfg
-    mock_addon_mgr.addonConfigDefaults.return_value = dfl
-    aqt.mw.addonManager = mock_addon_mgr
-    return Config(), mock_addon_mgr
 
 
 # ---------------------------------------------------------------------------
@@ -324,57 +311,50 @@ class TestImport:
 
 
 class TestConfigExportImport:
-    def test_get_exportable_config_excludes_model_cache(self) -> None:
+    def test_get_exportable_config_excludes_model_cache(self, mock_config) -> None:
         config = copy.deepcopy(_SAMPLE_CONFIG)
         config["_model_cache"] = {"openai": {"text": ["gpt-4o"]}}
-        cm, _ = _make_config(config=config)
+        cm, _ = mock_config(raw_config=config)
         exported = cm.get_exportable_config()
         assert "_model_cache" not in exported
         assert "providers" in exported
 
-    def test_get_exportable_config_returns_deep_copy(self) -> None:
-        cm, _ = _make_config()
+    def test_get_exportable_config_returns_deep_copy(self, mock_config) -> None:
+        cm, _ = mock_config(raw_config=_SAMPLE_CONFIG)
         exported = cm.get_exportable_config()
         exported["providers"]["openai"]["api_key"] = "mutated"
         assert cm.get_provider_config("openai").api_key == "sk-test-key-openai"
 
-    def test_import_config_updates_live_config(self) -> None:
-        cm, _ = _make_config()
+    def test_import_config_updates_live_config(self, mock_config) -> None:
+        cm, _ = mock_config(raw_config=_SAMPLE_CONFIG)
         new_data = {
             "general": {
                 "fill_all_shortcut": "Alt+G",
-                "fill_field_shortcut": "Alt+F",
-                "default_user_prompt": "imported prompt",
-                "show_fill_dialog": False,
+                "fill_all_prompt": "imported prompt",
+                "last_configured_provider": "google",
             }
         }
         cm.import_config(new_data)
         gs = cm.get_general_settings()
         assert gs.fill_all_shortcut == "Alt+G"
-        assert gs.default_user_prompt == "imported prompt"
-        assert gs.show_fill_dialog is False
+        assert gs.fill_all_prompt == "imported prompt"
+        assert gs.last_configured_provider == "google"
 
-    def test_import_config_preserves_model_cache(self) -> None:
-        config = copy.deepcopy(_SAMPLE_CONFIG)
-        config["_model_cache"] = {"openai": {"text": ["gpt-4o"]}}
-        cm, _ = _make_config(config=config)
+    def test_import_config_preserves_model_cache(self, mock_config) -> None:
+        cm, _ = mock_config(raw_config=_SAMPLE_CONFIG)
+        cm.set_cached_models("openai", "text", ["gpt-4o"])
         cm.import_config({"providers": _SAMPLE_CONFIG["providers"]})
         # Model cache should be untouched
         assert cm.get_cached_models("openai", "text") == ["gpt-4o"]
 
-    def test_import_config_ignores_unknown_keys(self) -> None:
-        cm, _ = _make_config()
+    def test_import_config_ignores_unknown_keys(self, mock_config) -> None:
+        cm, _ = mock_config(raw_config=_SAMPLE_CONFIG)
         cm.import_config({"_model_cache": {"evil": {}}, "unknown_key": 42})
-        assert (
-            "_model_cache" not in cm._config
-            or cm._config.get("_model_cache") == {"openai": {"text": ["gpt-4o"]}}
-            or True
-        )
         # Just verify no crash and known keys are untouched
         assert cm.get_provider_config("openai").api_key == "sk-test-key-openai"
 
-    def test_full_export_import_roundtrip(self, tmp_path) -> None:
-        cm, _ = _make_config()
+    def test_full_export_import_roundtrip(self, tmp_path, mock_config) -> None:
+        cm, _ = mock_config(raw_config=_SAMPLE_CONFIG)
         exported = cm.get_exportable_config()
         path = str(tmp_path / "roundtrip.aiff-settings")
         export_settings(exported, path, password="test123")
