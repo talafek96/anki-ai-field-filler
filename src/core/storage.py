@@ -82,7 +82,9 @@ def _decrypt_value(ciphertext: str, password: str, salt: bytes, context: str) ->
 # -- API-key encryption/decryption in config dicts --------------------------
 
 
-def _encrypt_api_keys(config: Dict[str, Any], password: str, salt: bytes) -> Dict[str, Any]:
+def _encrypt_api_keys(
+    config: Dict[str, Any], password: str, salt: bytes
+) -> Dict[str, Any]:
     """Return a *copy* of *config* with all ``api_key`` values encrypted."""
     config = copy.deepcopy(config)
     providers = config.get("providers", {})
@@ -93,7 +95,9 @@ def _encrypt_api_keys(config: Dict[str, Any], password: str, salt: bytes) -> Dic
     return config
 
 
-def _decrypt_api_keys(config: Dict[str, Any], password: str, salt: bytes) -> Dict[str, Any]:
+def _decrypt_api_keys(
+    config: Dict[str, Any], password: str, salt: bytes
+) -> Dict[str, Any]:
     """Return a *copy* of *config* with all ``api_key`` values decrypted."""
     config = copy.deepcopy(config)
     providers = config.get("providers", {})
@@ -129,7 +133,9 @@ def export_settings(
         salt = os.urandom(_SALT_BYTES)
         payload["_encrypted"] = True
         payload["_salt"] = salt.hex()
-        payload["_verify"] = _encrypt_value(_VERIFY_PLAINTEXT, password, salt, "__verify__")
+        payload["_verify"] = _encrypt_value(
+            _VERIFY_PLAINTEXT, password, salt, "__verify__"
+        )
         config = _encrypt_api_keys(config, password, salt)
     else:
         payload["_encrypted"] = False
@@ -163,7 +169,9 @@ def import_settings(
         raise SettingsIOError("Invalid settings file: expected a JSON object.")
 
     if payload.get("_format") != _FORMAT_TAG:
-        raise SettingsIOError("This file does not appear to be an AI Filler settings export.")
+        raise SettingsIOError(
+            "This file does not appear to be an AI Filler settings export."
+        )
 
     version = payload.get("_version", 0)
     if not isinstance(version, int) or version < 1:
@@ -184,12 +192,16 @@ def import_settings(
         salt = bytes.fromhex(salt_hex)
 
         if not password:
-            raise SettingsIOError("This settings file is encrypted. Please provide the password.")
+            raise SettingsIOError(
+                "This settings file is encrypted. Please provide the password."
+            )
 
         # Verify password
         verify_token = payload.get("_verify", "")
         try:
-            decrypted_verify = _decrypt_value(verify_token, password, salt, "__verify__")
+            decrypted_verify = _decrypt_value(
+                verify_token, password, salt, "__verify__"
+            )
         except Exception:
             raise SettingsIOError("Incorrect password or corrupt file.")
         if decrypted_verify != _VERIFY_PLAINTEXT:
@@ -212,7 +224,9 @@ def import_settings(
 
     active = config.get("active_providers")
     if active is not None and not isinstance(active, dict):
-        raise SettingsIOError("Invalid settings file: 'active_providers' must be an object.")
+        raise SettingsIOError(
+            "Invalid settings file: 'active_providers' must be an object."
+        )
 
     instructions = config.get("note_type_field_instructions")
     if instructions is not None and not isinstance(instructions, dict):

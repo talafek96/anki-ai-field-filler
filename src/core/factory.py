@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
-from .interfaces import ImageProvider, ProviderError, TextProvider, TTSProvider
 from .config import ProviderConfig
+from .interfaces import ImageProvider, ProviderError, TextProvider, TTSProvider
 from .network import http_get_json
 
 
@@ -13,9 +13,11 @@ def create_text_provider(config: ProviderConfig) -> TextProvider:
     """Create a text provider from config."""
     if config.provider_type == "openai":
         from ..api.openai import OpenAITextProvider
+
         return OpenAITextProvider(config)
     elif config.provider_type == "vercel":
         from ..api.vercel import VercelAIGatewayProvider
+
         return VercelAIGatewayProvider(config)
     elif config.provider_type == "anthropic":
         from ..api.anthropic import AnthropicTextProvider
@@ -32,9 +34,11 @@ def create_tts_provider(config: ProviderConfig) -> TTSProvider:
     """Create a TTS provider from config."""
     if config.provider_type == "openai":
         from ..api.openai import OpenAITTSProvider
+
         return OpenAITTSProvider(config)
     elif config.provider_type == "vercel":
         from ..api.vercel import VercelAIGatewayProvider
+
         return VercelAIGatewayProvider(config)
     elif config.provider_type == "google":
         from ..api.google import GoogleTTSProvider
@@ -47,9 +51,11 @@ def create_image_provider(config: ProviderConfig) -> ImageProvider:
     """Create an image provider from config."""
     if config.provider_type == "openai":
         from ..api.openai import OpenAIImageProvider
+
         return OpenAIImageProvider(config)
     elif config.provider_type == "vercel":
         from ..api.vercel import VercelAIGatewayProvider
+
         return VercelAIGatewayProvider(config)
     elif config.provider_type == "google":
         from ..api.google import GoogleImageProvider
@@ -73,7 +79,9 @@ def test_provider_connection(config: ProviderConfig) -> Tuple[bool, str]:
         return False, f"Unexpected error: {e}"
 
 
-def fetch_available_models(config: ProviderConfig, capability: str = "text") -> List[str]:
+def fetch_available_models(
+    config: ProviderConfig, capability: str = "text"
+) -> List[str]:
     """Fetch available models from a provider's API."""
     if config.provider_type in ("openai", "vercel"):
         return _fetch_openai_models(config, capability)
@@ -113,7 +121,14 @@ def _fetch_anthropic_models(config: ProviderConfig) -> List[str]:
 _OPENAI_IMAGE_SIGNALS = ("image", "dall-e")
 _OPENAI_TTS_SIGNALS = ("tts",)
 _OPENAI_SKIP_SIGNALS = (
-    "whisper", "transcrib", "embedding", "moderation", "realtime", "audio", "sora", "codex"
+    "whisper",
+    "transcrib",
+    "embedding",
+    "moderation",
+    "realtime",
+    "audio",
+    "sora",
+    "codex",
 )
 
 
@@ -149,7 +164,10 @@ def _classify_google_model(model: dict, methods: List[str]) -> str | None:
     name = model.get("name", "").lower()
     searchable = f"{desc} {display} {name}"
 
-    if any(s in searchable for s in ("image generation", "image editing", "imagen", "nano banana")):
+    if any(
+        s in searchable
+        for s in ("image generation", "image editing", "imagen", "nano banana")
+    ):
         return "image"
     if any(s in searchable for s in ("text-to-speech", "tts", "speech synthesis")):
         return "tts"

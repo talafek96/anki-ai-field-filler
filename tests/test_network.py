@@ -159,7 +159,9 @@ class TestHttpGetJson:
 
 def _make_http_error(code: int, body: bytes = b"error", headers=None):
     """Create an HTTPError with a fresh readable body stream."""
-    return urllib.error.HTTPError("https://api.test", code, "err", headers or {}, BytesIO(body))
+    return urllib.error.HTTPError(
+        "https://api.test", code, "err", headers or {}, BytesIO(body)
+    )
 
 
 class TestBackoffDelay:

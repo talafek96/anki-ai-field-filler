@@ -48,11 +48,15 @@ class BatchFillDialog(QDialog):
         # Header
         header_row = QHBoxLayout()
         header_row.setSpacing(10)
-        
+
         # Icon
-        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        sparkles_icon = os.path.join(addon_dir, "assets", "icons", "app", "sparkles.svg")
-        
+        addon_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        )
+        sparkles_icon = os.path.join(
+            addon_dir, "assets", "icons", "app", "sparkles.svg"
+        )
+
         icon_label = QLabel()
         icon_label.setPixmap(get_themed_icon(sparkles_icon, 20).pixmap(20, 20))
         header_row.addWidget(icon_label)
@@ -61,7 +65,7 @@ class BatchFillDialog(QDialog):
         header.setStyleSheet(HEADER_STYLE)
         header_row.addWidget(header)
         header_row.addStretch()
-        
+
         layout.addLayout(header_row)
 
         sub = QLabel(f"Note type: <b>{self._note_type_name}</b>")
@@ -100,7 +104,9 @@ class BatchFillDialog(QDialog):
         prompt_group = QGroupBox("Prompt / Instructions")
         prompt_layout = QVBoxLayout()
         self._prompt_edit = QPlainTextEdit()
-        self._prompt_edit.setPlaceholderText("Instructions applied to every note in the batch...")
+        self._prompt_edit.setPlaceholderText(
+            "Instructions applied to every note in the batch..."
+        )
         self._prompt_edit.setMaximumHeight(70)
         prompt_layout.addWidget(self._prompt_edit)
         prompt_group.setLayout(prompt_layout)

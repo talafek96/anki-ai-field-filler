@@ -26,16 +26,56 @@ def _install_aqt_mocks() -> None:
 
     aqt_qt = types.ModuleType("aqt.qt")
     for name in [
-        "QWidget", "QDialog", "QMenu", "QAction", "QComboBox", "QLineEdit",
-        "QCheckBox", "QLabel", "QPushButton", "QToolButton", "QSpinBox",
-        "QVBoxLayout", "QHBoxLayout", "QFormLayout", "QGridLayout", "QGroupBox",
-        "QTabWidget", "QScrollArea", "QFrame", "QPlainTextEdit", "QTextEdit",
-        "QTextBrowser", "QStackedWidget", "QListWidget", "QListWidgetItem",
-        "QDialogButtonBox", "QSizePolicy", "QSize", "QStyle", "QApplication",
-        "QProgressBar", "QRadioButton", "QStandardItem", "QStandardItemModel",
-        "QStyleOptionComboBox", "QStylePainter", "QPen", "QColor", "QPixmap",
-        "QIcon", "QPainter", "QSvgRenderer", "QPropertyAnimation", "QTimer",
-        "QSizeGrip", "QSplitter", "QUrl", "Qt", "qconnect", "pyqtSignal",
+        "QWidget",
+        "QDialog",
+        "QMenu",
+        "QAction",
+        "QComboBox",
+        "QLineEdit",
+        "QCheckBox",
+        "QLabel",
+        "QPushButton",
+        "QToolButton",
+        "QSpinBox",
+        "QVBoxLayout",
+        "QHBoxLayout",
+        "QFormLayout",
+        "QGridLayout",
+        "QGroupBox",
+        "QTabWidget",
+        "QScrollArea",
+        "QFrame",
+        "QPlainTextEdit",
+        "QTextEdit",
+        "QTextBrowser",
+        "QStackedWidget",
+        "QListWidget",
+        "QListWidgetItem",
+        "QDialogButtonBox",
+        "QSizePolicy",
+        "QSize",
+        "QStyle",
+        "QApplication",
+        "QProgressBar",
+        "QRadioButton",
+        "QStandardItem",
+        "QStandardItemModel",
+        "QStyleOptionComboBox",
+        "QStylePainter",
+        "QPen",
+        "QColor",
+        "QPixmap",
+        "QIcon",
+        "QPainter",
+        "QSvgRenderer",
+        "QPropertyAnimation",
+        "QTimer",
+        "QSizeGrip",
+        "QSplitter",
+        "QUrl",
+        "Qt",
+        "qconnect",
+        "pyqtSignal",
     ]:
         setattr(aqt_qt, name, MagicMock())
 
@@ -109,10 +149,18 @@ def provider_config():
 def mock_mw():
     """Fixture that provides a mocked ``mw`` and handles cleanup."""
     import aqt
-    with patch("src.core.media.mw", aqt.mw), \
-         patch("src.core.filler.mw", aqt.mw), \
-         patch("src.integration.mw", aqt.mw):
-        aqt.mw.col.media.write_data = MagicMock()
+
+    # Reset call history and state to avoid bleed between tests
+    aqt.mw.reset_mock(return_value=True, side_effect=True)
+    aqt.mw.col.get_note.side_effect = None
+    aqt.mw.col.get_note.return_value = MagicMock()
+    aqt.mw.col.media.write_data = MagicMock()
+
+    with (
+        patch("src.core.media.mw", aqt.mw),
+        patch("src.core.filler.mw", aqt.mw),
+        patch("src.integration.mw", aqt.mw),
+    ):
         yield aqt.mw
 
 
@@ -158,7 +206,11 @@ def mock_config():
     """Fixture to mock Anki's addon configuration manager."""
     import copy
 
-    def _make(config_data: dict | None = None, defaults: dict | None = None, raw_config: dict | None = None):
+    def _make(
+        config_data: dict | None = None,
+        defaults: dict | None = None,
+        raw_config: dict | None = None,
+    ):
         Config._instance = None
         # Support raw_config as an alias for config_data
         if config_data is None and raw_config is not None:
@@ -167,6 +219,7 @@ def mock_config():
         dfl = copy.deepcopy(defaults if defaults is not None else cfg)
 
         import aqt
+
         mock_mgr = MagicMock()
         mock_mgr.addonFromModule.return_value = "ai_field_filler"
         mock_mgr.getConfig.return_value = cfg
@@ -181,18 +234,20 @@ def mock_config():
 @pytest.fixture()
 def filler(mock_config):
     """Fixture to create a Filler instance with a mocked config."""
-    cm, _ = mock_config({
-        "providers": {
-            "openai": {
-                "provider_type": "openai",
-                "api_url": "https://fake.test/v1",
-                "api_key": "test-key",
-                "text_model": "gpt-4o",
-                "max_tokens": 4096,
-            }
-        },
-        "active_providers": {"text": "openai"}
-    })
+    cm, _ = mock_config(
+        {
+            "providers": {
+                "openai": {
+                    "provider_type": "openai",
+                    "api_url": "https://fake.test/v1",
+                    "api_key": "test-key",
+                    "text_model": "gpt-4o",
+                    "max_tokens": 4096,
+                }
+            },
+            "active_providers": {"text": "openai"},
+        }
+    )
     f = Filler()
     f._config = MagicMock(spec=Config)
     # Forward mocked calls to the real mock config where needed
@@ -204,25 +259,27 @@ def filler(mock_config):
 @pytest.fixture()
 def batch_filler(mock_config):
     """Fixture to create a BatchFiller instance with a mocked config."""
-    cm, _ = mock_config({
-        "providers": {
-            "openai": {
-                "provider_type": "openai",
-                "api_url": "https://fake.test/v1",
-                "api_key": "test-key",
-                "text_model": "gpt-4o",
-                "max_tokens": 4096,
-            }
-        },
-        "active_providers": {"text": "openai"}
-    })
+    cm, _ = mock_config(
+        {
+            "providers": {
+                "openai": {
+                    "provider_type": "openai",
+                    "api_url": "https://fake.test/v1",
+                    "api_key": "test-key",
+                    "text_model": "gpt-4o",
+                    "max_tokens": 4096,
+                }
+            },
+            "active_providers": {"text": "openai"},
+        }
+    )
     f = BatchFiller()
     mock_cfg = MagicMock(spec=Config)
     f._config = mock_cfg
     f._filler._config = mock_cfg
-    
+
     # Pre-configure common mock returns
     f._config.get_active_text_provider.return_value = cm.get_active_text_provider()
     f._config.get_field_instructions.side_effect = cm.get_field_instructions
-    
+
     return f

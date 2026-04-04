@@ -6,13 +6,11 @@ import base64
 import json
 import urllib.error
 from io import BytesIO
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from src.core.config import ProviderConfig
 from src.api.anthropic import AnthropicTextProvider
-from src.core.interfaces import ProviderError
 from src.api.google import (
     GoogleImageProvider,
     GoogleTextProvider,
@@ -23,6 +21,8 @@ from src.api.openai import (
     OpenAITextProvider,
     OpenAITTSProvider,
 )
+from src.core.config import ProviderConfig
+from src.core.interfaces import ProviderError
 
 _OPENAI_CFG = ProviderConfig(
     provider_type="openai",
@@ -160,7 +160,9 @@ class TestOpenAIImageProvider:
             400,
             "Bad Request",
             {},
-            BytesIO(b'{"error": {"message": "Unknown parameter: \'response_format\'."}}'),
+            BytesIO(
+                b'{"error": {"message": "Unknown parameter: \'response_format\'."}}'
+            ),
         )
         success_mock = MagicMock()
         success_mock.read.return_value = json.dumps(
@@ -298,7 +300,9 @@ class TestGoogleTTSProvider:
                 "candidates": [
                     {
                         "content": {
-                            "parts": [{"inlineData": {"data": b64, "mimeType": "audio/wav"}}]
+                            "parts": [
+                                {"inlineData": {"data": b64, "mimeType": "audio/wav"}}
+                            ]
                         }
                     }
                 ]

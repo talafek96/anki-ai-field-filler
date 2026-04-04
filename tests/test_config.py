@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import copy
+
 from src.core.config import (
     FIELD_TYPES,
-    Config,
     FieldInstruction,
     GeneralSettings,
     ProviderConfig,
@@ -24,7 +24,9 @@ class TestFieldInstruction:
         assert fi.auto_fill is True
 
     def test_custom_values(self) -> None:
-        fi = FieldInstruction(instruction="English def", field_type="text", auto_fill=False)
+        fi = FieldInstruction(
+            instruction="English def", field_type="text", auto_fill=False
+        )
         assert fi.instruction == "English def"
         assert fi.field_type == "text"
         assert fi.auto_fill is False
@@ -183,7 +185,11 @@ class TestConfigActiveProviders:
 
     def test_get_active_tts_provider_disabled(self, mock_config) -> None:
         config = dict(_SAMPLE_CONFIG)
-        config["active_providers"] = {"text": "openai", "tts": "disabled", "image": "openai"}
+        config["active_providers"] = {
+            "text": "openai",
+            "tts": "disabled",
+            "image": "openai",
+        }
         cm, _ = mock_config(config)
         assert cm.get_active_tts_provider() is None
 
@@ -195,7 +201,11 @@ class TestConfigActiveProviders:
 
     def test_get_active_image_provider_disabled(self, mock_config) -> None:
         config = dict(_SAMPLE_CONFIG)
-        config["active_providers"] = {"text": "openai", "tts": "openai", "image": "disabled"}
+        config["active_providers"] = {
+            "text": "openai",
+            "tts": "openai",
+            "image": "disabled",
+        }
         cm, _ = mock_config(config)
         assert cm.get_active_image_provider() is None
 
@@ -429,7 +439,7 @@ class TestModelCache:
         assert cm.get_cached_models("google", "text") == ["gemini-2.5-flash"]
 
     def test_get_all_cached_models(self, mock_config) -> None:
-        cm, _ = mock_config({}) # Empty config to start clean
+        cm, _ = mock_config({})  # Empty config to start clean
         cm.set_cached_models("openai", "text", ["gpt-4o"])
         cm.set_cached_models("openai", "tts", ["tts-1"])
         result = cm.get_all_cached_models("openai")
@@ -452,4 +462,3 @@ class TestModelCache:
         result = cm.get_cached_models("openai", "text")
         result.append("mutated")
         assert cm.get_cached_models("openai", "text") == ["gpt-4o"]
-

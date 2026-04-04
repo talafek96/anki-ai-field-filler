@@ -8,21 +8,18 @@ from typing import Dict, List, Optional, Sequence
 from aqt import gui_hooks, mw
 from aqt.browser import Browser
 from aqt.editor import Editor, EditorWebView
-from aqt.qt import QDialog, QMenu, qconnect, Qt
+from aqt.qt import QDialog, QMenu, qconnect
 from aqt.utils import showWarning, tooltip
 
 from .core.config import Config
 from .core.filler import BatchFiller, BatchNoteItem, Filler
-
-from .ui.common.icons import get_themed_icon
 from .ui.browser.fill_dialog import BatchFillDialog
 from .ui.browser.progress import BatchProgressDialog, BatchSummaryDialog
 from .ui.browser.review import BatchReviewDialog
+from .ui.common.icons import get_themed_icon
 from .ui.config.field_dialog import FieldInstructionDialog
 from .ui.editor.fill_dialog import FillDialog
 from .ui.editor.progress_dialog import GeneratingDialog
-
-
 
 
 def _current_deck_name(editor: Editor) -> Optional[str]:
@@ -62,7 +59,9 @@ class BrowserIntegration:
         if not selected:
             return
         menu.addSeparator()
-        action = menu.addAction(f"\u2728 AI: Batch fill blank fields ({len(selected)} cards)")
+        action = menu.addAction(
+            f"\u2728 AI: Batch fill blank fields ({len(selected)} cards)"
+        )
         qconnect(action.triggered, lambda: cls._on_batch_fill(browser, selected))
 
     @classmethod
@@ -87,7 +86,9 @@ class BrowserIntegration:
             note_types[nt_name] = note_types.get(nt_name, 0) + 1
 
         if len(note_types) > 1:
-            detail = "\n".join(f"  - {name}: {count} notes" for name, count in note_types.items())
+            detail = "\n".join(
+                f"  - {name}: {count} notes" for name, count in note_types.items()
+            )
             showWarning(
                 f"Batch fill requires all selected cards to be the "
                 f"same note type.\n\n"
@@ -183,7 +184,7 @@ class EditorIntegration:
         icons_dir = os.path.join(addon_dir, "assets", "icons", "app")
 
         sparkles_icon_path = os.path.join(icons_dir, "sparkles.svg")
-        
+
         # We try to use native=True for older Anki versions that supported it
         # for always-active buttons. In Anki 25.09+, we fallback to standard.
         try:
@@ -210,11 +211,12 @@ class EditorIntegration:
         if btn_all:
             if hasattr(btn_all, "setIcon"):
                 btn_all.setIcon(get_themed_icon(sparkles_icon_path, 20))
-            
+
             # If addButton returns a string (HTML), we MUST append it to the buttons list
             # for it to appear in the JS-based editor toolbar.
             if isinstance(btn_all, str):
                 buttons.append(btn_all)
+
     @classmethod
     def _add_context_menu(cls, webview: EditorWebView, menu: QMenu) -> None:
         editor = webview.editor
@@ -236,7 +238,9 @@ class EditorIntegration:
         note = editor.note
         note_type_name = note.note_type()["name"]
         deck_name = _current_deck_name(editor)
-        field_instructions = config.get_field_instructions(note_type_name, deck_name=deck_name)
+        field_instructions = config.get_field_instructions(
+            note_type_name, deck_name=deck_name
+        )
 
         field_names = list(note.keys())
         field_values = {name: note[name] for name in field_names}
@@ -261,8 +265,6 @@ class EditorIntegration:
             return
 
         cls._run_fill(editor, target_fields, user_prompt)
-
-
 
     @classmethod
     def _on_configure_field(cls, editor: Editor, field_name: str) -> None:

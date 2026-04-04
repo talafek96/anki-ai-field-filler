@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+
 from aqt.qt import *
 
 from ..common.icons import get_themed_icon
@@ -37,16 +38,24 @@ class GeneratingDialog(QDialog):
 
         self._icon_label = QLabel()
         self._icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        self._sparkles_icon_path = os.path.join(addon_dir, "assets", "icons", "app", "sparkles.svg")
-        self._icon_label.setPixmap(get_themed_icon(self._sparkles_icon_path, 36).pixmap(36, 36))
-        
+
+        addon_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        )
+        self._sparkles_icon_path = os.path.join(
+            addon_dir, "assets", "icons", "app", "sparkles.svg"
+        )
+        self._icon_label.setPixmap(
+            get_themed_icon(self._sparkles_icon_path, 36).pixmap(36, 36)
+        )
+
         layout.addWidget(self._icon_label)
 
         self._label = QLabel("Generating\u2026")
         self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._label.setStyleSheet(f"font-size: 16px; font-weight: 600; color: {ACCENT_COLOR};")
+        self._label.setStyleSheet(
+            f"font-size: 16px; font-weight: 600; color: {ACCENT_COLOR};"
+        )
         layout.addWidget(self._label)
 
         self._sub = QLabel("This may take a moment")
@@ -65,7 +74,9 @@ class GeneratingDialog(QDialog):
 
     def _pulse(self) -> None:
         size = 36 if self._big else 28
-        self._icon_label.setPixmap(get_themed_icon(self._sparkles_icon_path, size).pixmap(size, size))
+        self._icon_label.setPixmap(
+            get_themed_icon(self._sparkles_icon_path, size).pixmap(size, size)
+        )
         self._big = not self._big
 
     # ------------------------------------------------------------------

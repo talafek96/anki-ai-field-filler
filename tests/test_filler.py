@@ -216,7 +216,9 @@ class TestRenderFlags:
 
             with patch("src.core.filler.Media.save_audio") as mock_save:
                 mock_save.return_value = "[sound:ai_filler_test.mp3]"
-                html, errors = filler._render_flags("Listen: {{AUDIO: konnichiwa}}", "TestField")
+                html, errors = filler._render_flags(
+                    "Listen: {{AUDIO: konnichiwa}}", "TestField"
+                )
 
         assert errors == []
         assert "[sound:ai_filler_test.mp3]" in html
@@ -245,9 +247,7 @@ class TestRenderFlags:
             mock_tts_f.return_value = mock_tts_prov
             mock_save_aud.return_value = "[sound:voice.mp3]"
 
-            content = (
-                "Word meaning\n{{IMAGE: illustration}}\nPronunciation:\n{{AUDIO: hello}}\nDone"
-            )
+            content = "Word meaning\n{{IMAGE: illustration}}\nPronunciation:\n{{AUDIO: hello}}\nDone"
             html, errors = filler._render_flags(content, "Rich")
 
         assert errors == []
@@ -265,7 +265,9 @@ class TestRenderFlags:
             mock_prov.generate_image.side_effect = ProviderError("safety filter")
             mock_factory.return_value = mock_prov
 
-            html, errors = filler._render_flags("Before\n{{IMAGE: bad prompt}}\nAfter", "Field")
+            html, errors = filler._render_flags(
+                "Before\n{{IMAGE: bad prompt}}\nAfter", "Field"
+            )
 
         assert len(errors) == 1
         assert "safety filter" in errors[0]
@@ -362,7 +364,9 @@ class TestRenderFlags:
                 "src.core.filler.Media.save_image",
                 return_value='<img src="ok.png">',
             ):
-                html, errors = filler._render_flags("{{IMAGE: bad}} middle {{IMAGE: good}}", "F")
+                html, errors = filler._render_flags(
+                    "{{IMAGE: bad}} middle {{IMAGE: good}}", "F"
+                )
 
         assert len(errors) == 1
         assert "blocked" in errors[0]
@@ -384,7 +388,9 @@ class TestRenderFlags:
     def test_html_with_br_tags_not_double_converted(self, filler) -> None:
         """Content that already has <br> tags should be left untouched."""
         filler._config.get_active_image_provider.return_value = None
-        html, errors = filler._render_flags("Line one<br>{{IMAGE: cat}}<br>Line two", "Field")
+        html, errors = filler._render_flags(
+            "Line one<br>{{IMAGE: cat}}<br>Line two", "Field"
+        )
         assert errors == []
         assert html == "Line one<br><br>Line two"
 
@@ -419,7 +425,9 @@ class TestRenderRichContent:
                 "type": "rich",
                 "image_prompt": "appended pic",
             }
-            html, errors = filler._render_rich_content(field_data["content"], "Notes", field_data)
+            html, errors = filler._render_rich_content(
+                field_data["content"], "Notes", field_data
+            )
 
         assert errors == []
         assert '<img src="img1.png">' in html  # inline flag
@@ -441,7 +449,9 @@ class TestRenderRichContent:
                 "type": "rich",
                 "image_prompt": "some image",
             }
-            html, errors = filler._render_rich_content(field_data["content"], "Notes", field_data)
+            html, errors = filler._render_rich_content(
+                field_data["content"], "Notes", field_data
+            )
 
         assert len(errors) == 1
         assert "quota exceeded" in errors[0]
@@ -477,7 +487,9 @@ class TestGenerateAndParse:
 
     @patch("src.core.filler.time.sleep")
     @patch("src.core.filler.create_text_provider")
-    def test_raises_after_all_retries_fail(self, mock_create, _mock_sleep, filler) -> None:
+    def test_raises_after_all_retries_fail(
+        self, mock_create, _mock_sleep, filler
+    ) -> None:
         mock_provider = MagicMock()
         mock_provider.generate.return_value = "not json at all"
         mock_create.return_value = mock_provider

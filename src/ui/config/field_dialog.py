@@ -10,8 +10,8 @@ from typing import Optional
 from aqt.qt import *
 
 from ...core.config import Config, FieldInstruction
-from ..common.widgets import create_auto_fill_checkbox, create_field_type_combo
 from ..common.theme import GLOBAL_STYLE, HEADER_STYLE
+from ..common.widgets import create_auto_fill_checkbox, create_field_type_combo
 
 
 class FieldInstructionDialog(QDialog):
@@ -92,7 +92,8 @@ class FieldInstructionDialog(QDialog):
         layout.addLayout(row)
 
         button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
         )
         qconnect(button_box.accepted, self._save_and_close)
         qconnect(button_box.rejected, self.reject)
@@ -111,7 +112,9 @@ class FieldInstructionDialog(QDialog):
 
     def _load(self) -> None:
         deck = self._selected_deck()
-        instructions = self._config.get_field_instructions(self._note_type_name, deck_name=deck)
+        instructions = self._config.get_field_instructions(
+            self._note_type_name, deck_name=deck
+        )
         instr = instructions.get(self._field_name, FieldInstruction())
         self._instruction_edit.setPlainText(instr.instruction)
         idx = self._type_combo.findData(instr.field_type)

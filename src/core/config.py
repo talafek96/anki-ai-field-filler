@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import copy
-import os
-import shutil
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -74,11 +72,12 @@ class Config:
         self._addon_name: str = mw.addonManager.addonFromModule(__name__)
         self._load()
 
-
     def _load(self) -> None:
         """Load config from Anki's addon manager."""
         self._config: Dict[str, Any] = mw.addonManager.getConfig(self._addon_name) or {}
-        self._defaults: Dict[str, Any] = mw.addonManager.addonConfigDefaults(self._addon_name) or {}
+        self._defaults: Dict[str, Any] = (
+            mw.addonManager.addonConfigDefaults(self._addon_name) or {}
+        )
 
     def _get(self, key: str, default: Any = None) -> Any:
         """Get a top-level config value, falling back to defaults."""
@@ -189,7 +188,9 @@ class Config:
 
     # -- global (note-type level) ----------------------------------------
 
-    def get_global_field_instructions(self, note_type_name: str) -> Dict[str, FieldInstruction]:
+    def get_global_field_instructions(
+        self, note_type_name: str
+    ) -> Dict[str, FieldInstruction]:
         """Get the *global* field instructions for a note type (all decks)."""
         all_instr = self._get("note_type_field_instructions", {})
         return self._parse_field_instructions(all_instr.get(note_type_name, {}))
@@ -219,7 +220,9 @@ class Config:
             dfi[deck_name] = {}
         if note_type_name not in dfi[deck_name]:
             dfi[deck_name][note_type_name] = {}
-        dfi[deck_name][note_type_name][field_name] = self._serialize_instruction(instruction)
+        dfi[deck_name][note_type_name][field_name] = self._serialize_instruction(
+            instruction
+        )
 
     def remove_deck_field_instruction(
         self, deck_name: str, note_type_name: str, field_name: str
@@ -264,7 +267,9 @@ class Config:
         otherwise it is stored as a deck-specific override.
         """
         if deck_name:
-            self.set_deck_field_instruction(deck_name, note_type_name, field_name, instruction)
+            self.set_deck_field_instruction(
+                deck_name, note_type_name, field_name, instruction
+            )
             return
         if "note_type_field_instructions" not in self._config:
             self._config["note_type_field_instructions"] = {}
@@ -295,13 +300,20 @@ class Config:
 
     def get_cached_models(self, provider_type: str, capability: str) -> List[str]:
         """Return the transient model list for *provider_type* + *capability*."""
-        return list(self._transient_model_cache.get(provider_type, {}).get(capability, []))
+        return list(
+            self._transient_model_cache.get(provider_type, {}).get(capability, [])
+        )
 
     def get_all_cached_models(self, provider_type: str) -> Dict[str, List[str]]:
         """Return ``{capability: [model, …]}`` for *provider_type*."""
-        return {k: list(v) for k, v in self._transient_model_cache.get(provider_type, {}).items()}
+        return {
+            k: list(v)
+            for k, v in self._transient_model_cache.get(provider_type, {}).items()
+        }
 
-    def set_cached_models(self, provider_type: str, capability: str, models: List[str]) -> None:
+    def set_cached_models(
+        self, provider_type: str, capability: str, models: List[str]
+    ) -> None:
         """Store a fetched model list in memory only."""
         if provider_type not in self._transient_model_cache:
             self._transient_model_cache[provider_type] = {}

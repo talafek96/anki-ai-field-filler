@@ -58,7 +58,9 @@ class TestExtractBodyHtml:
         assert "test.png" in result
 
     def test_multiline_body(self) -> None:
-        qt_html = "<html><head></head>\n<body>\n<p>first</p>\n<p>second</p>\n</body></html>"
+        qt_html = (
+            "<html><head></head>\n<body>\n<p>first</p>\n<p>second</p>\n</body></html>"
+        )
         result = _extract_body_html(qt_html)
         assert "first" in result
         assert "second" in result
@@ -561,7 +563,10 @@ class TestClassifyValue:
         assert _classify_value("[sound:voice.mp3]") == {"audio"}
 
     def test_text_with_image(self) -> None:
-        assert _classify_value('explanation<br><img src="pic.png">') == {"text", "image"}
+        assert _classify_value('explanation<br><img src="pic.png">') == {
+            "text",
+            "image",
+        }
 
     def test_text_with_audio(self) -> None:
         assert _classify_value("word [sound:pron.mp3]") == {"text", "audio"}
@@ -643,6 +648,8 @@ class TestImageTextEdit:
         assert new_h >= 1
 
     @patch("os.path.isfile", return_value=False)
-    def test_loadresource_missing_file_returns_none(self, mock_isfile: MagicMock) -> None:
+    def test_loadresource_missing_file_returns_none(
+        self, mock_isfile: MagicMock
+    ) -> None:
         """loadResource should fall through when file doesn't exist."""
         assert not mock_isfile("/fake/media/nonexistent.png")

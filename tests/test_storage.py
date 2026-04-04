@@ -5,11 +5,9 @@ from __future__ import annotations
 import copy
 import json
 import os
-from unittest.mock import MagicMock
 
 import pytest
 
-from src.core.config import Config
 from src.core.storage import (
     SettingsIOError,
     _decrypt_value,

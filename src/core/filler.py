@@ -17,9 +17,9 @@ from aqt import mw
 from aqt.editor import Editor
 
 from .config import Config, FieldInstruction
-from .media import Media
 from .factory import create_image_provider, create_text_provider, create_tts_provider
 from .interfaces import ProviderError
+from .media import Media
 
 # ---------------------------------------------------------------------------
 # Retry helper for all generation calls
@@ -28,7 +28,13 @@ from .interfaces import ProviderError
 _T = TypeVar("_T")
 
 # Error codes / substrings that indicate unrecoverable failures.
-_NON_RETRYABLE_TOKENS = {"error 401", "error 403", "unauthorized", "forbidden", "invalid_api_key"}
+_NON_RETRYABLE_TOKENS = {
+    "error 401",
+    "error 403",
+    "unauthorized",
+    "forbidden",
+    "invalid_api_key",
+}
 
 _GENERATION_MAX_RETRIES = 3
 _GENERATION_RETRY_BASE = 1.0  # seconds
@@ -198,7 +204,9 @@ class Filler:
                             if img_config:
                                 img_prov = create_image_provider(img_config)
                                 img_bytes = with_retry(img_prov.generate_image, content)
-                                results[field_name] = Media.save_image(img_bytes, field_name)
+                                results[field_name] = Media.save_image(
+                                    img_bytes, field_name
+                                )
                             else:
                                 results[field_name] = None
                             # If rich/flags fail, we still have the text 'content'
@@ -218,13 +226,17 @@ class Filler:
                             image_prompt = field_data.get("image_prompt", "")
                             if image_prompt:
                                 try:
-                                    img_config = self._config.get_active_image_provider()
+                                    img_config = (
+                                        self._config.get_active_image_provider()
+                                    )
                                     if img_config:
                                         img_prov = create_image_provider(img_config)
                                         img_bytes = with_retry(
                                             img_prov.generate_image, image_prompt
                                         )
-                                        img_tag = Media.save_image(img_bytes, field_name)
+                                        img_tag = Media.save_image(
+                                            img_bytes, field_name
+                                        )
                                         html = f"{html}<br><br>{img_tag}"
                                 except Exception as img_err:
                                     field_errors.append(
@@ -248,7 +260,9 @@ class Filler:
                             missing,
                             user_prompt,
                         )
-                        retry_parsed = self._generate_and_parse(SYSTEM_PROMPT, retry_msg)
+                        retry_parsed = self._generate_and_parse(
+                            SYSTEM_PROMPT, retry_msg
+                        )
                         for fname in missing:
                             fdata = retry_parsed.get(fname)
                             if fdata is None:
@@ -260,7 +274,9 @@ class Filler:
                                     tc = self._config.get_active_tts_provider()
                                     if tc:
                                         t = create_tts_provider(tc)
-                                        ab = with_retry(t.synthesize, fc, context=tts_context)
+                                        ab = with_retry(
+                                            t.synthesize, fc, context=tts_context
+                                        )
                                         results[fname] = Media.save_audio(ab, fname)
                                 elif ft == "image":
                                     ic = self._config.get_active_image_provider()
@@ -283,14 +299,16 @@ class Filler:
 
                 def apply() -> None:
                     self._apply_results(editor, results)
-                    
+
                     filled = [f for f, v in results.items() if v is not None]
                     failed = [f for f in target_fields if results.get(f) is None]
 
                     if failed and on_error:
                         parts: List[str] = []
                         if filled:
-                            parts.append("Fields filled successfully: " + ", ".join(filled))
+                            parts.append(
+                                "Fields filled successfully: " + ", ".join(filled)
+                            )
                         parts.append("Failed fields:")
                         # Find original errors for these failed fields
                         for f in failed:
@@ -319,8 +337,6 @@ class Filler:
 
         thread = threading.Thread(target=background, daemon=True)
         thread.start()
-
-
 
     def fill_all_blank(
         self,
@@ -376,7 +392,9 @@ class Filler:
             parts.append("== Field Instructions ==")
             for name, instr in field_instructions.items():
                 if instr.instruction:
-                    type_hint = f" [{instr.field_type}]" if instr.field_type != "auto" else ""
+                    type_hint = (
+                        f" [{instr.field_type}]" if instr.field_type != "auto" else ""
+                    )
                     parts.append(f"- {name}{type_hint}: {instr.instruction}")
             parts.append("")
 
@@ -395,7 +413,9 @@ class Filler:
 
         return "\n".join(parts)
 
-    def _generate_and_parse(self, system_prompt: str, user_message: str) -> Dict[str, Any]:
+    def _generate_and_parse(
+        self, system_prompt: str, user_message: str
+    ) -> Dict[str, Any]:
         """Call the AI provider and parse the response.
 
         Retries the full generate+parse cycle up to 3 times with exponential
@@ -429,9 +449,13 @@ class Filler:
                 try:
                     data = json.loads(match.group())
                 except json.JSONDecodeError:
-                    raise ProviderError(f"Could not parse AI response as JSON:\n{text[:500]}")
+                    raise ProviderError(
+                        f"Could not parse AI response as JSON:\n{text[:500]}"
+                    )
             else:
-                raise ProviderError(f"Could not find JSON in AI response:\n{text[:500]}")
+                raise ProviderError(
+                    f"Could not find JSON in AI response:\n{text[:500]}"
+                )
 
         return data.get("fields", data)
 
@@ -486,11 +510,15 @@ class Filler:
                     tts_config = self._config.get_active_tts_provider()
                     if tts_config:
                         tts = create_tts_provider(tts_config)
-                        audio_bytes = with_retry(tts.synthesize, payload, context=tts_context)
+                        audio_bytes = with_retry(
+                            tts.synthesize, payload, context=tts_context
+                        )
                         return Media.save_audio(audio_bytes, part_name)
                     return ""
             except Exception as e:
-                errors.append(f"{field_name} ({kind.lower()} flag, prompt: {payload!r}): {e}")
+                errors.append(
+                    f"{field_name} ({kind.lower()} flag, prompt: {payload!r}): {e}"
+                )
                 return ""
 
         rendered = self._FLAG_RE.sub(_replace_flag, content)
@@ -525,7 +553,9 @@ class Filler:
                     img_tag = Media.save_image(img_bytes, field_name)
                     html = f"{html}<br><br>{img_tag}"
             except Exception as img_err:
-                errors.append(f"{field_name} (inline image, prompt: {image_prompt!r}): {img_err}")
+                errors.append(
+                    f"{field_name} (inline image, prompt: {image_prompt!r}): {img_err}"
+                )
         return html, errors
 
     @staticmethod
@@ -715,7 +745,9 @@ class BatchFiller:
                             missing,
                             user_prompt,
                         )
-                        retry_parsed = self._filler._generate_and_parse(SYSTEM_PROMPT, retry_msg)
+                        retry_parsed = self._filler._generate_and_parse(
+                            SYSTEM_PROMPT, retry_msg
+                        )
                         retry_changes, retry_errors = self._render_fields(
                             retry_parsed, missing, tts_context=tts_ctx
                         )
@@ -805,7 +837,9 @@ class BatchFiller:
                 user_prompt,
             )
             parsed = self._filler._generate_and_parse(SYSTEM_PROMPT, user_message)
-            changes, field_errors = self._render_fields(parsed, [field_name], tts_context=tts_ctx)
+            changes, field_errors = self._render_fields(
+                parsed, [field_name], tts_context=tts_ctx
+            )
             new_value = changes.get(field_name, "")
             error = field_errors.get(field_name, "")
             return (new_value, error)
@@ -839,7 +873,9 @@ class BatchFiller:
                     tts_config = self._config.get_active_tts_provider()
                     if tts_config:
                         tts = create_tts_provider(tts_config)
-                        audio_bytes = with_retry(tts.synthesize, content, context=tts_context)
+                        audio_bytes = with_retry(
+                            tts.synthesize, content, context=tts_context
+                        )
                         changes[field_name] = Media.save_audio(audio_bytes, field_name)
                     else:
                         html = Filler._to_html(content)
@@ -867,7 +903,9 @@ class BatchFiller:
                             img_config = self._config.get_active_image_provider()
                             if img_config:
                                 img_prov = create_image_provider(img_config)
-                                img_bytes = with_retry(img_prov.generate_image, image_prompt)
+                                img_bytes = with_retry(
+                                    img_prov.generate_image, image_prompt
+                                )
                                 img_tag = Media.save_image(img_bytes, field_name)
                                 html = f"{html}<br><br>{img_tag}"
                         except Exception as img_err:

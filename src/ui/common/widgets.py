@@ -14,7 +14,9 @@ _TYPE_TOOLTIP = (
     "rich: mixed content with text, images, and audio"
 )
 
-_AUTO_FILL_TOOLTIP = "When checked, this field will be included when using 'Fill All Blank Fields'."
+_AUTO_FILL_TOOLTIP = (
+    "When checked, this field will be included when using 'Fill All Blank Fields'."
+)
 
 
 def create_field_type_combo() -> QComboBox:

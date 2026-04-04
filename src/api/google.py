@@ -145,7 +145,9 @@ class GoogleTTSProvider(_GoogleRequestMixin, TTSProvider):
                 "Use the following context to determine the correct "
                 "language, pronunciation, intonation, and speaking style:\n" + context
             )
-        prompt_parts.append("Read the following text aloud exactly as written:\n" + text)
+        prompt_parts.append(
+            "Read the following text aloud exactly as written:\n" + text
+        )
         prompt = "\n\n".join(prompt_parts)
 
         payload = {

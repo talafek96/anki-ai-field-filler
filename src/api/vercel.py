@@ -6,10 +6,12 @@ Uses Vercel's OpenAI-compatible gateway middleware for unified LLM access.
 from __future__ import annotations
 
 from ..core.config import ProviderConfig
-from .openai import OpenAITextProvider, OpenAITTSProvider, OpenAIImageProvider
+from .openai import OpenAIImageProvider, OpenAITextProvider, OpenAITTSProvider
 
 
-class VercelAIGatewayProvider(OpenAITextProvider, OpenAITTSProvider, OpenAIImageProvider):
+class VercelAIGatewayProvider(
+    OpenAITextProvider, OpenAITTSProvider, OpenAIImageProvider
+):
     """Vercel AI Gateway provider implementation (OpenAI-compatible)."""
 
     def __init__(self, config: ProviderConfig) -> None:

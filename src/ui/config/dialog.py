@@ -14,10 +14,10 @@ from aqt.utils import restoreGeom, saveGeom, showWarning, tooltip
 
 from ...core.config import Config
 from ...core.storage import SettingsIOError, export_settings, import_settings
-from .tab_general import GeneralSettingsTab
-from .tab_note_type import NoteTypeSettingsTab
-from .tab_models import ModelSettingsTab
 from ..common.theme import GLOBAL_STYLE
+from .tab_general import GeneralSettingsTab
+from .tab_models import ModelSettingsTab
+from .tab_note_type import NoteTypeSettingsTab
 
 _FILE_FILTER = "AI Filler Settings (*.aiff-settings);;All Files (*)"
 
@@ -218,7 +218,9 @@ class SettingsDialog(QDialog):
         self._tabs.addTab(self._note_type_tab, "Note Types")
 
         # Re-sync provider selection
-        qconnect(self._general_tab.providerChanged, self._model_tab.set_current_provider)
+        qconnect(
+            self._general_tab.providerChanged, self._model_tab.set_current_provider
+        )
 
         if current_idx < self._tabs.count():
             self._tabs.setCurrentIndex(current_idx)

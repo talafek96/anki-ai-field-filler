@@ -49,11 +49,15 @@ class FillDialog(QDialog):
         # --- Header ---
         header_row = QHBoxLayout()
         header_row.setSpacing(10)
-        
+
         # Icon
-        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        sparkles_icon = os.path.join(addon_dir, "assets", "icons", "app", "sparkles.svg")
-        
+        addon_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        )
+        sparkles_icon = os.path.join(
+            addon_dir, "assets", "icons", "app", "sparkles.svg"
+        )
+
         icon_label = QLabel()
         icon_label.setPixmap(get_themed_icon(sparkles_icon, 20).pixmap(20, 20))
         header_row.addWidget(icon_label)
@@ -62,7 +66,7 @@ class FillDialog(QDialog):
         header.setStyleSheet(HEADER_STYLE)
         header_row.addWidget(header)
         header_row.addStretch()
-        
+
         layout.addLayout(header_row)
 
         # --- Field selection ---

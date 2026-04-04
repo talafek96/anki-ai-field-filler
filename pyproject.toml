@@ -1,0 +1,50 @@
+[project]
+name = "anki-ai-filler"
+version = "0.1.0"
+description = "An intelligent, multi-provider auto-fill assistant for Anki"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "anki",
+    "aqt",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-mock",
+    "ruff",
+    "mypy",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = [
+    "N999",     # Invalid module name (dashes in folder name)
+    "F403",     # Star imports (idiomatic in aqt.qt)
+    "F405",     # Undefined from star import
+    "E402",     # Module level import not at top (needed for mocking)
+    "N802",     # Case-sensitive function names (needed for Qt overrides)
+    "E722",     # Bare except (common in some Anki UI patterns)
+    "N815",     # mixedCase class variables (common for pyqtSignal names)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# conftest.py needs to mock before imports
+"tests/conftest.py" = ["E402"]
+"src/integration/__init__.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+show_error_codes = true

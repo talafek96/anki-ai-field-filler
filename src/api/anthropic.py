@@ -35,7 +35,7 @@ class AnthropicTextProvider(TextProvider):
             "x-api-key": self._config.api_key,
             "anthropic-version": "2023-06-01",
         }
-        
+
         system_msg = ""
         other_msgs = []
         for m in messages:

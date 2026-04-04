@@ -212,7 +212,9 @@ class NoteTypeSettingsTab(QWidget):
         deck = self._loaded_deck
         if deck:
             # Deck scope: show merged (global + deck overrides)
-            instructions = self._config.get_field_instructions(note_type_name, deck_name=deck)
+            instructions = self._config.get_field_instructions(
+                note_type_name, deck_name=deck
+            )
         else:
             instructions = self._config.get_global_field_instructions(note_type_name)
 
@@ -257,7 +259,9 @@ class NoteTypeSettingsTab(QWidget):
             group.setLayout(group_layout)
             self._fields_layout.addWidget(group)
 
-            self._field_widgets.append((fname, instruction_edit, type_combo, auto_fill_check))
+            self._field_widgets.append(
+                (fname, instruction_edit, type_combo, auto_fill_check)
+            )
 
     def _save_current_note_type(self) -> None:
         if not self._current_note_type or not self._field_widgets:

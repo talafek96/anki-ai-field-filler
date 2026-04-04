@@ -56,7 +56,7 @@ class GeneralSettingsTab(QWidget):
         # --- 1. API Config ---
         self._provider_group = QGroupBox("API Config")
         prov_layout = QVBoxLayout()
-        
+
         # Selector inside the group
         sel_row = QHBoxLayout()
         lbl = QLabel("Provider to Configure:")
@@ -64,9 +64,11 @@ class GeneralSettingsTab(QWidget):
         sel_row.addWidget(lbl)
         self._provider_combo = QComboBox()
         self._provider_combo.setMinimumWidth(180)
-        
+
         # Icon paths
-        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        addon_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        )
         icons_dir = os.path.join(addon_dir, "assets", "icons", "providers")
         provider_icons = {
             "openai": "openai.svg",
@@ -83,14 +85,14 @@ class GeneralSettingsTab(QWidget):
                 self._provider_combo.addItem(QIcon(icon_path), label, ptype)
             else:
                 self._provider_combo.addItem(label, ptype)
-        
+
         qconnect(self._provider_combo.currentIndexChanged, self._on_provider_changed)
         sel_row.addWidget(self._provider_combo)
         sel_row.addStretch()
         prov_layout.addLayout(sel_row)
 
         prov_layout.addSpacing(4)
-        
+
         # Connection fields inside the same group
         cf = QFormLayout()
         cf.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
@@ -120,7 +122,7 @@ class GeneralSettingsTab(QWidget):
         test_row.addStretch()
         test_row.addWidget(self._test_btn)
         cf.addRow("", test_row)
-        
+
         prov_layout.addLayout(cf)
         self._provider_group.setLayout(prov_layout)
         layout.addWidget(self._provider_group)
@@ -128,29 +130,27 @@ class GeneralSettingsTab(QWidget):
         # --- 2. Keyboard Shortcuts ---
         automation_group = QGroupBox("Keyboard Shortcuts")
         auto_layout = QVBoxLayout()
-        
+
         # Shortcuts row
         shortcut_layout = QFormLayout()
         self._fill_all_shortcut = QLineEdit()
         self._fill_all_shortcut.setPlaceholderText("e.g. Ctrl+Shift+G")
-        shortcut_layout.addRow("Fill Shortcut (opens selection dialog):", self._fill_all_shortcut)
+        shortcut_layout.addRow(
+            "Fill Shortcut (opens selection dialog):", self._fill_all_shortcut
+        )
         auto_layout.addLayout(shortcut_layout)
 
         auto_layout.addSpacing(4)
 
-
-        
         automation_group.setLayout(auto_layout)
         layout.addWidget(automation_group)
 
         # --- 3. Prompt Config ---
         prompt_group = QGroupBox("Prompts")
         prompt_layout = QVBoxLayout()
-        
 
-        
         prompt_layout.addSpacing(6)
-        
+
         # Fill All Prompt
         fa_lbl = QLabel("Global Prompt (prepended to AI instructions):")
         fa_lbl.setStyleSheet("color: gray; font-size: 11px;")
@@ -158,7 +158,7 @@ class GeneralSettingsTab(QWidget):
         self._fill_all_prompt = QPlainTextEdit()
         self._fill_all_prompt.setMaximumHeight(60)
         prompt_layout.addWidget(self._fill_all_prompt)
-        
+
         prompt_group.setLayout(prompt_layout)
         layout.addWidget(prompt_group)
 

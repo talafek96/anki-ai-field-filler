@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+
 from aqt.qt import *
+
 try:
     from aqt.qt import QSvgRenderer
 except ImportError:
