@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import os
-from typing import Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from aqt import gui_hooks, mw
 from aqt.browser import Browser
 from aqt.editor import Editor, EditorWebView
-from aqt.qt import QDialog, QMenu, qconnect
+from aqt.qt import QDialog, QMenu, qconnect, QVBoxLayout, QCheckBox, QDialogButtonBox, Qt
 from aqt.utils import showWarning, tooltip
 
 from .core.config import Config
@@ -18,7 +18,6 @@ from .ui.browser.progress import BatchProgressDialog, BatchSummaryDialog
 from .ui.browser.review import BatchReviewDialog
 from .ui.common.icons import get_themed_icon
 from .ui.config.field_dialog import FieldInstructionDialog
-from .ui.editor.fill_dialog import FillDialog
 from .ui.editor.progress_dialog import GeneratingDialog
 
 
@@ -163,59 +162,127 @@ class BrowserIntegration:
         )
 
 
+class FieldSelectorDialog(QDialog):
+    """A dialog to select which fields the AI should fill/update."""
+
+    def __init__(
+        self, 
+        fields: List[str], 
+        selected: List[str], 
+        parent: Optional[QWidget] = None
+    ):
+        super().__init__(parent)
+        self.setWindowTitle("AI Filler: Select Fields")
+        self.setMinimumWidth(300)
+        
+        layout = QVBoxLayout(self)
+        self.checkboxes: Dict[str, QCheckBox] = {}
+        
+        for field in fields:
+            cb = QCheckBox(field)
+            cb.setChecked(field in selected)
+            self.checkboxes[field] = cb
+            layout.addWidget(cb)
+            
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def get_selected_fields(self) -> List[str]:
+        return [name for name, cb in self.checkboxes.items() if cb.isChecked()]
+
+
+class HistoryManager:
+    """Manages note state history specifically for AI Filler."""
+
+    def __init__(self, depth: int = 20):
+        self._depth = depth
+        self._history: Dict[int, List[Dict[str, str]]] = {}
+        self._redo_stack: Dict[int, List[Dict[str, str]]] = {}
+
+    def save_state(self, editor: Editor) -> None:
+        """Save the current note state before an AI fill."""
+        if not editor.note:
+            return
+        
+        eid = id(editor)
+        state = {name: editor.note[name] for name in editor.note.keys()}
+        
+        if eid not in self._history:
+            self._history[eid] = []
+        
+        self._history[eid].append(state)
+        # Clear redo stack on new action
+        self._redo_stack[eid] = []
+        
+        # Limit depth
+        if len(self._history[eid]) > self._depth:
+            self._history[eid].pop(0)
+
+    def undo(self, editor: Editor) -> bool:
+        """Restore the previous note state."""
+        eid = id(editor)
+        if eid not in self._history or not self._history[eid]:
+            return False
+        
+        if not editor.note:
+            return False
+
+        # Current state goes to redo stack
+        current_state = {name: editor.note[name] for name in editor.note.keys()}
+        if eid not in self._redo_stack:
+            self._redo_stack[eid] = []
+        self._redo_stack[eid].append(current_state)
+
+        # Restore from history
+        prev_state = self._history[eid].pop()
+        for name, value in prev_state.items():
+            editor.note[name] = value
+        
+        editor.loadNote()
+        return True
+
+    def redo(self, editor: Editor) -> bool:
+        """Restore the state before an undo."""
+        eid = id(editor)
+        if eid not in self._redo_stack or not self._redo_stack[eid]:
+            return False
+            
+        if not editor.note:
+            return False
+
+        # Current state goes back to history
+        current_state = {name: editor.note[name] for name in editor.note.keys()}
+        self._history[eid].append(current_state)
+
+        # Restore from redo stack
+        next_state = self._redo_stack[eid].pop()
+        for name, value in next_state.items():
+            editor.note[name] = value
+            
+        editor.loadNote()
+        return True
+
+
 class EditorIntegration:
     """Manages editor toolbar buttons and context menu items."""
 
     _filler: Filler | None = None
+    _history: HistoryManager = HistoryManager()
+    _selected_fields: Dict[int, List[str]] = {}
 
     @classmethod
     def init(cls) -> None:
         """Register all editor hooks."""
         cls._filler = Filler()
-        gui_hooks.editor_did_init_buttons.append(cls._add_toolbar_buttons)
         gui_hooks.editor_will_show_context_menu.append(cls._add_context_menu)
+        gui_hooks.editor_did_init.append(cls._on_editor_did_init)
+        gui_hooks.editor_did_load_note.append(cls._on_editor_did_load_note)
+        gui_hooks.webview_did_receive_js_message.append(cls._on_webview_did_receive_js_message)
 
-    @classmethod
-    def _add_toolbar_buttons(cls, buttons: List[str], editor: Editor) -> None:
-        config = Config()
-        general = config.get_general_settings()
-
-        addon_dir = os.path.dirname(os.path.dirname(__file__))
-        icons_dir = os.path.join(addon_dir, "assets", "icons", "app")
-
-        sparkles_icon_path = os.path.join(icons_dir, "sparkles.svg")
-
-        # We try to use native=True for older Anki versions that supported it
-        # for always-active buttons. In Anki 25.09+, we fallback to standard.
-        try:
-            btn_all = editor.addButton(
-                icon=sparkles_icon_path,
-                cmd="ai_filler_fill_all",
-                func=lambda ed: cls._on_fill_all(ed),
-                tip=f"AI: Select fields to fill ({general.fill_all_shortcut})",
-                keys=general.fill_all_shortcut or None,
-                label="",
-                native=True,
-            )
-        except TypeError:
-            # Fallback for newer Anki (like 25.09) where native argument is removed
-            btn_all = editor.addButton(
-                icon=sparkles_icon_path,
-                cmd="ai_filler_fill_all",
-                func=lambda ed: cls._on_fill_all(ed),
-                tip=f"AI: Select fields to fill ({general.fill_all_shortcut})",
-                keys=general.fill_all_shortcut or None,
-                label="",
-            )
-
-        if btn_all:
-            if hasattr(btn_all, "setIcon"):
-                btn_all.setIcon(get_themed_icon(sparkles_icon_path, 20))
-
-            # If addButton returns a string (HTML), we MUST append it to the buttons list
-            # for it to appear in the JS-based editor toolbar.
-            if isinstance(btn_all, str):
-                buttons.append(btn_all)
 
     @classmethod
     def _add_context_menu(cls, webview: EditorWebView, menu: QMenu) -> None:
@@ -225,54 +292,8 @@ class EditorIntegration:
 
         menu.addSeparator()
 
-        action_all = menu.addAction("AI: Select fields to fill...")
-        qconnect(action_all.triggered, lambda: cls._on_fill_all(editor))
-
-    @classmethod
-    def _on_fill_all(cls, editor: Editor, last_prompt: str = "") -> None:
-        """Handle 'Fill all blank fields' action."""
-        if not editor.note:
-            return
-
-        config = Config()
-        note = editor.note
-        note_type_name = note.note_type()["name"]
-        deck_name = _current_deck_name(editor)
-        field_instructions = config.get_field_instructions(
-            note_type_name, deck_name=deck_name
-        )
-
-        field_names = list(note.keys())
-        field_values = {name: note[name] for name in field_names}
-        blank_fields = [n for n in field_names if not note[n].strip()]
-
-        dialog = FillDialog(
-            field_names=field_names,
-            field_values=field_values,
-            field_instructions=field_instructions,
-            pre_selected=blank_fields,
-            parent=editor.widget,
-        )
-        if last_prompt:
-            dialog._prompt_edit.setPlainText(last_prompt)
-
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        result = dialog.get_result()
-        if not result:
-            return
-        target_fields, user_prompt = result
-
-        if not target_fields:
-            tooltip("No fields selected to fill.", parent=editor.widget)
-            return
-
-        cls._run_fill(
-            editor,
-            target_fields,
-            user_prompt,
-            on_success=lambda: cls._on_fill_all(editor, last_prompt=user_prompt),
-        )
+        action_all = menu.addAction("\u2728 AI: Toggle prompt field...")
+        qconnect(action_all.triggered, lambda: webview.eval("aiFiller.togglePrompt()"))
 
     @classmethod
     def _on_configure_field(cls, editor: Editor, field_name: str) -> None:
@@ -325,3 +346,141 @@ class EditorIntegration:
         )
 
         progress.exec()
+
+    @classmethod
+    def _on_editor_did_init(cls, editor: Editor) -> None:
+        """Inject JS and CSS into the editor."""
+        webview = editor.web
+        addon_dir = os.path.dirname(os.path.dirname(__file__))
+        editor_dir = os.path.join(addon_dir, "src", "ui", "editor")
+        
+        css_path = os.path.join(editor_dir, "editor.css")
+        js_path = os.path.join(editor_dir, "editor.js")
+        
+        try:
+            # Read assets
+            with open(css_path, "r", encoding="utf-8") as f:
+                css = f.read().replace("`", "\\`").replace("\n", " ")
+                webview.eval(f"const s = document.createElement('style'); s.innerHTML = `{css}`; document.head.appendChild(s);")
+            
+            # Read SVG sparkle icon
+            sparkle_ico_path = os.path.join(addon_dir, "assets", "icons", "app", "sparkles.svg")
+            sparkle_svg = ""
+            if os.path.exists(sparkle_ico_path):
+                with open(sparkle_ico_path, "r", encoding="utf-8") as f:
+                    sparkle_svg = f.read().replace("`", "\\`").replace("\n", " ")
+
+            with open(js_path, "r", encoding="utf-8") as f:
+                js = f.read()
+                webview.eval(f"window.aiFillerSparkleSVG = `{sparkle_svg}`;")
+                webview.eval(js)
+                # Force init check
+                webview.eval("if (window.aiFiller) aiFiller.init();")
+        except Exception as e:
+            print(f"AI Filler: Failed to inject editor assets: {e}")
+
+    @classmethod
+    def _on_webview_did_receive_js_message(
+        cls, handled: tuple[bool, Any], message: str, context: Any
+    ) -> tuple[bool, Any]:
+        """Handle messages from the integrated prompt field."""
+        if not message.startswith("ai_filler:"):
+            return handled
+
+        # Check if the context is an Editor
+        # In some Anki versions, we might need to check context type carefully
+        editor = None
+        if isinstance(context, Editor):
+            editor = context
+        elif hasattr(context, "editor") and isinstance(context.editor, Editor):
+            editor = context.editor
+
+        if not editor:
+            return handled
+
+        if message.startswith("ai_filler:generate:"):
+            prompt = message[len("ai_filler:generate:") :]
+            cls._run_integrated_fill(editor, prompt)
+            return (True, None)
+        
+        if message == "ai_filler:undo":
+            cls._history.undo(editor)
+            return (True, None)
+            
+        if message == "ai_filler:redo":
+            cls._history.redo(editor)
+            return (True, None)
+
+        if message == "ai_filler:select_fields":
+            cls._on_select_fields(editor)
+            return (True, None)
+
+        return handled
+
+    @classmethod
+    def _on_select_fields(cls, editor: Editor) -> None:
+        """Open the field selector dialog."""
+        if not editor.note:
+            return
+            
+        eid = id(editor)
+        all_fields = list(editor.note.keys())
+        
+        # Default to all fields if none selected yet
+        if eid not in cls._selected_fields:
+            cls._selected_fields[eid] = all_fields
+            
+        dialog = FieldSelectorDialog(
+            all_fields, 
+            cls._selected_fields[eid], 
+            parent=editor.widget
+        )
+        
+        if dialog.exec():
+            cls._selected_fields[eid] = dialog.get_selected_fields()
+
+    @classmethod
+    def _run_integrated_fill(cls, editor: Editor, user_prompt: str) -> None:
+        """Handle fill request from the integrated prompt field."""
+        if not editor.note:
+            return
+
+        eid = id(editor)
+        note = editor.note
+        
+        # Use manually selected fields if available, otherwise filter by config
+        if eid in cls._selected_fields:
+            target_fields = cls._selected_fields[eid]
+        else:
+            config = Config()
+            note_type_name = note.note_type()["name"]
+            deck_name = _current_deck_name(editor)
+            field_instructions = config.get_field_instructions(
+                note_type_name, deck_name=deck_name
+            )
+
+            target_fields = []
+            for name in note.keys():
+                instr = field_instructions.get(name)
+                if instr is None or instr.auto_fill:
+                    target_fields.append(name)
+
+        if not target_fields:
+            tooltip("No fields selected to fill.", parent=editor.widget)
+            return
+
+        # Save state for undo
+        cls._history.save_state(editor)
+
+        cls._run_fill(
+            editor,
+            target_fields,
+            user_prompt,
+        )
+
+    @classmethod
+    def _on_editor_did_load_note(cls, editor: Editor) -> None:
+        """Ensure the prompt field is present when a note is loaded."""
+        # The Svelte editor might fully recreate the fields DOM.
+        # Calling init again picks up the new container.
+        editor.web.eval("if (window.aiFiller) aiFiller.init();")
