@@ -29,21 +29,7 @@ PROVIDER_CAPABILITIES = {
     "vercel": {"text": True, "tts": True, "image": True},
 }
 
-KNOWN_TTS_VOICES = {
-    "openai": [
-        "alloy",
-        "ash",
-        "ballad",
-        "coral",
-        "echo",
-        "fable",
-        "nova",
-        "onyx",
-        "sage",
-        "shimmer",
-    ],
-    "google": ["Aoede", "Charon", "Fenrir", "Kore", "Puck"],
-}
+
 
 
 class _AutoFetchCombo(QComboBox):
@@ -328,13 +314,9 @@ class ModelSettingsTab(QWidget):
             self._text_model_combo.setCurrentText(cfg.text_model)
             self._max_tokens_spin.setValue(cfg.max_tokens)
         elif capability == "tts":
-            self._tts_group.setVisible(True)
             self._tts_model_combo.setModels(cached.get("tts", []))
             self._tts_model_combo.setCurrentText(cfg.tts_model)
             self._tts_voice_combo.clear()
-            voices = KNOWN_TTS_VOICES.get(ptype, [])
-            if voices:
-                self._tts_voice_combo.addItems(voices)
             self._tts_voice_combo.setEditText(cfg.tts_voice or "")
         elif capability == "image":
             self._image_group.setVisible(True)

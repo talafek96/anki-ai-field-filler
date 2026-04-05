@@ -96,7 +96,19 @@ def _fetch_openai_models(config: ProviderConfig, capability: str) -> List[str]:
     """Fetch models from an OpenAI-compatible /models endpoint."""
     url = f"{config.base_url}/models"
     headers = {"Authorization": f"Bearer {config.api_key}"}
-    data = http_get_json(url, headers, label="OpenAI")
+    try:
+        data = http_get_json(url, headers, label="OpenAI")
+    except Exception as e:
+        # Vercel or other gateways might have different structures or require different headers
+        if "404" in str(e) and "vercel" in config.base_url.lower():
+            # If standard /models fails on Vercel, it might be using a different path
+            # or the user needs to configure providers in the dashboard.
+            raise ProviderError(
+                f"Vercel AI Gateway '/models' endpoint not found (404). "
+                "Ensure your gateway is correctly configured in the Vercel dashboard."
+            ) from e
+        raise
+
     all_ids = [m["id"] for m in data.get("data", [])]
     classified: dict[str, list[str]] = {"text": [], "tts": [], "image": []}
     for mid in all_ids:

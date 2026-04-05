@@ -379,7 +379,17 @@ class Filler:
         user_prompt: str,
     ) -> str:
         """Build the user prompt sent to the AI."""
-        parts: List[str] = [f"Note Type: {note_type_name}\n"]
+        # Provide descriptive context for standard Anki note types
+        note_type_desc = note_type_name
+        nt_lower = note_type_name.lower()
+        if "basic" in nt_lower and "reversed" in nt_lower:
+            note_type_desc += " (creates two cards: Front->Back and Back->Front)"
+        elif "basic" in nt_lower:
+            note_type_desc += " (simple question/answer pair)"
+        elif "cloze" in nt_lower:
+            note_type_desc += " (fill-in-the-blank style, use {{c1::...}} syntax)"
+
+        parts: List[str] = [f"Note Type: {note_type_desc}\n"]
 
         parts.append("== Current Field Values ==")
         for name, value in field_values.items():
@@ -560,10 +570,11 @@ class Filler:
 
     @staticmethod
     def _apply_results(editor: Editor, results: Dict[str, Optional[str]]) -> None:
-        """Apply generated content to the editor's note fields."""
         note = editor.note
         if not note:
             return
+
+        mw.checkpoint("AI Fill Fields")
 
         changed = False
         for field_name, content in results.items():

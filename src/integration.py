@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence
 
 from aqt import gui_hooks, mw
 from aqt.browser import Browser
@@ -229,7 +229,7 @@ class EditorIntegration:
         qconnect(action_all.triggered, lambda: cls._on_fill_all(editor))
 
     @classmethod
-    def _on_fill_all(cls, editor: Editor) -> None:
+    def _on_fill_all(cls, editor: Editor, last_prompt: str = "") -> None:
         """Handle 'Fill all blank fields' action."""
         if not editor.note:
             return
@@ -253,6 +253,9 @@ class EditorIntegration:
             pre_selected=blank_fields,
             parent=editor.widget,
         )
+        if last_prompt:
+            dialog._prompt_edit.setPlainText(last_prompt)
+
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         result = dialog.get_result()
@@ -264,7 +267,12 @@ class EditorIntegration:
             tooltip("No fields selected to fill.", parent=editor.widget)
             return
 
-        cls._run_fill(editor, target_fields, user_prompt)
+        cls._run_fill(
+            editor,
+            target_fields,
+            user_prompt,
+            on_success=lambda: cls._on_fill_all(editor, last_prompt=user_prompt),
+        )
 
     @classmethod
     def _on_configure_field(cls, editor: Editor, field_name: str) -> None:
@@ -284,6 +292,7 @@ class EditorIntegration:
         editor: Editor,
         target_fields: List[str],
         user_prompt: str,
+        on_success: Optional[Callable] = None,
     ) -> None:
         """Execute the AI fill operation with a blocking progress dialog."""
         deck_name = _current_deck_name(editor)
@@ -292,9 +301,11 @@ class EditorIntegration:
 
         progress = GeneratingDialog(parent=editor.widget)
 
-        def on_success() -> None:
+        def _on_success() -> None:
             progress.finish()
             tooltip("Fields filled successfully!", parent=editor.widget)
+            if on_success:
+                mw.taskman.run_on_main(on_success)
 
         def on_error(msg: str) -> None:
             progress.finish_with_error(msg)
@@ -308,7 +319,7 @@ class EditorIntegration:
             editor=editor,
             target_fields=target_fields,
             user_prompt=combined_prompt,
-            on_success=on_success,
+            on_success=_on_success,
             on_error=on_error,
             deck_name=deck_name,
         )

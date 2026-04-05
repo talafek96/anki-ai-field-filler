@@ -16,5 +16,5 @@ class VercelAIGatewayProvider(
 
     def __init__(self, config: ProviderConfig) -> None:
         if not config.api_url:
-            config.api_url = "https://ai-gateway.vercel.sh/v1"
+            config.api_url = "https://gateway.vercel.ai/v1"
         super().__init__(config)

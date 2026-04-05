@@ -140,6 +140,14 @@ class FillDialog(QDialog):
         layout.addLayout(button_layout)
         self.setLayout(layout)
 
+        # Shortcuts for submission
+        shortcut = QShortcut(QKeySequence("Ctrl+Return"), self)
+        qconnect(shortcut.activated, self._on_fill)
+        shortcut_enter = QShortcut(QKeySequence("Ctrl+Enter"), self)
+        qconnect(shortcut_enter.activated, self._on_fill)
+
+        self._prompt_edit.setFocus()
+
     def _select_all(self) -> None:
         for cb in self._checkboxes.values():
             if cb.isEnabled():
