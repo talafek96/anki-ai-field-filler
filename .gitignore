@@ -4,179 +4,50 @@ __pycache__/
 *$py.class
 *.so
 
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.pytest_cache/
-.mypy_cache/
-.pytest_cache/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-.pybuilder/
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-#   For a library or binary, you wish to ignore their .python-version file.
-#   For a full application, you might want to check it in.
-# .python-version
-
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or even
-#   fail to install them.
-# Pipfile.lock
-
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-# poetry.lock
-
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-# pdm.lock
-
-# PEP 582; used by e.g. github.com/pdm-project/pdm
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
 # Environments
 .env
 .venv
 env/
 venv/
 ENV/
-env.bak/
-venv.bak/
 
-# Spyder project settings
-.spyderproject
-.spyproject
+# Python distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
 
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
+# Unit test / coverage reports
+.pytest_cache/
 .mypy_cache/
-.dmypy.json
-dmypy.json
+.coverage
+htmlcov/
 
-# Pyre type checker
-.pyre/
+# Anki add-on specific
+*.ankiaddon
+backup/
+user_files/
+meta.json
+!config.json
 
-# pytype static type analyzer
-.pytype/
+# uv
+# uv.lock is included for reproducible builds in applications.
+# If you prefer not to commit it, uncomment the line below.
+# uv.lock
 
-# Cython debug symbols
-cython_debug/
-
-# IDEs
+# IDEs and OS
 .idea/
 .vscode/
 *.swp
 *.swo
-
-# OS Files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# Anki Addon Specific
-!config.json
-meta.json
-*.ankiaddon
-backup/
-user_files/
-
-# Project Specific
-*.txt
+# Project-specific (internal tooling/tmp)
 .gemini/
 brain/
+/tmp/
 task.md
 implementation_plan.md
 walkthrough.md
-/tmp/
-uv.lock
-# uv.lock is sometimes checked in, but since we're using [dependency-groups] it might be better to exclude if user wants a clean repo.
-# Actually, uv.lock is usually recommended to be checked in for applications. 
-# I'll keep it out of gitignore for now unless asked.
-# Wait, let's remove uv.lock from ignore.
+preview/*.gif

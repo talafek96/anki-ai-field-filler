@@ -13,6 +13,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
+from bs4 import BeautifulSoup
 from aqt import mw
 from aqt.editor import Editor
 
@@ -99,9 +100,7 @@ field type (text, rich, or auto).
 
 RULES:
 - Only include fields listed under "Fields to Fill"
-- For "text" type: provide the actual text/HTML content for the field. \
-You may include {{IMAGE: ...}} or {{AUDIO: ...}} flags inline if media \
-would help the learner.
+- For "text" type: provide the actual text/HTML content for the field. Use semantic HTML tags where possible (e.g., <div>, <p>, <ul>, <li>) instead of just <br>. You may include {{IMAGE: ...}} or {{AUDIO: ...}} flags inline if media would help the learner.
 - For "audio" type: provide the exact text that should be spoken aloud \
 for TTS synthesis (the entire field becomes an audio file)
 - For "image" type: provide a descriptive prompt for image generation \
@@ -117,7 +116,9 @@ appropriate content
 - Be concise and accurate — this is for flashcards, not essays
 - If a field's type hint is "auto", decide the best content type based \
 on the field name and instruction
-- Use line breaks in text content where appropriate for readability"""
+- If a field is marked with "(MODIFY existing content)", update, improve, or correct that content while preserving its original intent and any valid information. Only replace it entirely if it is completely wrong or nonsensical.
+- Use line breaks and consistent indentation in your HTML output so it looks like a clean, well-structured tree.
+- Use line breaks in text content where appropriate for readability."""
 
 
 class Filler:
@@ -398,15 +399,22 @@ class Filler:
         parts.append("")
 
         has_instructions = any(fi.instruction for fi in field_instructions.values())
-        if has_instructions:
-            parts.append("== Field Instructions ==")
-            for name, instr in field_instructions.items():
-                if instr.instruction:
-                    type_hint = (
-                        f" [{instr.field_type}]" if instr.field_type != "auto" else ""
-                    )
-                    parts.append(f"- {name}{type_hint}: {instr.instruction}")
+        # Include the global prompt if set in general settings.
+        settings = self._config.get_general_settings()
+        global_prompt = settings.fill_all_prompt
+        if global_prompt.strip():
+            parts.append("== Global Instruction ==")
+            parts.append(global_prompt.strip())
             parts.append("")
+
+        parts.append("== Field Instructions ==")
+        for name, instr in field_instructions.items():
+            if instr.instruction:
+                type_hint = (
+                    f" [{instr.field_type}]" if instr.field_type != "auto" else ""
+                )
+                parts.append(f"- {name}{type_hint}: {instr.instruction}")
+        parts.append("")
 
         parts.append("== Fields to Fill ==")
         for name in target_fields:
@@ -414,7 +422,12 @@ class Filler:
             hint = ""
             if fi and fi.field_type != "auto":
                 hint = f" (expected type: {fi.field_type})"
-            parts.append(f"- {name}{hint}")
+            
+            # Label as MODIFY or GENERATE based on current field state
+            current_val = field_values.get(name, "").strip()
+            action = "(MODIFY existing content)" if current_val else "(GENERATE new content)"
+            
+            parts.append(f"- {name}{hint} {action}")
         parts.append("")
 
         if user_prompt.strip():
@@ -471,16 +484,26 @@ class Filler:
 
     @staticmethod
     def _to_html(text: str) -> str:
-        """Convert plain text to Anki-compatible HTML.
+        """Convert content to Anki-compatible HTML with readable structure.
 
-        Converts newlines to <br> tags, but leaves content that already
-        contains HTML tags untouched.
+        If the content already contains HTML tags, use BeautifulSoup to 
+        prettify the structure (tree formatting). Otherwise, convert newlines 
+        to <br> tags.
         """
         if not text:
             return text
-        # If the content already has HTML block/br tags, assume it's HTML
-        if "<br" in text or "<p>" in text or "<div>" in text:
-            return text
+
+        # If it looks like HTML (contains any tags), try to prettify it.
+        if bool(re.search(r"<[^>]+>", text)):
+            try:
+                soup = BeautifulSoup(text, "html.parser")
+                # prettify adds newlines and indentation; strip excess outer whitespace
+                return soup.prettify().strip()
+            except Exception:
+                # Fallback to the original if something goes wrong
+                return text
+
+        # Plain text logic: simple newline to <br> conversion
         return text.replace("\n", "<br>")
 
     _FLAG_RE = re.compile(r"\{\{(IMAGE|AUDIO):\s*(.*?)\}\}", re.DOTALL)

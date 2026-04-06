@@ -10,14 +10,13 @@
     window.aiFiller = {
         container: null,
         textarea: null,
-        isVisible: false,
+        isCollapsed: false,
 
         /**
-         * Initialize the prompt field and toolbar button in the DOM.
+         * Initialize the prompt field in the DOM.
          */
-        init: function(retryCount = 0) {
+        init: function(isExpanded = true) {
             if (this.container && document.contains(this.container)) {
-                this.injectToolbarButton();
                 return;
             }
 
@@ -26,21 +25,21 @@
                            document.getElementById('fields');
 
             if (!fields) {
-                if (retryCount < 50) {
-                    setTimeout(() => this.init(retryCount + 1), 100);
-                }
+                setTimeout(() => this.init(isExpanded), 100);
                 return;
             }
 
+            this.isCollapsed = !isExpanded;
+
             const container = document.createElement('div');
             container.id = 'ai-filler-prompt-container';
-            container.className = 'ai-filler-hidden';
+            if (this.isCollapsed) {
+                container.classList.add('ai-filler-collapsed');
+            }
+            
             container.innerHTML = `
                 <div class="ai-filler-prompt-header">
                     <span class="ai-filler-prompt-label">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                        </svg>
                         AI PROMPT
                     </span>
                     <div class="ai-filler-header-actions">
@@ -60,10 +59,9 @@
                                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                             </svg>
                         </button>
-                        <button id="ai-filler-close-btn" class="ai-filler-close-btn" title="Hide">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                        <button id="ai-filler-toggle-btn" class="ai-filler-close-btn" title="Collapse/Expand">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="18 15 12 9 6 15"></polyline>
                             </svg>
                         </button>
                     </div>
@@ -85,7 +83,7 @@
             this.container = container;
             this.textarea = document.getElementById('ai-filler-prompt-textarea');
 
-            document.getElementById('ai-filler-close-btn').addEventListener('click', () => this.togglePrompt());
+            document.getElementById('ai-filler-toggle-btn').addEventListener('click', () => this.toggleCollapse());
             document.getElementById('ai-filler-generate-btn').addEventListener('click', () => this.onGenerate());
             document.getElementById('ai-filler-undo-btn').addEventListener('click', () => this.onUndo());
             document.getElementById('ai-filler-redo-btn').addEventListener('click', () => this.onRedo());
@@ -101,60 +99,23 @@
                     }
                 }
             });
-
-            this.injectToolbarButton();
         },
 
-        injectToolbarButton: function() {
-            if (document.getElementById('ai-filler-toolbar-btn')) return;
-
-            const toolbar = document.querySelector('.editor-toolbar') || 
-                            document.querySelector('.buttons') ||
-                            document.querySelector('.toolbar');
-            
-            if (!toolbar) return;
-
-            const btn = document.createElement('button');
-            btn.id = 'ai-filler-toolbar-btn';
-            btn.className = 'ai-filler-toolbar-btn';
-            btn.title = "Toggle AI Prompt Field";
-            
-            btn.innerHTML = window.aiFillerSparkleSVG || `
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 3l1.912 5.813L21 10.725l-5.813 1.912L12 21l-1.912-5.813L3 13.275l5.813-1.912L12 3z"></path>
-                </svg>
-            `;
-            
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.togglePrompt();
-            });
-
-            const lastGroup = toolbar.querySelector('.group:last-child') || 
-                              toolbar.querySelector('.button-group:last-child');
-            
-            if (lastGroup) {
-                lastGroup.appendChild(btn);
-            } else {
-                toolbar.appendChild(btn);
-            }
-        },
-
-        togglePrompt: function() {
+        toggleCollapse: function() {
             if (!this.container || !document.contains(this.container)) {
                 this.init();
             }
             
-            this.isVisible = !this.container.classList.contains('ai-filler-hidden');
-            this.isVisible = !this.isVisible;
+            this.isCollapsed = !this.isCollapsed;
             
-            if (this.isVisible) {
-                this.container.classList.remove('ai-filler-hidden');
-                this.textarea.focus();
+            if (this.isCollapsed) {
+                this.container.classList.add('ai-filler-collapsed');
             } else {
-                this.container.classList.add('ai-filler-hidden');
+                this.container.classList.remove('ai-filler-collapsed');
+                this.textarea.focus();
             }
+
+            pycmd("ai_filler:save_collapsed_state:" + this.isCollapsed);
         },
 
         onGenerate: function() {
@@ -185,6 +146,19 @@
 
         onSelectFields: function() {
             pycmd("ai_filler:select_fields");
+        },
+
+        updateButton: function(mode) {
+            const btn = document.getElementById('ai-filler-generate-btn');
+            if (!btn) return;
+            
+            const isModify = mode === 'modify';
+            const label = isModify ? 'Modify' : 'Generate';
+            
+            const svg = window.aiFillerSparkleSVG || '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.912 5.813L21 10.725l-5.813 1.912L12 21l-1.912-5.813L3 13.275l5.813-1.912L12 3z"></path></svg>';
+            
+            btn.innerHTML = `${svg} ${label}`;
+            btn.setAttribute('data-mode', mode);
         },
 
         setPrompt: function(text) {

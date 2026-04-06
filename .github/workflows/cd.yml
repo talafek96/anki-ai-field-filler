@@ -46,13 +46,13 @@ jobs:
           python-version: "3.12"
 
       - name: Build .ankiaddon package
-        run: python build_ankiaddon.py
+        run: python build.py
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ steps.tag.outputs.version }}" \
-            ai_field_filler.ankiaddon \
+            anki-ai-filler.ankiaddon \
             --title "${{ steps.tag.outputs.version }}" \
             --generate-notes

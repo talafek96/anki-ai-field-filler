@@ -24,12 +24,12 @@ test: ## Run tests
 check: lint typecheck test ## Run all quality checks
 
 build: ## Build .ankiaddon package
-	python src/build_ankiaddon.py
+	python build.py
 
 clean: ## Remove build artifacts and caches
 	rm -rf .pytest_cache .ruff_cache .mypy_cache
 	find . -type d -name "__pycache__" -exec rm -rf {} +
-	rm -f ai_field_filler.ankiaddon
+	rm -f anki-ai-filler.ankiaddon
 
 release: ## Tag a release (vYYYY.MM.DD or vYYYY.MM.DD-N) and push
 	@TODAY=$$(date -u +%Y.%m.%d); \

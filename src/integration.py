@@ -292,8 +292,8 @@ class EditorIntegration:
 
         menu.addSeparator()
 
-        action_all = menu.addAction("\u2728 AI: Toggle prompt field...")
-        qconnect(action_all.triggered, lambda: webview.eval("aiFiller.togglePrompt()"))
+        action_all = menu.addAction("\u2728 AI: Toggle prompt collapse")
+        qconnect(action_all.triggered, lambda: webview.eval("aiFiller.toggleCollapse()"))
 
     @classmethod
     def _on_configure_field(cls, editor: Editor, field_name: str) -> None:
@@ -374,8 +374,14 @@ class EditorIntegration:
                 js = f.read()
                 webview.eval(f"window.aiFillerSparkleSVG = `{sparkle_svg}`;")
                 webview.eval(js)
+                
+                # Check initial expansion state
+                config = Config()
+                expanded = config.get_general_settings().prompt_expanded
+                expanded_js = "true" if expanded else "false"
+                
                 # Force init check
-                webview.eval("if (window.aiFiller) aiFiller.init();")
+                webview.eval(f"if (window.aiFiller) aiFiller.init({expanded_js});")
         except Exception as e:
             print(f"AI Filler: Failed to inject editor assets: {e}")
 
@@ -404,15 +410,26 @@ class EditorIntegration:
             return (True, None)
         
         if message == "ai_filler:undo":
-            cls._history.undo(editor)
+            if cls._history.undo(editor):
+                cls._update_prompt_button(editor)
             return (True, None)
             
         if message == "ai_filler:redo":
-            cls._history.redo(editor)
+            if cls._history.redo(editor):
+                cls._update_prompt_button(editor)
             return (True, None)
 
         if message == "ai_filler:select_fields":
             cls._on_select_fields(editor)
+            return (True, None)
+
+        if message.startswith("ai_filler:save_collapsed_state:"):
+            is_collapsed = message[len("ai_filler:save_collapsed_state:"):] == "true"
+            config = Config()
+            settings = config.get_general_settings()
+            settings.prompt_expanded = not is_collapsed
+            config.set_general_settings(settings)
+            config.write()
             return (True, None)
 
         return handled
@@ -438,6 +455,7 @@ class EditorIntegration:
         
         if dialog.exec():
             cls._selected_fields[eid] = dialog.get_selected_fields()
+            cls._update_prompt_button(editor)
 
     @classmethod
     def _run_integrated_fill(cls, editor: Editor, user_prompt: str) -> None:
@@ -483,4 +501,40 @@ class EditorIntegration:
         """Ensure the prompt field is present when a note is loaded."""
         # The Svelte editor might fully recreate the fields DOM.
         # Calling init again picks up the new container.
-        editor.web.eval("if (window.aiFiller) aiFiller.init();")
+        config = Config()
+        expanded = config.get_general_settings().prompt_expanded
+        expanded_js = "true" if expanded else "false"
+        editor.web.eval(f"if (window.aiFiller) aiFiller.init({expanded_js});")
+        cls._update_prompt_button(editor)
+
+    @classmethod
+    def _update_prompt_button(cls, editor: Editor) -> None:
+        """Determine if the target fields are empty and update the button label."""
+        if not editor.note:
+            return
+
+        eid = id(editor)
+        note = editor.note
+        
+        # Use manually selected fields if available, otherwise filter by config
+        if eid in cls._selected_fields:
+            target_fields = cls._selected_fields[eid]
+        else:
+            config = Config()
+            note_type_name = note.note_type()["name"]
+            deck_name = _current_deck_name(editor)
+            field_instructions = config.get_field_instructions(
+                note_type_name, deck_name=deck_name
+            )
+
+            target_fields = []
+            for name in note.keys():
+                instr = field_instructions.get(name)
+                if instr is None or instr.auto_fill:
+                    target_fields.append(name)
+
+        # Check if any target fields are non-empty
+        has_content = any(note[f].strip() for f in target_fields if f in note)
+        mode = "modify" if has_content else "generate"
+        
+        editor.web.eval(f"if (window.aiFiller) aiFiller.updateButton('{mode}');")

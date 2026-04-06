@@ -48,6 +48,7 @@ class GeneralSettings:
     fill_all_shortcut: str = "Ctrl+Shift+G"
     fill_all_prompt: str = ""
     last_configured_provider: str = "openai"
+    prompt_expanded: bool = True
 
 
 class Config:
@@ -329,6 +330,7 @@ class Config:
             fill_all_shortcut=g.get("fill_all_shortcut", "Ctrl+Shift+G"),
             fill_all_prompt=g.get("fill_all_prompt") or old_prompt,
             last_configured_provider=g.get("last_configured_provider", "openai"),
+            prompt_expanded=g.get("prompt_expanded", True),
         )
 
     def set_general_settings(self, settings: GeneralSettings) -> None:
@@ -337,6 +339,7 @@ class Config:
             "fill_all_shortcut": settings.fill_all_shortcut,
             "fill_all_prompt": settings.fill_all_prompt,
             "last_configured_provider": settings.last_configured_provider,
+            "prompt_expanded": settings.prompt_expanded,
         }
 
     # --- Settings export / import ---

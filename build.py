@@ -56,7 +56,7 @@ EXCLUDE_EXTENSIONS = {
     ".swo",
 }
 
-OUTPUT_NAME = "ai_filler.ankiaddon"
+OUTPUT_NAME = "anki-ai-filler.ankiaddon"
 
 ADDON_ROOT = Path(__file__).resolve().parent
 

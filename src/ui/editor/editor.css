@@ -16,6 +16,22 @@
     display: none !important;
 }
 
+#ai-filler-prompt-container.ai-filler-collapsed {
+    padding-bottom: 8px;
+    gap: 0;
+}
+
+#ai-filler-prompt-container.ai-filler-collapsed .ai-filler-prompt-body,
+#ai-filler-prompt-container.ai-filler-collapsed #ai-filler-undo-btn,
+#ai-filler-prompt-container.ai-filler-collapsed #ai-filler-redo-btn,
+#ai-filler-prompt-container.ai-filler-collapsed #ai-filler-gear-btn {
+    display: none;
+}
+
+#ai-filler-prompt-container.ai-filler-collapsed .ai-filler-prompt-header {
+    padding-bottom: 0;
+}
+
 .ai-filler-prompt-header {
     display: flex;
     justify-content: space-between;
@@ -56,6 +72,14 @@
 
 .ai-filler-nav-btn:hover, .ai-filler-close-btn:hover {
     background-color: rgba(0, 0, 0, 0.05);
+}
+
+.ai-filler-close-btn svg {
+    transition: transform 0.3s ease;
+}
+
+#ai-filler-prompt-container.ai-filler-collapsed .ai-filler-close-btn svg {
+    transform: rotate(-180deg);
 }
 
 .ai-filler-prompt-body {
