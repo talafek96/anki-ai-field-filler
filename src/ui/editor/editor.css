@@ -24,7 +24,8 @@
 #ai-filler-prompt-container.ai-filler-collapsed .ai-filler-prompt-body,
 #ai-filler-prompt-container.ai-filler-collapsed #ai-filler-undo-btn,
 #ai-filler-prompt-container.ai-filler-collapsed #ai-filler-redo-btn,
-#ai-filler-prompt-container.ai-filler-collapsed #ai-filler-gear-btn {
+#ai-filler-prompt-container.ai-filler-collapsed #ai-filler-gear-btn,
+#ai-filler-prompt-container.ai-filler-collapsed #ai-filler-trash-btn {
     display: none;
 }
 

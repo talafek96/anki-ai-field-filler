@@ -414,8 +414,20 @@ class EditorIntegration:
                 cls._update_prompt_button(editor)
             return (True, None)
 
-        if message == "ai_filler:select_fields":
-            cls._on_select_fields(editor)
+        if message == "ai_filler:clear_fields":
+            if not editor.note:
+                return (True, None)
+
+            # Save state for undo
+            cls._history.save_state(editor)
+
+            # Clear all fields
+            for name in editor.note.keys():
+                editor.note[name] = ""
+
+            editor.loadNote()
+            tooltip("All fields cleared.", parent=editor.widget)
+            cls._update_prompt_button(editor)
             return (True, None)
 
         if message.startswith("ai_filler:save_collapsed_state:"):
