@@ -79,9 +79,7 @@ def test_provider_connection(config: ProviderConfig) -> Tuple[bool, str]:
         return False, f"Unexpected error: {e}"
 
 
-def fetch_available_models(
-    config: ProviderConfig, capability: str = "text"
-) -> List[str]:
+def fetch_available_models(config: ProviderConfig, capability: str = "text") -> List[str]:
     """Fetch available models from a provider's API."""
     if config.provider_type in ("openai", "vercel"):
         return _fetch_openai_models(config, capability)
@@ -176,10 +174,7 @@ def _classify_google_model(model: dict, methods: List[str]) -> str | None:
     name = model.get("name", "").lower()
     searchable = f"{desc} {display} {name}"
 
-    if any(
-        s in searchable
-        for s in ("image generation", "image editing", "imagen", "nano banana")
-    ):
+    if any(s in searchable for s in ("image generation", "image editing", "imagen", "nano banana")):
         return "image"
     if any(s in searchable for s in ("text-to-speech", "tts", "speech synthesis")):
         return "tts"

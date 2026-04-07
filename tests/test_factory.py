@@ -124,9 +124,7 @@ class TestClassifyOpenAI:
 class TestClassifyGoogle:
     """Verify Google model classification using metadata."""
 
-    def _model(
-        self, name: str, desc: str = "", display: str = "", methods: list | None = None
-    ) -> tuple[dict, list]:
+    def _model(self, name: str, desc: str = "", display: str = "", methods: list | None = None) -> tuple[dict, list]:
         m = {"name": f"models/{name}", "description": desc, "displayName": display}
         return m, methods or ["generateContent"]
 

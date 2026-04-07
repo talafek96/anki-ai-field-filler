@@ -30,8 +30,6 @@ PROVIDER_CAPABILITIES = {
 }
 
 
-
-
 class _AutoFetchCombo(QComboBox):
     """QComboBox that emits popupAboutToShow before showing the list."""
 
@@ -53,9 +51,7 @@ class ModelComboWithRefresh(QWidget):
 
     modelsRequested = pyqtSignal()
 
-    def __init__(
-        self, placeholder: str = "", tool_tip: str = "", parent: QWidget | None = None
-    ) -> None:
+    def __init__(self, placeholder: str = "", tool_tip: str = "", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         lay = QHBoxLayout()
         lay.setContentsMargins(0, 0, 0, 0)
@@ -65,16 +61,12 @@ class ModelComboWithRefresh(QWidget):
         self._combo.setEditable(True)
         self._combo.lineEdit().setPlaceholderText(placeholder)
         self._combo.setToolTip(tool_tip)
-        self._combo.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        self._combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._combo.popupAboutToShow.connect(self._on_popup)
         lay.addWidget(self._combo)
 
         self._refresh_btn = QToolButton()
-        self._refresh_btn.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
-        )
+        self._refresh_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
         self._refresh_btn.setToolTip("Fetch available models from the API")
         self._refresh_btn.setFixedSize(26, 26)
         lay.addWidget(self._refresh_btn)
@@ -160,9 +152,7 @@ class ModelSettingsTab(QWidget):
             placeholder="e.g. gpt-4o",
             tool_tip="Model for text generation. Click refresh to load from API.",
         )
-        qconnect(
-            self._text_model_combo.modelsRequested, lambda: self._fetch_models("text")
-        )
+        qconnect(self._text_model_combo.modelsRequested, lambda: self._fetch_models("text"))
         qconnect(
             self._text_model_combo.refreshButton().clicked,
             lambda: self._fetch_models("text"),
@@ -193,12 +183,8 @@ class ModelSettingsTab(QWidget):
         tsf.addRow("TTS Provider:", self._active_tts_combo)
 
         # Model selection for TTS
-        self._tts_model_combo = ModelComboWithRefresh(
-            placeholder="e.g. tts-1", tool_tip="Model for speech generation."
-        )
-        qconnect(
-            self._tts_model_combo.modelsRequested, lambda: self._fetch_models("tts")
-        )
+        self._tts_model_combo = ModelComboWithRefresh(placeholder="e.g. tts-1", tool_tip="Model for speech generation.")
+        qconnect(self._tts_model_combo.modelsRequested, lambda: self._fetch_models("tts"))
         qconnect(
             self._tts_model_combo.refreshButton().clicked,
             lambda: self._fetch_models("tts"),
@@ -231,9 +217,7 @@ class ModelSettingsTab(QWidget):
         self._image_model_combo = ModelComboWithRefresh(
             placeholder="e.g. dall-e-3", tool_tip="Model for image generation."
         )
-        qconnect(
-            self._image_model_combo.modelsRequested, lambda: self._fetch_models("image")
-        )
+        qconnect(self._image_model_combo.modelsRequested, lambda: self._fetch_models("image"))
         qconnect(
             self._image_model_combo.refreshButton().clicked,
             lambda: self._fetch_models("image"),
@@ -250,9 +234,7 @@ class ModelSettingsTab(QWidget):
 
     def _setup_provider_combo(self, combo: QComboBox, capability: str) -> None:
         """Helper to populate a provider combo box with icons and labels."""
-        addon_dir = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        )
+        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         icons_dir = os.path.join(addon_dir, "assets", "providers")
         provider_icons = {
             "openai": "openai.svg",
@@ -272,9 +254,7 @@ class ModelSettingsTab(QWidget):
             icon_file = provider_icons.get(ptype)
             if icon_file:
                 icon_path = os.path.join(icons_dir, icon_file)
-                combo.addItem(
-                    get_themed_icon(icon_path, 18, should_tint=False), label, ptype
-                )
+                combo.addItem(get_themed_icon(icon_path, 18, should_tint=False), label, ptype)
             else:
                 combo.addItem(label, ptype)
 
@@ -382,18 +362,10 @@ class ModelSettingsTab(QWidget):
         def do_fetch() -> None:
             try:
                 models = fetch_available_models(cfg, capability)
-                mw.taskman.run_on_main(
-                    lambda: self._on_models_fetched(
-                        ptype, capability, target, models, None
-                    )
-                )
+                mw.taskman.run_on_main(lambda: self._on_models_fetched(ptype, capability, target, models, None))
             except Exception as e:
                 err_msg = str(e)
-                mw.taskman.run_on_main(
-                    lambda: self._on_models_fetched(
-                        ptype, capability, target, [], err_msg
-                    )
-                )
+                mw.taskman.run_on_main(lambda: self._on_models_fetched(ptype, capability, target, [], err_msg))
 
         threading.Thread(target=do_fetch, daemon=True).start()
 
@@ -452,12 +424,6 @@ class ModelSettingsTab(QWidget):
     def save(self) -> None:
         """Save both specific model settings and active provider choices."""
         self._save_all_configs()
-        self._config.set_active_provider_type(
-            "text", self._active_text_combo.currentData()
-        )
-        self._config.set_active_provider_type(
-            "tts", self._active_tts_combo.currentData()
-        )
-        self._config.set_active_provider_type(
-            "image", self._active_image_combo.currentData()
-        )
+        self._config.set_active_provider_type("text", self._active_text_combo.currentData())
+        self._config.set_active_provider_type("tts", self._active_tts_combo.currentData())
+        self._config.set_active_provider_type("image", self._active_image_combo.currentData())

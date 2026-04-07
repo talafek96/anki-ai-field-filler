@@ -66,9 +66,7 @@ class GeneralSettingsTab(QWidget):
         self._provider_combo.setMinimumWidth(180)
 
         # Icon paths
-        addon_dir = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        )
+        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
         icons_dir = os.path.join(addon_dir, "assets", "providers")
         provider_icons = {
             "openai": "openai.svg",
@@ -135,9 +133,7 @@ class GeneralSettingsTab(QWidget):
         shortcut_layout = QFormLayout()
         self._fill_all_shortcut = QLineEdit()
         self._fill_all_shortcut.setPlaceholderText("e.g. Ctrl+Shift+G")
-        shortcut_layout.addRow(
-            "Fill Shortcut (opens selection dialog):", self._fill_all_shortcut
-        )
+        shortcut_layout.addRow("Fill Shortcut (opens selection dialog):", self._fill_all_shortcut)
         auto_layout.addLayout(shortcut_layout)
 
         auto_layout.addSpacing(4)
@@ -198,9 +194,7 @@ class GeneralSettingsTab(QWidget):
         self._config.set_provider_config(ptype, cfg)
 
     def _toggle_key_visibility(self, visible: bool) -> None:
-        self._key_edit.setEchoMode(
-            QLineEdit.EchoMode.Normal if visible else QLineEdit.EchoMode.Password
-        )
+        self._key_edit.setEchoMode(QLineEdit.EchoMode.Normal if visible else QLineEdit.EchoMode.Password)
 
     def _test_connection(self) -> None:
         self._save_current_provider()

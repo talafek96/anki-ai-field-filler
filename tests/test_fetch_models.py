@@ -33,9 +33,7 @@ class TestFetchOpenAIModels:
                 ]
             }
         ).encode("utf-8")
-        cfg = ProviderConfig(
-            provider_type="openai", api_url="https://api.test/v1", api_key="k"
-        )
+        cfg = ProviderConfig(provider_type="openai", api_url="https://api.test/v1", api_key="k")
         result = fetch_available_models(cfg, "text")
         assert result == ["gpt-4o", "gpt-5"]
 
@@ -50,9 +48,7 @@ class TestFetchOpenAIModels:
                 ]
             }
         ).encode("utf-8")
-        cfg = ProviderConfig(
-            provider_type="openai", api_url="https://api.test/v1", api_key="k"
-        )
+        cfg = ProviderConfig(provider_type="openai", api_url="https://api.test/v1", api_key="k")
         result = fetch_available_models(cfg, "tts")
         assert result == ["gpt-4o-mini-tts", "tts-1"]
 
@@ -67,9 +63,7 @@ class TestFetchOpenAIModels:
                 ]
             }
         ).encode("utf-8")
-        cfg = ProviderConfig(
-            provider_type="openai", api_url="https://api.test/v1", api_key="k"
-        )
+        cfg = ProviderConfig(provider_type="openai", api_url="https://api.test/v1", api_key="k")
         result = fetch_available_models(cfg, "image")
         assert result == ["dall-e-3", "gpt-image-1"]
 
@@ -85,9 +79,7 @@ class TestFetchAnthropicModels:
                 ]
             }
         ).encode("utf-8")
-        cfg = ProviderConfig(
-            provider_type="anthropic", api_url="https://api.test/v1", api_key="k"
-        )
+        cfg = ProviderConfig(provider_type="anthropic", api_url="https://api.test/v1", api_key="k")
         result = fetch_available_models(cfg, "text")
         assert result == ["claude-3-haiku-20240307", "claude-sonnet-4-20250514"]
 
@@ -119,9 +111,7 @@ class TestFetchGoogleModels:
                 ]
             }
         ).encode("utf-8")
-        cfg = ProviderConfig(
-            provider_type="google", api_url="https://api.test/v1beta", api_key="k"
-        )
+        cfg = ProviderConfig(provider_type="google", api_url="https://api.test/v1beta", api_key="k")
         result = fetch_available_models(cfg, "text")
         assert result == ["gemini-2.5-flash"]
 
@@ -145,18 +135,14 @@ class TestFetchGoogleModels:
                 ]
             }
         ).encode("utf-8")
-        cfg = ProviderConfig(
-            provider_type="google", api_url="https://api.test/v1beta", api_key="k"
-        )
+        cfg = ProviderConfig(provider_type="google", api_url="https://api.test/v1beta", api_key="k")
         result = fetch_available_models(cfg, "image")
         assert result == ["gemini-2.5-flash-image"]
 
 
 class TestFetchUnknownProvider:
     def test_returns_empty_list(self) -> None:
-        cfg = ProviderConfig(
-            provider_type="unknown", api_url="https://test", api_key="k"
-        )
+        cfg = ProviderConfig(provider_type="unknown", api_url="https://test", api_key="k")
         assert fetch_available_models(cfg, "text") == []
 
 
@@ -168,9 +154,9 @@ class TestFetchUnknownProvider:
 class TestTestProviderConnection:
     def test_success(self, mock_urlopen) -> None:
         mock_urlopen.side_effect = None
-        mock_urlopen.return_value.read.return_value = json.dumps(
-            {"choices": [{"message": {"content": "OK"}}]}
-        ).encode("utf-8")
+        mock_urlopen.return_value.read.return_value = json.dumps({"choices": [{"message": {"content": "OK"}}]}).encode(
+            "utf-8"
+        )
         cfg = ProviderConfig(
             provider_type="openai",
             api_url="https://api.test/v1",

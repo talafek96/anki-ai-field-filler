@@ -91,10 +91,7 @@ class FieldInstructionDialog(QDialog):
 
         layout.addLayout(row)
 
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save
-            | QDialogButtonBox.StandardButton.Cancel
-        )
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         qconnect(button_box.accepted, self._save_and_close)
         qconnect(button_box.rejected, self.reject)
         layout.addWidget(button_box)
@@ -112,9 +109,7 @@ class FieldInstructionDialog(QDialog):
 
     def _load(self) -> None:
         deck = self._selected_deck()
-        instructions = self._config.get_field_instructions(
-            self._note_type_name, deck_name=deck
-        )
+        instructions = self._config.get_field_instructions(self._note_type_name, deck_name=deck)
         instr = instructions.get(self._field_name, FieldInstruction())
         self._instruction_edit.setPlainText(instr.instruction)
         idx = self._type_combo.findData(instr.field_type)
@@ -129,8 +124,6 @@ class FieldInstructionDialog(QDialog):
             auto_fill=self._auto_fill_check.isChecked(),
         )
         deck = self._selected_deck()
-        self._config.set_field_instruction(
-            self._note_type_name, self._field_name, instruction, deck_name=deck
-        )
+        self._config.set_field_instruction(self._note_type_name, self._field_name, instruction, deck_name=deck)
         self._config.write()
         self.accept()

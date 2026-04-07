@@ -65,9 +65,7 @@ class BrowserIntegration:
         if not selected:
             return
         menu.addSeparator()
-        action = menu.addAction(
-            f"\u2728 AI: Batch fill blank fields ({len(selected)} cards)"
-        )
+        action = menu.addAction(f"\u2728 AI: Batch fill blank fields ({len(selected)} cards)")
         qconnect(action.triggered, lambda: cls._on_batch_fill(browser, selected))
 
     @classmethod
@@ -92,9 +90,7 @@ class BrowserIntegration:
             note_types[nt_name] = note_types.get(nt_name, 0) + 1
 
         if len(note_types) > 1:
-            detail = "\n".join(
-                f"  - {name}: {count} notes" for name, count in note_types.items()
-            )
+            detail = "\n".join(f"  - {name}: {count} notes" for name, count in note_types.items())
             showWarning(
                 "Batch fill requires all selected cards to be the "
                 "same note type.\n\n"
@@ -172,12 +168,7 @@ class BrowserIntegration:
 class FieldSelectorDialog(QDialog):
     """A dialog to select which fields the AI should fill/update."""
 
-    def __init__(
-        self,
-        fields: List[str],
-        selected: List[str],
-        parent: Optional[QWidget] = None
-    ):
+    def __init__(self, fields: List[str], selected: List[str], parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle("AI Filler: Select Fields")
         self.setMinimumWidth(300)
@@ -191,9 +182,7 @@ class FieldSelectorDialog(QDialog):
             self.checkboxes[field] = cb
             layout.addWidget(cb)
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -288,10 +277,7 @@ class EditorIntegration:
         gui_hooks.editor_will_show_context_menu.append(cls._add_context_menu)
         gui_hooks.editor_did_init.append(cls._on_editor_did_init)
         gui_hooks.editor_did_load_note.append(cls._on_editor_did_load_note)
-        gui_hooks.webview_did_receive_js_message.append(
-            cls._on_webview_did_receive_js_message
-        )
-
+        gui_hooks.webview_did_receive_js_message.append(cls._on_webview_did_receive_js_message)
 
     @classmethod
     def _add_context_menu(cls, webview: EditorWebView, menu: QMenu) -> None:
@@ -311,9 +297,7 @@ class EditorIntegration:
             return
         note_type_name = editor.note.note_type()["name"]
         deck_name = _current_deck_name(editor)
-        dialog = FieldInstructionDialog(
-            note_type_name, field_name, deck_name=deck_name, parent=editor.widget
-        )
+        dialog = FieldInstructionDialog(note_type_name, field_name, deck_name=deck_name, parent=editor.widget)
         dialog.exec()
 
     @classmethod
@@ -371,9 +355,7 @@ class EditorIntegration:
             with open(css_path, "r", encoding="utf-8") as f:
                 css = f.read().replace("`", "\\`").replace("\n", " ")
                 webview.eval(
-                    "const s = document.createElement('style'); "
-                    f"s.innerHTML = `{css}`; "
-                    "document.head.appendChild(s);"
+                    f"const s = document.createElement('style'); s.innerHTML = `{css}`; document.head.appendChild(s);"
                 )
 
             # Read SVG sparkle icon
@@ -437,7 +419,7 @@ class EditorIntegration:
             return (True, None)
 
         if message.startswith("ai_filler:save_collapsed_state:"):
-            is_collapsed = message[len("ai_filler:save_collapsed_state:"):] == "true"
+            is_collapsed = message[len("ai_filler:save_collapsed_state:") :] == "true"
             config = Config()
             settings = config.get_general_settings()
             settings.prompt_expanded = not is_collapsed
@@ -460,11 +442,7 @@ class EditorIntegration:
         if eid not in cls._selected_fields:
             cls._selected_fields[eid] = all_fields
 
-        dialog = FieldSelectorDialog(
-            all_fields,
-            cls._selected_fields[eid],
-            parent=editor.widget
-        )
+        dialog = FieldSelectorDialog(all_fields, cls._selected_fields[eid], parent=editor.widget)
 
         if dialog.exec():
             cls._selected_fields[eid] = dialog.get_selected_fields()
@@ -486,9 +464,7 @@ class EditorIntegration:
             config = Config()
             note_type_name = note.note_type()["name"]
             deck_name = _current_deck_name(editor)
-            field_instructions = config.get_field_instructions(
-                note_type_name, deck_name=deck_name
-            )
+            field_instructions = config.get_field_instructions(note_type_name, deck_name=deck_name)
 
             target_fields = []
             for name in note.keys():
@@ -536,9 +512,7 @@ class EditorIntegration:
             config = Config()
             note_type_name = note.note_type()["name"]
             deck_name = _current_deck_name(editor)
-            field_instructions = config.get_field_instructions(
-                note_type_name, deck_name=deck_name
-            )
+            field_instructions = config.get_field_instructions(note_type_name, deck_name=deck_name)
 
             target_fields = []
             for name in note.keys():

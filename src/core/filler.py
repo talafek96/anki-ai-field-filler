@@ -162,9 +162,7 @@ class Filler:
         note_type_name = note_type["name"]
         field_names = list(note.keys())
         field_values = {name: note[name] for name in field_names}
-        field_instructions = self._config.get_field_instructions(
-            note_type_name, deck_name=deck_name
-        )
+        field_instructions = self._config.get_field_instructions(note_type_name, deck_name=deck_name)
 
         user_message = self._build_user_prompt(
             note_type_name,
@@ -195,12 +193,8 @@ class Filler:
                             tts_config = self._config.get_active_tts_provider()
                             if tts_config:
                                 tts = create_tts_provider(tts_config)
-                                audio_bytes = with_retry(
-                                    tts.synthesize, content, context=tts_context
-                                )
-                                results[field_name] = Media.save_audio(
-                                    audio_bytes, field_name
-                                )
+                                audio_bytes = with_retry(tts.synthesize, content, context=tts_context)
+                                results[field_name] = Media.save_audio(audio_bytes, field_name)
                             else:
                                 results[field_name] = self._to_html(content)
                         elif ftype == "image":
@@ -208,9 +202,7 @@ class Filler:
                             if img_config:
                                 img_prov = create_image_provider(img_config)
                                 img_bytes = with_retry(img_prov.generate_image, content)
-                                results[field_name] = Media.save_image(
-                                    img_bytes, field_name
-                                )
+                                results[field_name] = Media.save_image(img_bytes, field_name)
                             else:
                                 results[field_name] = self._to_html(content)
                         else:
@@ -219,22 +211,15 @@ class Filler:
                             image_prompt = field_data.get("image_prompt", "")
                             if image_prompt:
                                 try:
-                                    img_config = (
-                                        self._config.get_active_image_provider()
-                                    )
+                                    img_config = self._config.get_active_image_provider()
                                     if img_config:
                                         img_prov = create_image_provider(img_config)
-                                        img_bytes = with_retry(
-                                            img_prov.generate_image, image_prompt
-                                        )
-                                        img_tag = Media.save_image(
-                                            img_bytes, field_name
-                                        )
+                                        img_bytes = with_retry(img_prov.generate_image, image_prompt)
+                                        img_tag = Media.save_image(img_bytes, field_name)
                                         html = f"{html}<br><br>{img_tag}"
                                 except Exception as img_err:
                                     field_errors.append(
-                                        f"{field_name} (inline image,"
-                                        f" prompt: {image_prompt!r}): {img_err}"
+                                        f"{field_name} (inline image, prompt: {image_prompt!r}): {img_err}"
                                     )
                             results[field_name] = html
                     except Exception as e:
@@ -253,9 +238,7 @@ class Filler:
                             missing,
                             user_prompt,
                         )
-                        retry_parsed = self._generate_and_parse(
-                            SYSTEM_PROMPT, retry_msg
-                        )
+                        retry_parsed = self._generate_and_parse(SYSTEM_PROMPT, retry_msg)
                         for fname in missing:
                             fdata = retry_parsed.get(fname)
                             if fdata is None:
@@ -267,9 +250,7 @@ class Filler:
                                     tc = self._config.get_active_tts_provider()
                                     if tc:
                                         t = create_tts_provider(tc)
-                                        ab = with_retry(
-                                            t.synthesize, fc, context=tts_context
-                                        )
+                                        ab = with_retry(t.synthesize, fc, context=tts_context)
                                         results[fname] = Media.save_audio(ab, fname)
                                 elif ft == "image":
                                     ic = self._config.get_active_image_provider()
@@ -278,9 +259,7 @@ class Filler:
                                         ib = with_retry(ip.generate_image, fc)
                                         results[fname] = Media.save_image(ib, fname)
                                 elif ft == "rich" or self._has_flags(fc):
-                                    h, errs = self._render_rich_content(
-                                        fc, fname, fdata, tts_context=tts_context
-                                    )
+                                    h, errs = self._render_rich_content(fc, fname, fdata, tts_context=tts_context)
                                     field_errors.extend(errs)
                                     results[fname] = h
                                 else:
@@ -299,9 +278,7 @@ class Filler:
                     if failed and on_error:
                         parts: List[str] = []
                         if filled:
-                            parts.append(
-                                "Fields filled successfully: " + ", ".join(filled)
-                            )
+                            parts.append("Fields filled successfully: " + ", ".join(filled))
                         parts.append("Failed fields:")
                         # Find original errors for these failed fields
                         for f in failed:
@@ -403,9 +380,7 @@ class Filler:
         instruction_lines = []
         for name, instr in field_instructions.items():
             if instr.instruction:
-                type_hint = (
-                    f" [{instr.field_type}]" if instr.field_type != "auto" else ""
-                )
+                type_hint = f" [{instr.field_type}]" if instr.field_type != "auto" else ""
                 instruction_lines.append(f"- {name}{type_hint}: {instr.instruction}")
 
         if instruction_lines:
@@ -433,9 +408,7 @@ class Filler:
 
         return "\n".join(parts)
 
-    def _generate_and_parse(
-        self, system_prompt: str, user_message: str
-    ) -> Dict[str, Any]:
+    def _generate_and_parse(self, system_prompt: str, user_message: str) -> Dict[str, Any]:
         """Call the AI provider and parse the response.
 
         Retries the full generate+parse cycle up to 3 times with exponential
@@ -469,13 +442,9 @@ class Filler:
                 try:
                     data = json.loads(match.group())
                 except json.JSONDecodeError:
-                    raise ProviderError(
-                        f"Could not parse AI response as JSON:\n{text[:500]}"
-                    )
+                    raise ProviderError(f"Could not parse AI response as JSON:\n{text[:500]}")
             else:
-                raise ProviderError(
-                    f"Could not find JSON in AI response:\n{text[:500]}"
-                )
+                raise ProviderError(f"Could not find JSON in AI response:\n{text[:500]}")
 
         return data.get("fields", data)
 
@@ -535,15 +504,11 @@ class Filler:
                     tts_config = self._config.get_active_tts_provider()
                     if tts_config:
                         tts = create_tts_provider(tts_config)
-                        audio_bytes = with_retry(
-                            tts.synthesize, payload, context=tts_context
-                        )
+                        audio_bytes = with_retry(tts.synthesize, payload, context=tts_context)
                         return Media.save_audio(audio_bytes, part_name)
                     return ""
             except Exception as e:
-                errors.append(
-                    f"{field_name} ({kind.lower()} flag, prompt: {payload!r}): {e}"
-                )
+                errors.append(f"{field_name} ({kind.lower()} flag, prompt: {payload!r}): {e}")
                 return ""
 
         rendered = self._FLAG_RE.sub(_replace_flag, content)
@@ -578,9 +543,7 @@ class Filler:
                     img_tag = Media.save_image(img_bytes, field_name)
                     html = f"{html}<br><br>{img_tag}"
             except Exception as img_err:
-                errors.append(
-                    f"{field_name} (inline image, prompt: {image_prompt!r}): {img_err}"
-                )
+                errors.append(f"{field_name} (inline image, prompt: {image_prompt!r}): {img_err}")
         return html, errors
 
     @staticmethod
@@ -724,9 +687,7 @@ class BatchFiller:
                 self._report_progress(on_progress, idx + 1, result.total, note, start)
                 continue
 
-            field_instructions = self._config.get_field_instructions(
-                note_type_name, deck_name=item.deck_name
-            )
+            field_instructions = self._config.get_field_instructions(note_type_name, deck_name=item.deck_name)
 
             orig_values = {f: note[f] for f in blank_targets}
 
@@ -755,9 +716,7 @@ class BatchFiller:
                     user_prompt,
                 )
                 parsed = self._filler._generate_and_parse(SYSTEM_PROMPT, user_message)
-                changes, field_errors = self._render_fields(
-                    parsed, blank_targets, tts_context=tts_ctx
-                )
+                changes, field_errors = self._render_fields(parsed, blank_targets, tts_context=tts_ctx)
 
                 # Targeted retry: if some fields are missing from the result,
                 # make a cheaper follow-up call for just those fields.
@@ -771,12 +730,8 @@ class BatchFiller:
                             missing,
                             user_prompt,
                         )
-                        retry_parsed = self._filler._generate_and_parse(
-                            SYSTEM_PROMPT, retry_msg
-                        )
-                        retry_changes, retry_errors = self._render_fields(
-                            retry_parsed, missing, tts_context=tts_ctx
-                        )
+                        retry_parsed = self._filler._generate_and_parse(SYSTEM_PROMPT, retry_msg)
+                        retry_changes, retry_errors = self._render_fields(retry_parsed, missing, tts_context=tts_ctx)
                         changes.update(retry_changes)
                         field_errors.update(retry_errors)
                     except Exception:
@@ -851,9 +806,7 @@ class BatchFiller:
             note = mw.col.get_note(note_id)
             note_type_name = note.note_type()["name"]
             field_values = {name: note[name] for name in note.keys()}
-            field_instructions = self._config.get_field_instructions(
-                note_type_name, deck_name=deck_name
-            )
+            field_instructions = self._config.get_field_instructions(note_type_name, deck_name=deck_name)
             tts_ctx = Filler._build_tts_context(note_type_name, field_values)
             user_message = self._filler._build_user_prompt(
                 note_type_name,
@@ -863,9 +816,7 @@ class BatchFiller:
                 user_prompt,
             )
             parsed = self._filler._generate_and_parse(SYSTEM_PROMPT, user_message)
-            changes, field_errors = self._render_fields(
-                parsed, [field_name], tts_context=tts_ctx
-            )
+            changes, field_errors = self._render_fields(parsed, [field_name], tts_context=tts_ctx)
             new_value = changes.get(field_name, "")
             error = field_errors.get(field_name, "")
             return (new_value, error)
@@ -899,9 +850,7 @@ class BatchFiller:
                     tts_config = self._config.get_active_tts_provider()
                     if tts_config:
                         tts = create_tts_provider(tts_config)
-                        audio_bytes = with_retry(
-                            tts.synthesize, content, context=tts_context
-                        )
+                        audio_bytes = with_retry(tts.synthesize, content, context=tts_context)
                         changes[field_name] = Media.save_audio(audio_bytes, field_name)
                     else:
                         html = Filler._to_html(content)
@@ -929,16 +878,13 @@ class BatchFiller:
                             img_config = self._config.get_active_image_provider()
                             if img_config:
                                 img_prov = create_image_provider(img_config)
-                                img_bytes = with_retry(
-                                    img_prov.generate_image, image_prompt
-                                )
+                                img_bytes = with_retry(img_prov.generate_image, image_prompt)
                                 img_tag = Media.save_image(img_bytes, field_name)
                                 html = f"{html}<br><br>{img_tag}"
                         except Exception as img_err:
                             # Keep the text, just note the inline image failure
                             field_errors[field_name] = (
-                                f"Text kept, but inline image failed: {img_err}"
-                                f" (prompt: {image_prompt!r})"
+                                f"Text kept, but inline image failed: {img_err} (prompt: {image_prompt!r})"
                             )
                     if html:
                         changes[field_name] = html

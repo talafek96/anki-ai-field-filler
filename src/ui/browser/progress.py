@@ -46,9 +46,7 @@ class BatchProgressDialog(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
 
         self._status_label = QLabel("\u2728 Preparing batch...")
-        self._status_label.setStyleSheet(
-            f"font-size: 14px; font-weight: 600; color: {ACCENT_COLOR};"
-        )
+        self._status_label.setStyleSheet(f"font-size: 14px; font-weight: 600; color: {ACCENT_COLOR};")
         layout.addWidget(self._status_label)
 
         self._progress_bar = QProgressBar()
@@ -123,9 +121,7 @@ class BatchProgressDialog(QDialog):
         pct = int(p.completed / p.total * 100) if p.total else 0
         eta = _fmt_time(p.eta_seconds) if p.eta_seconds > 0 else "--:--"
         elapsed = _fmt_time(p.elapsed_seconds)
-        self._status_label.setText(
-            f"\u2728 Processing: {p.completed} / {p.total} ({pct}%)"
-        )
+        self._status_label.setText(f"\u2728 Processing: {p.completed} / {p.total} ({pct}%)")
         self._detail_label.setText(f"Elapsed: {elapsed}  \u2022  ETA: {eta}")
         if p.current_note_preview:
             self._preview_label.setText(f"Current: {p.current_note_preview}")
@@ -167,9 +163,7 @@ class BatchSummaryDialog(QDialog):
         mode = " (dry run)" if r.dry_run else ""
         icon = "\u2705" if r.failed == 0 else "\u26a0\ufe0f"
         header = QLabel(f"{icon}  Batch Complete{mode}")
-        header.setStyleSheet(
-            f"font-size: 15px; font-weight: 600; color: {ACCENT_COLOR};"
-        )
+        header.setStyleSheet(f"font-size: 15px; font-weight: 600; color: {ACCENT_COLOR};")
         layout.addWidget(header)
 
         # Summary stats
@@ -185,9 +179,7 @@ class BatchSummaryDialog(QDialog):
             stats_rows += f"<tr><td><b>Elapsed:</b></td><td>{elapsed}</td></tr>"
             if r.succeeded > 0:
                 avg = r.elapsed_seconds / r.succeeded
-                stats_rows += (
-                    f"<tr><td><b>Avg per note:</b></td><td>{avg:.1f}s</td></tr>"
-                )
+                stats_rows += f"<tr><td><b>Avg per note:</b></td><td>{avg:.1f}s</td></tr>"
         stats = QLabel(f"<table>{stats_rows}</table>")
         layout.addWidget(stats)
 

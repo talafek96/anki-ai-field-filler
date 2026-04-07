@@ -93,9 +93,7 @@ class OpenAITextProvider(_OpenAIRequestMixin, TextProvider):
 class OpenAITTSProvider(_OpenAIRequestMixin, TTSProvider):
     """OpenAI text-to-speech."""
 
-    def synthesize(
-        self, text: str, language: str = "", voice: str = "", context: str = ""
-    ) -> bytes:
+    def synthesize(self, text: str, language: str = "", voice: str = "", context: str = "") -> bytes:
         url = f"{self._config.base_url}/audio/speech"
         voice = voice or self._config.tts_voice or "alloy"
         payload = {

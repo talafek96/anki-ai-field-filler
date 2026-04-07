@@ -35,9 +35,7 @@ class TTSProvider(ABC):
         self._config = config
 
     @abstractmethod
-    def synthesize(
-        self, text: str, language: str = "", voice: str = "", context: str = ""
-    ) -> bytes:
+    def synthesize(self, text: str, language: str = "", voice: str = "", context: str = "") -> bytes:
         """Synthesize speech from text. Returns audio bytes.
 
         *context* is an optional description of the note being processed

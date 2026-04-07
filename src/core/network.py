@@ -102,9 +102,7 @@ def http_get_json(
     Raises :class:`ProviderError` on HTTP errors, connection failures,
     empty responses, or invalid JSON.
     """
-    req = urllib.request.Request(
-        url, headers={"User-Agent": _USER_AGENT, **(headers or {})}
-    )
+    req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT, **(headers or {})})
     raw = _urlopen_with_errors(req, timeout=timeout, label=label)
     return _parse_json(raw, label)
 
@@ -198,6 +196,4 @@ def _parse_json(raw: str, label: str) -> dict:
     try:
         return json.loads(raw)
     except json.JSONDecodeError as e:
-        raise ProviderError(
-            f"Invalid JSON from {label}: {e}\nResponse was: {raw[:300]}"
-        ) from e
+        raise ProviderError(f"Invalid JSON from {label}: {e}\nResponse was: {raw[:300]}") from e

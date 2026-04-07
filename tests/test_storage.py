@@ -161,10 +161,7 @@ class TestExport:
         with open(path, "r", encoding="utf-8") as fh:
             data = json.load(fh)
 
-        assert (
-            data["note_type_field_instructions"]["Basic"]["Back"]["instruction"]
-            == "Answer to the front"
-        )
+        assert data["note_type_field_instructions"]["Basic"]["Back"]["instruction"] == "Answer to the front"
 
     def test_export_does_not_mutate_input(self, tmp_path) -> None:
         config = copy.deepcopy(_SAMPLE_CONFIG)

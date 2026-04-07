@@ -51,12 +51,8 @@ class FillDialog(QDialog):
         header_row.setSpacing(10)
 
         # Icon
-        addon_dir = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        )
-        sparkles_icon = os.path.join(
-            addon_dir, "assets", "app", "sparkles.svg"
-        )
+        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        sparkles_icon = os.path.join(addon_dir, "assets", "app", "sparkles.svg")
 
         icon_label = QLabel()
         icon_label.setPixmap(get_themed_icon(sparkles_icon, 20).pixmap(20, 20))

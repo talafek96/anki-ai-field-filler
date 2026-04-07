@@ -32,9 +32,7 @@ if IS_DARK:
     _TAB_BG = "#262626"
     _TAB_HOVER = "#333333"
     # Gradient tokens (QSS syntax)
-    _USER_BUBBLE_GRADIENT = (
-        "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4F46E5, stop:1 #7C3AED)"
-    )
+    _USER_BUBBLE_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4F46E5, stop:1 #7C3AED)"
 else:
     # Light Mode Palette — Clean, modern grayscale with soft accents
     _ACCENT = "#4F46E5"
@@ -54,9 +52,7 @@ else:
     _TAB_BG = "#F3F4F6"
     _TAB_HOVER = "#E5E7EB"
     # Gradient tokens (QSS syntax)
-    _USER_BUBBLE_GRADIENT = (
-        "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4F46E5, stop:1 #7C3AED)"
-    )
+    _USER_BUBBLE_GRADIENT = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4F46E5, stop:1 #7C3AED)"
 
 # ---------------------------------------------------------------------------
 # Reusable stylesheet fragments
@@ -283,9 +279,7 @@ FIELD_ERROR_STYLE = (
     f"border-left: 3px solid #F59E0B; border-radius: 2px;"
 )
 
-CLICKABLE_ARROW_STYLE = (
-    f"font-size: 11px; color: {_TEXT_MUTED}; background: transparent; border: none;"
-)
+CLICKABLE_ARROW_STYLE = f"font-size: 11px; color: {_TEXT_MUTED}; background: transparent; border: none;"
 
 RESIZE_HANDLE_COLOR = "#555" if IS_DARK else "#C4CAD3"
 

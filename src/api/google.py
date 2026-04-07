@@ -33,9 +33,7 @@ class _GoogleRequestMixin:
             # Check for prompt-level blocking
             feedback = result.get("promptFeedback", {})
             block_reason = feedback.get("blockReason", "unknown")
-            raise ProviderError(
-                f"Google API returned no candidates (prompt blocked: {block_reason})"
-            )
+            raise ProviderError(f"Google API returned no candidates (prompt blocked: {block_reason})")
 
         candidate = candidates[0]
         content = candidate.get("content")
@@ -130,9 +128,7 @@ class GoogleTTSProvider(_GoogleRequestMixin, TTSProvider):
     https://ai.google.dev/gemini-api/docs/speech-generation.
     """
 
-    def synthesize(
-        self, text: str, language: str = "", voice: str = "", context: str = ""
-    ) -> bytes:
+    def synthesize(self, text: str, language: str = "", voice: str = "", context: str = "") -> bytes:
         model = self._config.tts_model or "gemini-2.5-flash-preview-tts"
         voice_name = voice or self._config.tts_voice or "Kore"
 
@@ -145,9 +141,7 @@ class GoogleTTSProvider(_GoogleRequestMixin, TTSProvider):
                 "Use the following context to determine the correct "
                 "language, pronunciation, intonation, and speaking style:\n" + context
             )
-        prompt_parts.append(
-            "Read the following text aloud exactly as written:\n" + text
-        )
+        prompt_parts.append("Read the following text aloud exactly as written:\n" + text)
         prompt = "\n\n".join(prompt_parts)
 
         payload = {

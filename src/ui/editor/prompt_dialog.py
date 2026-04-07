@@ -42,9 +42,7 @@ class QuickPromptDialog(QDialog):
 
         layout.addWidget(QLabel("Additional instructions (optional):"))
         self._prompt_edit = QPlainTextEdit()
-        self._prompt_edit.setPlaceholderText(
-            "Add any extra context to guide the AI for this field..."
-        )
+        self._prompt_edit.setPlaceholderText("Add any extra context to guide the AI for this field...")
         self._prompt_edit.setMaximumHeight(80)
         layout.addWidget(self._prompt_edit)
 

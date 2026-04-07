@@ -80,9 +80,7 @@ class TestOpenAITextProvider:
             BytesIO(b'{"error": {"message": "max_completion_tokens is unsupported"}}'),
         )
         success_mock = MagicMock()
-        success_mock.read.return_value = json.dumps(
-            {"choices": [{"message": {"content": "OK"}}]}
-        ).encode("utf-8")
+        success_mock.read.return_value = json.dumps({"choices": [{"message": {"content": "OK"}}]}).encode("utf-8")
         success_mock.__enter__.return_value = success_mock
 
         mock_urlopen.side_effect = [error, success_mock]
@@ -120,9 +118,7 @@ class TestOpenAIImageProvider:
         img_data = b"PNG-image-bytes"
         b64 = base64.b64encode(img_data).decode()
         mock_urlopen.side_effect = None
-        mock_urlopen.return_value.read.return_value = json.dumps(
-            {"data": [{"b64_json": b64}]}
-        ).encode("utf-8")
+        mock_urlopen.return_value.read.return_value = json.dumps({"data": [{"b64_json": b64}]}).encode("utf-8")
         cfg = ProviderConfig(**{**_OPENAI_CFG.__dict__, "image_model": "dall-e-3"})
         provider = OpenAIImageProvider(cfg)
         result = provider.generate_image("a cat")
@@ -137,9 +133,7 @@ class TestOpenAIImageProvider:
         img_data = b"PNG-image-bytes"
         b64 = base64.b64encode(img_data).decode()
         mock_urlopen.side_effect = None
-        mock_urlopen.return_value.read.return_value = json.dumps(
-            {"data": [{"b64_json": b64}]}
-        ).encode("utf-8")
+        mock_urlopen.return_value.read.return_value = json.dumps({"data": [{"b64_json": b64}]}).encode("utf-8")
         cfg = ProviderConfig(**{**_OPENAI_CFG.__dict__, "image_model": "gpt-image-1"})
         provider = OpenAIImageProvider(cfg)
         result = provider.generate_image("a dog")
@@ -160,14 +154,10 @@ class TestOpenAIImageProvider:
             400,
             "Bad Request",
             {},
-            BytesIO(
-                b'{"error": {"message": "Unknown parameter: \'response_format\'."}}'
-            ),
+            BytesIO(b'{"error": {"message": "Unknown parameter: \'response_format\'."}}'),
         )
         success_mock = MagicMock()
-        success_mock.read.return_value = json.dumps(
-            {"data": [{"b64_json": b64}]}
-        ).encode("utf-8")
+        success_mock.read.return_value = json.dumps({"data": [{"b64_json": b64}]}).encode("utf-8")
         success_mock.__enter__.return_value = success_mock
 
         mock_urlopen.side_effect = [error, success_mock]
@@ -192,9 +182,9 @@ class TestOpenAIImageProvider:
 class TestAnthropicTextProvider:
     def test_generate(self, mock_urlopen) -> None:
         mock_urlopen.side_effect = None
-        mock_urlopen.return_value.read.return_value = json.dumps(
-            {"content": [{"text": "Claude says hi"}]}
-        ).encode("utf-8")
+        mock_urlopen.return_value.read.return_value = json.dumps({"content": [{"text": "Claude says hi"}]}).encode(
+            "utf-8"
+        )
         provider = AnthropicTextProvider(_ANTHROPIC_CFG)
         result = provider.generate("system", "user")
         assert result == "Claude says hi"
@@ -231,18 +221,18 @@ class TestGoogleTextProvider:
 
     def test_generate_prompt_blocked(self, mock_urlopen) -> None:
         mock_urlopen.side_effect = None
-        mock_urlopen.return_value.read.return_value = json.dumps(
-            {"promptFeedback": {"blockReason": "SAFETY"}}
-        ).encode("utf-8")
+        mock_urlopen.return_value.read.return_value = json.dumps({"promptFeedback": {"blockReason": "SAFETY"}}).encode(
+            "utf-8"
+        )
         provider = GoogleTextProvider(_GOOGLE_CFG)
         with pytest.raises(ProviderError, match="prompt blocked: SAFETY"):
             provider.generate("system", "user")
 
     def test_generate_no_content(self, mock_urlopen) -> None:
         mock_urlopen.side_effect = None
-        mock_urlopen.return_value.read.return_value = json.dumps(
-            {"candidates": [{"finishReason": "SAFETY"}]}
-        ).encode("utf-8")
+        mock_urlopen.return_value.read.return_value = json.dumps({"candidates": [{"finishReason": "SAFETY"}]}).encode(
+            "utf-8"
+        )
         provider = GoogleTextProvider(_GOOGLE_CFG)
         with pytest.raises(ProviderError, match="finishReason: SAFETY"):
             provider.generate("system", "user")
@@ -296,17 +286,7 @@ class TestGoogleTTSProvider:
         b64 = base64.b64encode(audio).decode()
         mock_urlopen.side_effect = None
         mock_urlopen.return_value.read.return_value = json.dumps(
-            {
-                "candidates": [
-                    {
-                        "content": {
-                            "parts": [
-                                {"inlineData": {"data": b64, "mimeType": "audio/wav"}}
-                            ]
-                        }
-                    }
-                ]
-            }
+            {"candidates": [{"content": {"parts": [{"inlineData": {"data": b64, "mimeType": "audio/wav"}}]}}]}
         ).encode("utf-8")
         provider = GoogleTTSProvider(_GOOGLE_CFG)
         result = provider.synthesize("Hello")

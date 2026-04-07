@@ -264,11 +264,7 @@ class _ImageTextEdit(QTextEdit):
                 return super().loadResource(rtype, url)  # type: ignore[arg-type]
             vp = self.viewport()
             max_w = (vp.width() - 10) if vp and vp.width() > 50 else _IMG_MAX_W
-            max_h = (
-                (vp.height() - 10)
-                if vp and vp.height() > 50
-                else _INITIAL_CONTENT_HEIGHT
-            )
+            max_h = (vp.height() - 10) if vp and vp.height() > 50 else _INITIAL_CONTENT_HEIGHT
             # Scale to fit BOTH width and height, preserving aspect ratio
             scale_w = max_w / img.width() if img.width() > max_w else 1.0
             scale_h = max_h / img.height() if img.height() > max_h else 1.0
@@ -346,9 +342,7 @@ class BatchReviewDialog(QDialog):
         self._content_containers: Dict[int, QWidget] = {}
         self._collapse_arrows: Dict[int, _ClickableArrow] = {}
         self._proposal_widgets: List[QGroupBox] = []
-        self._proposal_types: List[Set[str]] = [
-            _classify_proposal(p) for p in proposals
-        ]
+        self._proposal_types: List[Set[str]] = [_classify_proposal(p) for p in proposals]
         self._status_filter: str = "all"
         self._content_filters: Set[str] = set()
         self._filter_fields_only = False  # True = show only matching fields
@@ -356,9 +350,7 @@ class BatchReviewDialog(QDialog):
         self._user_prompt = user_prompt
         self._note_items = note_items or []
         self._regen_buttons: Dict[tuple, QPushButton] = {}  # immediate regen buttons
-        self._regen_checks: Dict[
-            tuple, QCheckBox
-        ] = {}  # batch regen staging checkboxes
+        self._regen_checks: Dict[tuple, QCheckBox] = {}  # batch regen staging checkboxes
         self._regen_original: Dict[tuple, str] = {}
         # Container for audio play buttons per field, so we can rebuild on regen
         self._sound_containers: Dict[tuple, QWidget] = {}
@@ -396,9 +388,7 @@ class BatchReviewDialog(QDialog):
         header_icon.setPixmap(get_themed_icon(icon_path, 22).pixmap(22, 22))
         header_h_layout.addWidget(header_icon)
 
-        parts = [
-            f"{len(successful)} notes to {'process' if self._dry_run else 'update'}"
-        ]
+        parts = [f"{len(successful)} notes to {'process' if self._dry_run else 'update'}"]
         if partial:
             parts.append(f"{len(partial)} partially failed")
         if failed:
@@ -475,9 +465,7 @@ class BatchReviewDialog(QDialog):
 
             if self._batch_filler is not None:
                 self._batch_regen_btn = self._flat_btn(" Regenerate Marked")
-                self._batch_regen_btn.setToolTip(
-                    "Regenerate all fields with amber toggle active"
-                )
+                self._batch_regen_btn.setToolTip("Regenerate all fields with amber toggle active")
                 qconnect(self._batch_regen_btn.clicked, self._on_batch_regenerate)
                 toolbar.addWidget(self._batch_regen_btn)
 
@@ -624,9 +612,7 @@ class BatchReviewDialog(QDialog):
         if not prop.success:
             err_row = QHBoxLayout()
             err_icon = QLabel()
-            err_icon.setPixmap(
-                get_themed_icon(self._icons["warning"], 14).pixmap(14, 14)
-            )
+            err_icon.setPixmap(get_themed_icon(self._icons["warning"], 14).pixmap(14, 14))
             err_row.addWidget(err_icon)
             err_text = QLabel(f"Error: {prop.error}")
             err_text.setStyleSheet("color: #DC2626; font-size: 12px;")
@@ -653,9 +639,7 @@ class BatchReviewDialog(QDialog):
 
                 err_row = QHBoxLayout()
                 err_icon = QLabel()
-                err_icon.setPixmap(
-                    get_themed_icon(self._icons["warning"], 14).pixmap(14, 14)
-                )
+                err_icon.setPixmap(get_themed_icon(self._icons["warning"], 14).pixmap(14, 14))
                 err_row.addWidget(err_icon)
                 err_text = QLabel(f"<b>{field_name}</b>: {err_msg}")
                 err_text.setStyleSheet(_FIELD_ERROR_STYLE)
@@ -672,9 +656,7 @@ class BatchReviewDialog(QDialog):
 
     _MAX_ERROR_PREVIEW = 200
 
-    def _add_error_block(
-        self, parent_layout: QVBoxLayout, text: str, style: str
-    ) -> None:
+    def _add_error_block(self, parent_layout: QVBoxLayout, text: str, style: str) -> None:
         if len(text) <= self._MAX_ERROR_PREVIEW:
             label = QLabel(text)
             label.setStyleSheet(style)
@@ -716,9 +698,7 @@ class BatchReviewDialog(QDialog):
     # Field preview (single-column)
     # ------------------------------------------------------------------
 
-    def _add_field_preview(
-        self, parent_layout: QVBoxLayout, prop_idx: int, field_name: str, value: str
-    ) -> None:
+    def _add_field_preview(self, parent_layout: QVBoxLayout, prop_idx: int, field_name: str, value: str) -> None:
         # Wrapper widget so we can show/hide the entire field block
         field_wrapper = QWidget()
         field_inner = QVBoxLayout()
@@ -756,9 +736,7 @@ class BatchReviewDialog(QDialog):
             # Batch regen checkbox — clearly labeled
             regen_cb = QCheckBox("Batch regen")
             regen_cb.setChecked(False)
-            regen_cb.setToolTip(
-                "Check this to include the field when clicking 'Regenerate Marked'"
-            )
+            regen_cb.setToolTip("Check this to include the field when clicking 'Regenerate Marked'")
             regen_cb.setStyleSheet(
                 "QCheckBox { font-size: 11px; color: #92400E; }"
                 "QCheckBox::indicator:checked { background: #F59E0B; border-color: #D97706; }"
@@ -773,9 +751,7 @@ class BatchReviewDialog(QDialog):
             regen_btn.setStyleSheet(REGEN_TOGGLE_STYLE)
             qconnect(
                 regen_btn.clicked,
-                lambda _c=False, pi=prop_idx, fn=field_name: self._on_regenerate(
-                    pi, fn
-                ),
+                lambda _c=False, pi=prop_idx, fn=field_name: self._on_regenerate(pi, fn),
             )
             label_row.addWidget(regen_btn)
             self._regen_buttons[(prop_idx, field_name)] = regen_btn
@@ -835,15 +811,11 @@ class BatchReviewDialog(QDialog):
             btn.setStyleSheet("QPushButton { padding: 3px 8px; font-size: 11px; }")
             qconnect(
                 btn.clicked,
-                lambda _c=False, f=fname: av_player.play_tags(
-                    [SoundOrVideoTag(filename=f)]
-                ),
+                lambda _c=False, f=fname: av_player.play_tags([SoundOrVideoTag(filename=f)]),
             )
             layout.addWidget(btn)
 
-    def _rebuild_sound_buttons(
-        self, prop_idx: int, field_name: str, value: str
-    ) -> None:
+    def _rebuild_sound_buttons(self, prop_idx: int, field_name: str, value: str) -> None:
         """Replace the audio play buttons for a field after regeneration."""
         key = (prop_idx, field_name)
         container = self._sound_containers.get(key)
@@ -904,11 +876,7 @@ class BatchReviewDialog(QDialog):
             return
         self._updating_checks = True
         try:
-            note_cb = (
-                self._note_checks[prop_idx]
-                if prop_idx < len(self._note_checks)
-                else None
-            )
+            note_cb = self._note_checks[prop_idx] if prop_idx < len(self._note_checks) else None
             if note_cb is None:
                 return
             prop = self._proposals[prop_idx]
@@ -1033,9 +1001,7 @@ class BatchReviewDialog(QDialog):
             # - "Errors" status: show all fields (entire note failed)
             field_keys = [(pi, fn) for (pi, fn) in self._field_containers if pi == idx]
             should_filter_fields = (
-                show
-                and self._filter_fields_only
-                and (self._content_filters or self._status_filter == "partial")
+                show and self._filter_fields_only and (self._content_filters or self._status_filter == "partial")
             )
             if should_filter_fields:
                 for pi, fn in field_keys:
@@ -1068,9 +1034,7 @@ class BatchReviewDialog(QDialog):
 
         total = len(self._proposals)
         if visible_count == 0:
-            self._header_label.setText(
-                f"No proposals match the current filters ({total} total)"
-            )
+            self._header_label.setText(f"No proposals match the current filters ({total} total)")
         elif visible_count < total:
             self._header_label.setText(f"Showing {visible_count} of {total} notes")
         else:
@@ -1078,9 +1042,7 @@ class BatchReviewDialog(QDialog):
             failed = [p for p in self._proposals if not p.success]
             partial = [p for p in successful if p.field_errors]
             icon = "\U0001f50d" if self._dry_run else "\u2705"
-            parts = [
-                f"{icon}  {len(successful)} notes to {'process' if self._dry_run else 'update'}"
-            ]
+            parts = [f"{icon}  {len(successful)} notes to {'process' if self._dry_run else 'update'}"]
             if partial:
                 parts.append(f"{len(partial)} partially failed")
             if failed:
@@ -1092,9 +1054,7 @@ class BatchReviewDialog(QDialog):
     def _matches_filters(self, idx: int, prop: BatchProposedChange) -> bool:
         if self._status_filter == "errors" and prop.success:
             return False
-        if self._status_filter == "partial" and not (
-            prop.success and prop.field_errors
-        ):
+        if self._status_filter == "partial" and not (prop.success and prop.field_errors):
             return False
         # Content filters don't apply to failed/empty notes (they have no content to classify)
         if self._content_filters and prop.changes:
@@ -1176,9 +1136,7 @@ class BatchReviewDialog(QDialog):
 
     def _on_batch_regenerate(self) -> None:
         """Regenerate all fields staged via the 'Stage' checkboxes."""
-        selected = [
-            (pi, fn) for (pi, fn), cb in self._regen_checks.items() if cb.isChecked()
-        ]
+        selected = [(pi, fn) for (pi, fn), cb in self._regen_checks.items() if cb.isChecked()]
         if not selected:
             from aqt.utils import tooltip
 
@@ -1205,9 +1163,7 @@ class BatchReviewDialog(QDialog):
     # Regen done handler
     # ------------------------------------------------------------------
 
-    def _on_regen_done(
-        self, prop_idx: int, field_name: str, new_value: str, error: str
-    ) -> None:
+    def _on_regen_done(self, prop_idx: int, field_name: str, new_value: str, error: str) -> None:
         if not self.isVisible():
             return
         if prop_idx < 0 or prop_idx >= len(self._proposals):
@@ -1222,15 +1178,11 @@ class BatchReviewDialog(QDialog):
             key_tuple = (prop_idx, field_name)
             if key_tuple in self._batch_regen_pending:
                 self._batch_regen_pending.remove(key_tuple)
-                self._batch_regen_done_count = (
-                    getattr(self, "_batch_regen_done_count", 0) + 1
-                )
+                self._batch_regen_done_count = getattr(self, "_batch_regen_done_count", 0) + 1
                 total = getattr(self, "_batch_regen_total", 0)
                 if hasattr(self, "_batch_regen_btn"):
                     if self._batch_regen_pending:
-                        self._batch_regen_btn.setText(
-                            f"Regenerating {self._batch_regen_done_count}/{total}..."
-                        )
+                        self._batch_regen_btn.setText(f"Regenerating {self._batch_regen_done_count}/{total}...")
                     else:
                         self._batch_regen_btn.setEnabled(True)
                         self._batch_regen_btn.setText("\u21bb Regenerate Marked")
@@ -1254,8 +1206,7 @@ class BatchReviewDialog(QDialog):
                 from aqt.utils import showWarning
 
                 showWarning(
-                    f"'{field_name}' was edited during regeneration.\n"
-                    f"Your edits have been preserved.",
+                    f"'{field_name}' was edited during regeneration.\nYour edits have been preserved.",
                     title="AI Filler",
                     parent=self,
                 )
@@ -1286,9 +1237,7 @@ class BatchReviewDialog(QDialog):
 
         # Update classification and re-apply filters in case content type changed
         if prop_idx < len(self._proposal_types):
-            self._proposal_types[prop_idx] = _classify_proposal(
-                self._proposals[prop_idx]
-            )
+            self._proposal_types[prop_idx] = _classify_proposal(self._proposals[prop_idx])
             self._apply_filters()
 
     # ------------------------------------------------------------------

@@ -24,9 +24,7 @@ class TestFieldInstruction:
         assert fi.auto_fill is True
 
     def test_custom_values(self) -> None:
-        fi = FieldInstruction(
-            instruction="English def", field_type="text", auto_fill=False
-        )
+        fi = FieldInstruction(instruction="English def", field_type="text", auto_fill=False)
         assert fi.instruction == "English def"
         assert fi.field_type == "text"
         assert fi.auto_fill is False

@@ -159,9 +159,7 @@ class TestHttpGetJson:
 
 def _make_http_error(code: int, body: bytes = b"error", headers=None):
     """Create an HTTPError with a fresh readable body stream."""
-    return urllib.error.HTTPError(
-        "https://api.test", code, "err", headers or {}, BytesIO(body)
-    )
+    return urllib.error.HTTPError("https://api.test", code, "err", headers or {}, BytesIO(body))
 
 
 class TestBackoffDelay:
@@ -232,9 +230,7 @@ class TestRetryOnTransientErrors:
     def test_429_uses_retry_after_header(self, mock_sleep, mock_urlopen) -> None:
         headers = MagicMock()
         headers.get.return_value = "3"
-        err = urllib.error.HTTPError(
-            "https://api.test", 429, "Rate limited", headers, BytesIO(b"slow down")
-        )
+        err = urllib.error.HTTPError("https://api.test", 429, "Rate limited", headers, BytesIO(b"slow down"))
         mock_resp = MagicMock()
         mock_resp.read.return_value = b'{"ok": true}'
         mock_resp.__enter__.return_value = mock_resp

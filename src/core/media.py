@@ -10,9 +10,7 @@ import wave
 from aqt import mw
 
 
-def _pcm_to_wav(
-    pcm: bytes, *, channels: int = 1, rate: int = 24000, sample_width: int = 2
-) -> bytes:
+def _pcm_to_wav(pcm: bytes, *, channels: int = 1, rate: int = 24000, sample_width: int = 2) -> bytes:
     """Wrap raw PCM audio in a WAV container."""
     buf = io.BytesIO()
     with wave.open(buf, "wb") as wf:

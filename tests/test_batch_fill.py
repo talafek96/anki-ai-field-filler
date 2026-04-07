@@ -36,10 +36,7 @@ def _chat_response(fields_json: dict) -> str:
 
 def _make_errors(n: int) -> list:
     """Create n distinct HTTPError objects."""
-    return [
-        urllib.error.HTTPError("https://api.test", 500, "err", {}, BytesIO(b"err"))
-        for _ in range(n)
-    ]
+    return [urllib.error.HTTPError("https://api.test", 500, "err", {}, BytesIO(b"err")) for _ in range(n)]
 
 
 class TestBatchFiller:
@@ -61,9 +58,7 @@ class TestBatchFiller:
         assert result.failed == 0
         assert result.elapsed_seconds > 0
 
-    def test_skips_already_filled(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_skips_already_filled(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Notes with no blank target fields are skipped."""
         note, _ = mock_note(1, {"Front": "hello", "Back": "already filled"})
         mock_mw.col.get_note.return_value = note
@@ -79,9 +74,7 @@ class TestBatchFiller:
         note, _ = mock_note(1, {"Front": "hello", "Back": ""})
         mock_mw.col.get_note.return_value = note
 
-        result = batch_filler.run(
-            [BatchNoteItem(note_id=1)], target_fields=["Back"], dry_run=True
-        )
+        result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"], dry_run=True)
 
         assert result.dry_run is True
         assert result.succeeded == 1
@@ -128,20 +121,14 @@ class TestBatchFiller:
 
         items = [BatchNoteItem(note_id=i) for i in range(5)]
         # We need more notes to be returned by get_note for the cancellation to be visible
-        mock_mw.col.get_note.side_effect = [
-            mock_note(i, {"F": "v", "Back": ""})[0] for i in range(5)
-        ]
+        mock_mw.col.get_note.side_effect = [mock_note(i, {"F": "v", "Back": ""})[0] for i in range(5)]
 
-        result = batch_filler.run(
-            items, target_fields=["Back"], on_progress=cancel_after_first
-        )
+        result = batch_filler.run(items, target_fields=["Back"], on_progress=cancel_after_first)
 
         assert result.succeeded == 1
         assert result.skipped == 4
 
-    def test_progress_callback(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_progress_callback(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Progress callback is called before and after each note."""
         note1, _ = mock_note(1, {"Front": "hello", "Back": ""})
         note2, _ = mock_note(2, {"Front": "world", "Back": ""})
@@ -198,9 +185,7 @@ class TestBatchDataclasses:
 class TestFilledFieldsNotOverwritten:
     """Verify that already-filled fields are never sent to the AI."""
 
-    def test_partial_fill_only_targets_blank(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_partial_fill_only_targets_blank(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Expression is filled, Back is blank — only Back is targeted."""
         fields = {"Expression": "hello", "Meaning": "world", "Back": ""}
         note, raw = mock_note(1, fields)
@@ -225,17 +210,13 @@ class TestFilledFieldsNotOverwritten:
         assert raw["Expression"] == "hello"
         assert raw["Meaning"] == "world"
 
-    def test_all_fields_filled_skips_note(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_all_fields_filled_skips_note(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """When every target field is already filled, the note is skipped."""
         fields = {"Front": "hello", "Back": "world"}
         note, raw = mock_note(1, fields)
         mock_mw.col.get_note.return_value = note
 
-        result = batch_filler.run(
-            [BatchNoteItem(note_id=1)], target_fields=["Front", "Back"]
-        )
+        result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Front", "Back"])
 
         assert result.skipped == 1
         assert result.succeeded == 0
@@ -245,9 +226,7 @@ class TestFilledFieldsNotOverwritten:
 
 
 class TestDryRunProposals:
-    def test_dry_run_shows_blank_fields_per_note(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_dry_run_shows_blank_fields_per_note(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Dry run proposals list which fields would be targeted."""
         fields = {"Front": "hello", "Back": "", "Extra": ""}
         note, _ = mock_note(1, fields)
@@ -268,9 +247,7 @@ class TestDryRunProposals:
 
 
 class TestProposalsAndApply:
-    def test_proposals_populated_without_writing(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_proposals_populated_without_writing(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Real run populates proposals but doesn't write to notes."""
         fields = {"Front": "hello", "Back": ""}
         note, raw = mock_note(1, fields)
@@ -353,9 +330,7 @@ class TestProposalsAndApply:
 class TestPartialFieldFailure:
     """Image/audio failures should not lose successfully generated text fields."""
 
-    def test_image_failure_keeps_text_fields(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_image_failure_keeps_text_fields(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """When image generation fails, text fields are still returned."""
         fields = {"Front": "hello", "Back": "", "Image": ""}
         note, _ = mock_note(1, fields)
@@ -384,14 +359,10 @@ class TestPartialFieldFailure:
         # Make the image provider raise an error
         with patch("src.core.filler.create_image_provider") as mock_img_factory:
             mock_img_prov = MagicMock()
-            mock_img_prov.generate_image.side_effect = ProviderError(
-                "safety filter block"
-            )
+            mock_img_prov.generate_image.side_effect = ProviderError("safety filter block")
             mock_img_factory.return_value = mock_img_prov
 
-            result = batch_filler.run(
-                [BatchNoteItem(note_id=1)], target_fields=["Back", "Image"]
-            )
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Back", "Image"])
 
         # Note should still succeed (partial)
         assert result.succeeded == 1
@@ -434,9 +405,7 @@ class TestPartialFieldFailure:
             mock_img_prov.generate_image.side_effect = ProviderError("blocked")
             mock_img_factory.return_value = mock_img_prov
 
-            result = batch_filler.run(
-                [BatchNoteItem(note_id=1)], target_fields=["Image"]
-            )
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Image"])
 
         assert result.succeeded == 1
         prop = result.proposals[0]
@@ -444,9 +413,7 @@ class TestPartialFieldFailure:
         assert prop.changes == {}
         assert "Image" in prop.field_errors
 
-    def test_inline_image_failure_keeps_text(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_inline_image_failure_keeps_text(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Text field with inline image_prompt: text kept, image skipped."""
         fields = {"Front": "hello", "Definition": ""}
         note, _ = mock_note(1, fields)
@@ -479,9 +446,7 @@ class TestPartialFieldFailure:
             mock_img_prov.generate_image.side_effect = ProviderError("content policy")
             mock_img_factory.return_value = mock_img_prov
 
-            result = batch_filler.run(
-                [BatchNoteItem(note_id=1)], target_fields=["Definition"]
-            )
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Definition"])
 
         prop = result.proposals[0]
         assert prop.success is True
@@ -498,9 +463,7 @@ class TestPartialFieldFailure:
 class TestRichFieldBatch:
     """Integration tests for rich/flag-based fields through the batch pipeline."""
 
-    def test_rich_field_text_only_flags(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_rich_field_text_only_flags(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Rich field with no providers configured — flags removed, text kept."""
         fields = {"Front": "hello", "Notes": ""}
         note, _ = mock_note(1, fields)
@@ -530,9 +493,7 @@ class TestRichFieldBatch:
         assert "More text" in html
         assert "<br>" in html
 
-    def test_rich_field_with_image_provider(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_rich_field_with_image_provider(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Rich field with image flag — image generated and inlined."""
         fields = {"Front": "hello", "Notes": ""}
         note, _ = mock_note(1, fields)
@@ -568,9 +529,7 @@ class TestRichFieldBatch:
             mock_img_factory.return_value = mock_img_prov
             mock_save.return_value = '<img src="ai_filler_pic.png">'
 
-            result = batch_filler.run(
-                [BatchNoteItem(note_id=1)], target_fields=["Notes"]
-            )
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
 
         prop = result.proposals[0]
         assert prop.success is True
@@ -580,9 +539,7 @@ class TestRichFieldBatch:
         assert "End" in html
         mock_img_prov.generate_image.assert_called_once_with("illustration")
 
-    def test_text_field_with_flags_processed(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_text_field_with_flags_processed(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """A text field that contains flags should still process them."""
         fields = {"Front": "hello", "Back": ""}
         note, _ = mock_note(1, fields)
@@ -618,9 +575,7 @@ class TestRichFieldBatch:
             mock_img_factory.return_value = mock_img_prov
             mock_save.return_value = '<img src="inline.png">'
 
-            result = batch_filler.run(
-                [BatchNoteItem(note_id=1)], target_fields=["Back"]
-            )
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Back"])
 
         prop = result.proposals[0]
         html = prop.changes["Back"]
@@ -628,9 +583,7 @@ class TestRichFieldBatch:
         assert "Answer" in html
         assert "{{IMAGE" not in html
 
-    def test_rich_field_flag_failure_keeps_text(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_rich_field_flag_failure_keeps_text(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """When a flag's media generation fails, text is kept and error reported."""
         fields = {"Front": "hello", "Notes": ""}
         note, _ = mock_note(1, fields)
@@ -662,9 +615,7 @@ class TestRichFieldBatch:
             mock_img_prov.generate_image.side_effect = ProviderError("content policy")
             mock_img_factory.return_value = mock_img_prov
 
-            result = batch_filler.run(
-                [BatchNoteItem(note_id=1)], target_fields=["Notes"]
-            )
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
 
         prop = result.proposals[0]
         assert prop.success is True
@@ -675,9 +626,7 @@ class TestRichFieldBatch:
         assert "Notes" in prop.field_errors
         assert "content policy" in prop.field_errors["Notes"]
 
-    def test_plain_text_without_flags_unchanged(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_plain_text_without_flags_unchanged(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Regular text fields without flags work exactly as before."""
         fields = {"Front": "hello", "Back": ""}
         note, _ = mock_note(1, fields)
@@ -693,9 +642,7 @@ class TestRichFieldBatch:
         assert prop.changes == {"Back": "plain answer"}
         assert prop.field_errors == {}
 
-    def test_rich_with_audio_flag(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_rich_with_audio_flag(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Rich field with audio flag — TTS generated inline."""
         fields = {"Front": "hello", "Notes": ""}
         note, _ = mock_note(1, fields)
@@ -732,9 +679,7 @@ class TestRichFieldBatch:
             mock_tts_factory.return_value = mock_tts_prov
             mock_save.return_value = "[sound:ai_filler_voice.mp3]"
 
-            result = batch_filler.run(
-                [BatchNoteItem(note_id=1)], target_fields=["Notes"]
-            )
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
 
         prop = result.proposals[0]
         html = prop.changes["Notes"]
@@ -742,9 +687,7 @@ class TestRichFieldBatch:
         assert "Pronunciation:" in html
         assert "{{AUDIO" not in html
 
-    def test_multiple_flag_errors_all_preserved(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_multiple_flag_errors_all_preserved(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """When multiple flags fail, all errors should be reported (not just the last)."""
         fields = {"Front": "hello", "Notes": ""}
         note, _ = mock_note(1, fields)
@@ -793,9 +736,7 @@ class TestRichFieldBatch:
             mock_tts_prov.synthesize.side_effect = ProviderError("TTS quota")
             mock_tts_factory.return_value = mock_tts_prov
 
-            result = batch_filler.run(
-                [BatchNoteItem(note_id=1)], target_fields=["Notes"]
-            )
+            result = batch_filler.run([BatchNoteItem(note_id=1)], target_fields=["Notes"])
 
         prop = result.proposals[0]
         assert prop.success is True
@@ -814,16 +755,12 @@ class TestRichFieldBatch:
 class TestRegenerateField:
     """Tests for BatchFiller.regenerate_field()."""
 
-    def test_regenerate_returns_new_value(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_regenerate_returns_new_value(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Regenerate a single field — returns new generated content."""
         note, _ = mock_note(1, {"Front": "hello", "Back": ""})
         mock_mw.col.get_note.return_value = note
 
-        response = _chat_response(
-            {"Back": {"content": "regenerated answer", "type": "text"}}
-        )
+        response = _chat_response({"Back": {"content": "regenerated answer", "type": "text"}})
         mock_urlopen.side_effect = None
         mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
@@ -855,29 +792,21 @@ class TestRegenerateField:
         assert error
         assert "500" in error
 
-    def test_regenerate_with_user_prompt(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_regenerate_with_user_prompt(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Regenerate passes user_prompt through to prompt builder."""
         note, _ = mock_note(1, {"Front": "hello", "Back": ""})
         mock_mw.col.get_note.return_value = note
 
-        response = _chat_response(
-            {"Back": {"content": "custom answer", "type": "text"}}
-        )
+        response = _chat_response({"Back": {"content": "custom answer", "type": "text"}})
         mock_urlopen.side_effect = None
         mock_urlopen.return_value.read.return_value = response.encode("utf-8")
 
-        new_value, error = batch_filler.regenerate_field(
-            note_id=1, field_name="Back", user_prompt="Be concise"
-        )
+        new_value, error = batch_filler.regenerate_field(note_id=1, field_name="Back", user_prompt="Be concise")
 
         assert new_value == "custom answer"
         assert error == ""
 
-    def test_regenerate_with_deck_name(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_regenerate_with_deck_name(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Regenerate uses deck_name for field instructions lookup."""
         note, _ = mock_note(1, {"Front": "hello", "Back": ""})
         mock_mw.col.get_note.return_value = note
@@ -889,19 +818,13 @@ class TestRegenerateField:
         # Set up expectations for config mock
         batch_filler._config.get_field_instructions = MagicMock(return_value={})
 
-        new_value, error = batch_filler.regenerate_field(
-            note_id=1, field_name="Back", deck_name="Japanese"
-        )
+        new_value, error = batch_filler.regenerate_field(note_id=1, field_name="Back", deck_name="Japanese")
 
         assert new_value == "deck answer"
         assert error == ""
-        batch_filler._config.get_field_instructions.assert_called_with(
-            "Basic", deck_name="Japanese"
-        )
+        batch_filler._config.get_field_instructions.assert_called_with("Basic", deck_name="Japanese")
 
-    def test_regenerate_image_field(
-        self, batch_filler, mock_mw, mock_urlopen, mock_note
-    ) -> None:
+    def test_regenerate_image_field(self, batch_filler, mock_mw, mock_urlopen, mock_note) -> None:
         """Regenerate an image field — renders media correctly."""
         note, _ = mock_note(1, {"Front": "hello", "Image": ""})
         mock_mw.col.get_note.return_value = note
@@ -929,9 +852,7 @@ class TestRegenerateField:
             mock_img_factory.return_value = mock_img_prov
             mock_save.return_value = '<img src="ai_regen.png">'
 
-            new_value, error = batch_filler.regenerate_field(
-                note_id=1, field_name="Image"
-            )
+            new_value, error = batch_filler.regenerate_field(note_id=1, field_name="Image")
 
         assert '<img src="ai_regen.png">' in new_value
         assert error == ""

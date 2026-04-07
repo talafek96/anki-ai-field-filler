@@ -71,9 +71,7 @@ class SettingsDialog(QDialog):
 
         bottom_bar.addStretch()
 
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         qconnect(button_box.accepted, self.accept)
         qconnect(button_box.rejected, self.reject)
         bottom_bar.addWidget(button_box)
@@ -185,9 +183,7 @@ class SettingsDialog(QDialog):
         ok = QMessageBox.question(
             self,
             "Import Settings",
-            "This will replace your current settings.\n"
-            "Unsaved changes in this dialog will be lost.\n\n"
-            "Continue?",
+            "This will replace your current settings.\nUnsaved changes in this dialog will be lost.\n\nContinue?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -218,9 +214,7 @@ class SettingsDialog(QDialog):
         self._tabs.addTab(self._note_type_tab, "Note Types")
 
         # Re-sync provider selection
-        qconnect(
-            self._general_tab.providerChanged, self._model_tab.set_current_provider
-        )
+        qconnect(self._general_tab.providerChanged, self._model_tab.set_current_provider)
 
         if current_idx < self._tabs.count():
             self._tabs.setCurrentIndex(current_idx)

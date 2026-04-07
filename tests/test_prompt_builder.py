@@ -24,9 +24,7 @@ class TestBuildUserPrompt:
 
     def test_field_instructions_included(self, filler) -> None:
         instructions = {
-            "Meaning": FieldInstruction(
-                instruction="English definition", field_type="text"
-            ),
+            "Meaning": FieldInstruction(instruction="English definition", field_type="text"),
         }
         prompt = filler._build_user_prompt(
             note_type_name="Japanese",

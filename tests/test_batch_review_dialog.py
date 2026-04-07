@@ -48,19 +48,13 @@ class TestExtractBodyHtml:
         assert _extract_body_html(qt_html) == ""
 
     def test_body_with_nested_html(self) -> None:
-        qt_html = (
-            "<html><head></head><body>"
-            '<p>hello <b>bold</b> and <img src="test.png"></p>'
-            "</body></html>"
-        )
+        qt_html = '<html><head></head><body><p>hello <b>bold</b> and <img src="test.png"></p></body></html>'
         result = _extract_body_html(qt_html)
         assert "<b>bold</b>" in result
         assert "test.png" in result
 
     def test_multiline_body(self) -> None:
-        qt_html = (
-            "<html><head></head>\n<body>\n<p>first</p>\n<p>second</p>\n</body></html>"
-        )
+        qt_html = "<html><head></head>\n<body>\n<p>first</p>\n<p>second</p>\n</body></html>"
         result = _extract_body_html(qt_html)
         assert "first" in result
         assert "second" in result
@@ -155,9 +149,7 @@ class TestApplySyncLogic:
 
         rendered_mock = MagicMock()
         rendered_mock.document.return_value.isModified.return_value = True
-        rendered_mock.toHtml.return_value = (
-            "<html><head></head><body>user edited text</body></html>"
-        )
+        rendered_mock.toHtml.return_value = "<html><head></head><body>user edited text</body></html>"
 
         raw_mock = MagicMock()
         raw_mock.toPlainText.return_value = "user edited text"
@@ -648,8 +640,6 @@ class TestImageTextEdit:
         assert new_h >= 1
 
     @patch("os.path.isfile", return_value=False)
-    def test_loadresource_missing_file_returns_none(
-        self, mock_isfile: MagicMock
-    ) -> None:
+    def test_loadresource_missing_file_returns_none(self, mock_isfile: MagicMock) -> None:
         """loadResource should fall through when file doesn't exist."""
         assert not mock_isfile("/fake/media/nonexistent.png")

@@ -50,12 +50,8 @@ class BatchFillDialog(QDialog):
         header_row.setSpacing(10)
 
         # Icon
-        addon_dir = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        )
-        sparkles_icon = os.path.join(
-            addon_dir, "assets", "app", "sparkles.svg"
-        )
+        addon_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        sparkles_icon = os.path.join(addon_dir, "assets", "app", "sparkles.svg")
 
         icon_label = QLabel()
         icon_label.setPixmap(get_themed_icon(sparkles_icon, 20).pixmap(20, 20))
@@ -104,9 +100,7 @@ class BatchFillDialog(QDialog):
         prompt_group = QGroupBox("Prompt / Instructions")
         prompt_layout = QVBoxLayout()
         self._prompt_edit = QPlainTextEdit()
-        self._prompt_edit.setPlaceholderText(
-            "Instructions applied to every note in the batch..."
-        )
+        self._prompt_edit.setPlaceholderText("Instructions applied to every note in the batch...")
         self._prompt_edit.setMaximumHeight(70)
         prompt_layout.addWidget(self._prompt_edit)
         prompt_group.setLayout(prompt_layout)
@@ -114,9 +108,7 @@ class BatchFillDialog(QDialog):
 
         # Cost warning + dry run
         info_row = QHBoxLayout()
-        cost_label = QLabel(
-            f" This will make up to <b>{self._note_count}</b> API calls."
-        )
+        cost_label = QLabel(f" This will make up to <b>{self._note_count}</b> API calls.")
         cost_label.setStyleSheet(MUTED_LABEL_STYLE)
         info_row.addWidget(cost_label)
         info_row.addStretch()
