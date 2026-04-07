@@ -13,6 +13,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
+import bs4
+
 from aqt import mw
 from aqt.editor import Editor
 
@@ -120,7 +122,8 @@ on the field name and instruction
 - If a field is marked with "(MODIFY existing content)", update, improve, or correct that content while \
 preserving its original intent and any valid information. Only replace it entirely if it is completely wrong or \
 nonsensical.
-- Avoid unnecessary line breaks or whitespace in your HTML output. Keep it compact!
+- For HTML content: return clean, well-formatted, and semantic HTML with proper indentation for readability in \
+the HTML editor. Prefer semantic tags (like <ul>, <li>, <p>) over excessive inline styles or <br> tags.
 - Use line breaks in text content where appropriate for readability."""
 
 
@@ -453,16 +456,22 @@ class Filler:
         """Convert content to Anki-compatible HTML with readable structure.
 
         If the content already contains HTML tags, use BeautifulSoup to
-        prettify the structure (tree formatting). Otherwise, convert newlines
+        beautify the structure (tree formatting). Otherwise, convert newlines
         to <br> tags.
         """
         if not text:
             return text
 
-        # If it looks like HTML (contains any tags), return it as-is (trimmed).
-        # We rely on the AI's prompt to keep it compact.
+        # If it looks like HTML (contains any tags), beautify it.
         if bool(re.search(r"<[^>]+>", text)):
-            return text.strip()
+            try:
+                soup = bs4.BeautifulSoup(text, "html.parser")
+                # Using prettify() for readable structure, then stripping leading/trailing
+                # to keep it clean for Anki's editor integration.
+                return soup.prettify().strip()
+            except Exception:
+                # Fallback to trimmed original if parsing fails
+                return text.strip()
 
         # Plain text logic: simple newline to <br> conversion
         return text.replace("\n", "<br>")

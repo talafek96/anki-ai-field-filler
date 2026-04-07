@@ -16,7 +16,7 @@ format: ## Auto-format code with ruff
 	uv run ruff check . --fix
 
 typecheck: ## Run mypy type checker
-	uv run mypy --package ai_field_filler
+	uv run mypy src tests --explicit-package-bases
 
 test: ## Run tests
 	uv run pytest tests/ -v

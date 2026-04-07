@@ -38,6 +38,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "anki" },
     { name = "aqt" },
+    { name = "beautifulsoup4" },
 ]
 
 [package.dev-dependencies]
@@ -54,6 +55,7 @@ dev = [
 requires-dist = [
     { name = "anki" },
     { name = "aqt" },
+    { name = "beautifulsoup4" },
 ]
 
 [package.metadata.requires-dev]

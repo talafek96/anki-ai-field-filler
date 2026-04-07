@@ -534,7 +534,7 @@ class TestRichFieldBatch:
         prop = result.proposals[0]
         assert prop.success is True
         html = prop.changes["Notes"]
-        assert '<img src="ai_filler_pic.png">' in html
+        assert 'src="ai_filler_pic.png"' in html
         assert "Definition" in html
         assert "End" in html
         mock_img_prov.generate_image.assert_called_once_with("illustration")
@@ -579,7 +579,7 @@ class TestRichFieldBatch:
 
         prop = result.proposals[0]
         html = prop.changes["Back"]
-        assert '<img src="inline.png">' in html
+        assert 'src="inline.png"' in html
         assert "Answer" in html
         assert "{{IMAGE" not in html
 
