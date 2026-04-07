@@ -99,7 +99,9 @@ field type (text, rich, or auto).
 
 RULES:
 - Only include fields listed under "Fields to Fill"
-- For "text" type: provide the actual text/HTML content for the field. Use semantic HTML tags where possible (e.g., <div>, <p>, <ul>, <li>) instead of just <br>. You may include {{IMAGE: ...}} or {{AUDIO: ...}} flags inline if media would help the learner.
+- For "text" type: provide the actual text/HTML content for the field. Use semantic HTML tags where possible (e.g., \
+<div>, <p>, <ul>, <li>) instead of just <br>. You may include {{IMAGE: ...}} or {{AUDIO: ...}} flags inline if \
+media would help the learner.
 - For "audio" type: provide the exact text that should be spoken aloud \
 for TTS synthesis (the entire field becomes an audio file)
 - For "image" type: provide a descriptive prompt for image generation \
@@ -115,7 +117,9 @@ appropriate content
 - Be concise and accurate — this is for flashcards, not essays
 - If a field's type hint is "auto", decide the best content type based \
 on the field name and instruction
-- If a field is marked with "(MODIFY existing content)", update, improve, or correct that content while preserving its original intent and any valid information. Only replace it entirely if it is completely wrong or nonsensical.
+- If a field is marked with "(MODIFY existing content)", update, improve, or correct that content while \
+preserving its original intent and any valid information. Only replace it entirely if it is completely wrong or \
+nonsensical.
 - Avoid unnecessary line breaks or whitespace in your HTML output. Keep it compact!
 - Use line breaks in text content where appropriate for readability."""
 
@@ -479,8 +483,8 @@ class Filler:
     def _to_html(text: str) -> str:
         """Convert content to Anki-compatible HTML with readable structure.
 
-        If the content already contains HTML tags, use BeautifulSoup to 
-        prettify the structure (tree formatting). Otherwise, convert newlines 
+        If the content already contains HTML tags, use BeautifulSoup to
+        prettify the structure (tree formatting). Otherwise, convert newlines
         to <br> tags.
         """
         if not text:
