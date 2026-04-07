@@ -117,7 +117,7 @@ appropriate content
 - If a field's type hint is "auto", decide the best content type based \
 on the field name and instruction
 - If a field is marked with "(MODIFY existing content)", update, improve, or correct that content while preserving its original intent and any valid information. Only replace it entirely if it is completely wrong or nonsensical.
-- Use line breaks and consistent indentation in your HTML output so it looks like a clean, well-structured tree.
+- Avoid unnecessary line breaks or whitespace in your HTML output. Keep it compact!
 - Use line breaks in text content where appropriate for readability."""
 
 
@@ -209,18 +209,7 @@ class Filler:
                                     img_bytes, field_name
                                 )
                             else:
-                                results[field_name] = None
-                            # If rich/flags fail, we still have the text 'content'
-                            html, errs = self._render_rich_content(
-                                content,
-                                field_name,
-                                field_data,
-                                tts_context=tts_context,
-                            )
-                            # We don't add to field_errors if we have html
-                            if not html and errs:
-                                field_errors.extend(errs)
-                            results[field_name] = html or self._to_html(content)
+                                results[field_name] = self._to_html(content)
                         else:
                             html = self._to_html(content)
                             # Handle optional inline image for text fields
@@ -493,15 +482,10 @@ class Filler:
         if not text:
             return text
 
-        # If it looks like HTML (contains any tags), try to prettify it.
+        # If it looks like HTML (contains any tags), return it as-is (trimmed).
+        # We rely on the AI's prompt to keep it compact.
         if bool(re.search(r"<[^>]+>", text)):
-            try:
-                soup = BeautifulSoup(text, "html.parser")
-                # prettify adds newlines and indentation; strip excess outer whitespace
-                return soup.prettify().strip()
-            except Exception:
-                # Fallback to the original if something goes wrong
-                return text
+            return text.strip()
 
         # Plain text logic: simple newline to <br> conversion
         return text.replace("\n", "<br>")

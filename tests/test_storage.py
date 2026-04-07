@@ -61,9 +61,9 @@ _SAMPLE_CONFIG = {
     "deck_field_instructions": {},
     "general": {
         "fill_all_shortcut": "Ctrl+Shift+G",
-        "fill_field_shortcut": "Ctrl+Shift+F",
-        "default_user_prompt": "",
-        "show_fill_dialog": True,
+        "fill_all_prompt": "",
+        "last_configured_provider": "openai",
+        "prompt_expanded": True,
     },
 }
 

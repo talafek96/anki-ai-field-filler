@@ -51,6 +51,16 @@ class GeneralSettings:
     prompt_expanded: bool = True
 
 
+EXPORTABLE_KEYS = (
+    "providers",
+    "active_providers",
+    "note_type_field_instructions",
+    "deck_field_instructions",
+    "general",
+)
+"""Top-level config dictionary keys that should be exported to settings files."""
+
+
 class Config:
     """Singleton config manager wrapping Anki's addon config system.
 
@@ -344,28 +354,21 @@ class Config:
 
     # --- Settings export / import ---
 
-    _EXPORTABLE_KEYS = (
-        "providers",
-        "active_providers",
-        "note_type_field_instructions",
-        "deck_field_instructions",
-        "general",
-    )
 
     def get_exportable_config(self) -> Dict[str, Any]:
         """Return a deep copy of the config containing only exportable keys."""
         return {
             key: copy.deepcopy(self._config[key])
-            for key in self._EXPORTABLE_KEYS
+            for key in EXPORTABLE_KEYS
             if key in self._config
         }
 
     def import_config(self, data: Dict[str, Any]) -> None:
         """Merge *data* into the live config (does **not** call :meth:`write`).
 
-        Only keys listed in :attr:`_EXPORTABLE_KEYS` are accepted; unknown
+        Only keys listed in :attr:`EXPORTABLE_KEYS` are accepted; unknown
         keys are silently ignored.
         """
-        for key in self._EXPORTABLE_KEYS:
+        for key in EXPORTABLE_KEYS:
             if key in data:
                 self._config[key] = copy.deepcopy(data[key])

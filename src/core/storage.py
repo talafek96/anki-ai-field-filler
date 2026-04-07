@@ -14,6 +14,8 @@ import json
 import os
 from typing import Any, Dict, Optional
 
+from .config import EXPORTABLE_KEYS
+
 # -- constants ---------------------------------------------------------------
 
 _FORMAT_TAG = "ai-field-filler-settings"
@@ -22,13 +24,6 @@ _VERIFY_PLAINTEXT = "AI_FIELD_FILLER_VERIFY_OK"
 _PBKDF2_ITERATIONS = 100_000
 _SALT_BYTES = 16
 
-_EXPORTABLE_KEYS = (
-    "providers",
-    "active_providers",
-    "note_type_field_instructions",
-    "deck_field_instructions",
-    "general",
-)
 
 # -- encryption helpers (stdlib only) ----------------------------------------
 
@@ -140,7 +135,7 @@ def export_settings(
     else:
         payload["_encrypted"] = False
 
-    for key in _EXPORTABLE_KEYS:
+    for key in EXPORTABLE_KEYS:
         if key in config:
             payload[key] = copy.deepcopy(config[key])
 
@@ -209,7 +204,7 @@ def import_settings(
 
     # -- extract config sections ---------------------------------------------
     config: Dict[str, Any] = {}
-    for key in _EXPORTABLE_KEYS:
+    for key in EXPORTABLE_KEYS:
         if key in payload:
             config[key] = copy.deepcopy(payload[key])
 

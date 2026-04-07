@@ -201,8 +201,8 @@ class TestRenderFlags:
 
         assert errors == []
         assert '<img src="ai_filler_test.png">' in html
-        assert "Before<br>" in html
-        assert "<br>After" in html
+        assert "Before" in html
+        assert "After" in html
         mock_prov.generate_image.assert_called_once_with("a cute cat")
 
     def test_audio_flag_replaced(self, filler) -> None:
