@@ -396,14 +396,18 @@ class Filler:
             parts.append(global_prompt.strip())
             parts.append("")
 
-        parts.append("== Field Instructions ==")
+        instruction_lines = []
         for name, instr in field_instructions.items():
             if instr.instruction:
                 type_hint = (
                     f" [{instr.field_type}]" if instr.field_type != "auto" else ""
                 )
-                parts.append(f"- {name}{type_hint}: {instr.instruction}")
-        parts.append("")
+                instruction_lines.append(f"- {name}{type_hint}: {instr.instruction}")
+
+        if instruction_lines:
+            parts.append("== Field Instructions ==")
+            parts.extend(instruction_lines)
+            parts.append("")
 
         parts.append("== Fields to Fill ==")
         for name in target_fields:
