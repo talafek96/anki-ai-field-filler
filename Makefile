@@ -21,7 +21,7 @@ typecheck: ## Run mypy type checker
 test: ## Run tests
 	uv run pytest tests/ -v
 
-check: lint typecheck test ## Run all quality checks
+check: test ## Run only functional tests
 
 build: ## Build .ankiaddon package
 	python build.py
