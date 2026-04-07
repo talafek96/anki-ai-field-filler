@@ -364,7 +364,7 @@ class EditorIntegration:
                 webview.eval(f"const s = document.createElement('style'); s.innerHTML = `{css}`; document.head.appendChild(s);")
             
             # Read SVG sparkle icon
-            sparkle_ico_path = os.path.join(addon_dir, "assets", "icons", "app", "sparkles.svg")
+            sparkle_ico_path = os.path.join(addon_dir, "assets", "app", "sparkles.svg")
             sparkle_svg = ""
             if os.path.exists(sparkle_ico_path):
                 with open(sparkle_ico_path, "r", encoding="utf-8") as f:

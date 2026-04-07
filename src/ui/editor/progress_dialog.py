@@ -43,7 +43,7 @@ class GeneratingDialog(QDialog):
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         )
         self._sparkles_icon_path = os.path.join(
-            addon_dir, "assets", "icons", "app", "sparkles.svg"
+            addon_dir, "assets", "app", "sparkles.svg"
         )
         self._icon_label.setPixmap(
             get_themed_icon(self._sparkles_icon_path, 36).pixmap(36, 36)

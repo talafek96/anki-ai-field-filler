@@ -253,7 +253,7 @@ class ModelSettingsTab(QWidget):
         addon_dir = os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         )
-        icons_dir = os.path.join(addon_dir, "assets", "icons", "providers")
+        icons_dir = os.path.join(addon_dir, "assets", "providers")
         provider_icons = {
             "openai": "openai.svg",
             "anthropic": "claude.svg",

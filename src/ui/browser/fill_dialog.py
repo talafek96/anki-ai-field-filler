@@ -54,7 +54,7 @@ class BatchFillDialog(QDialog):
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         )
         sparkles_icon = os.path.join(
-            addon_dir, "assets", "icons", "app", "sparkles.svg"
+            addon_dir, "assets", "app", "sparkles.svg"
         )
 
         icon_label = QLabel()

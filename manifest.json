@@ -5,6 +5,7 @@
     "desc": "Supercharge your Anki workflow with AI-powered field filling. Automatically generate high-quality text, realistic TTS audio, and relevant images using OpenAI, Anthropic, and Google Gemini. Features batch processing, customizable field instructions, and seamless editor integration.",
     "author": "Josh Minh",
     "homepage": "https://github.com/JoshiMinh/Anki-AI-Filler",
+    "license": "MIT",
     "conflicts": [],
     "min_aqt_ver": "2.1.54"
 }
