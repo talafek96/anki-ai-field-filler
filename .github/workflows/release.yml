@@ -3,7 +3,9 @@ name: CI/CD
 on:
   push:
     branches: [main]
-    tags: ['v*']
+    tags:
+      - 'v*'
+      - '20*'  # Support date-based tags like 2026.04.07
   pull_request:
     branches: [main]
 

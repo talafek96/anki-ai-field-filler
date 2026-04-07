@@ -253,6 +253,14 @@ def filler(mock_config):
     # Forward mocked calls to the real mock config where needed
     f._config.get_active_text_provider.return_value = cm.get_active_text_provider()
     f._config.get_field_instructions.side_effect = cm.get_field_instructions
+
+    # Mock general settings to return strings, not mocks, to avoid TypeErrors
+    # during string concatenation in _build_user_prompt.
+    gen_settings = MagicMock()
+    gen_settings.fill_all_prompt = ""
+    gen_settings.prompt_expanded = True
+    f._config.get_general_settings.return_value = gen_settings
+
     return f
 
 
@@ -274,6 +282,7 @@ def batch_filler(mock_config):
         }
     )
     f = BatchFiller()
+    # Ensure both BatchFiller and its internal Filler use the same mocked config
     mock_cfg = MagicMock(spec=Config)
     f._config = mock_cfg
     f._filler._config = mock_cfg

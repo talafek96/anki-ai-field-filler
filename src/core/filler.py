@@ -13,7 +13,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
-from bs4 import BeautifulSoup
 from aqt import mw
 from aqt.editor import Editor
 
@@ -387,11 +386,12 @@ class Filler:
             parts.append(f"- {name}: {display}")
         parts.append("")
 
-        has_instructions = any(fi.instruction for fi in field_instructions.values())
         # Include the global prompt if set in general settings.
         settings = self._config.get_general_settings()
-        global_prompt = settings.fill_all_prompt
-        if global_prompt.strip():
+        # Use getattr to safely handle mocks in tests that might not have this attribute.
+        global_prompt = getattr(settings, "fill_all_prompt", "")
+        # Only include if it's a non-empty string. This avoids mock truthiness.
+        if isinstance(global_prompt, str) and global_prompt.strip():
             parts.append("== Global Instruction ==")
             parts.append(global_prompt.strip())
             parts.append("")
@@ -411,15 +411,15 @@ class Filler:
             hint = ""
             if fi and fi.field_type != "auto":
                 hint = f" (expected type: {fi.field_type})"
-            
+
             # Label as MODIFY or GENERATE based on current field state
             current_val = field_values.get(name, "").strip()
             action = "(MODIFY existing content)" if current_val else "(GENERATE new content)"
-            
+
             parts.append(f"- {name}{hint} {action}")
         parts.append("")
 
-        if user_prompt.strip():
+        if isinstance(user_prompt, str) and user_prompt.strip():
             parts.append("== Additional Instructions ==")
             parts.append(user_prompt.strip())
 

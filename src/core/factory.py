@@ -104,7 +104,7 @@ def _fetch_openai_models(config: ProviderConfig, capability: str) -> List[str]:
             # If standard /models fails on Vercel, it might be using a different path
             # or the user needs to configure providers in the dashboard.
             raise ProviderError(
-                f"Vercel AI Gateway '/models' endpoint not found (404). "
+                "Vercel AI Gateway '/models' endpoint not found (404). "
                 "Ensure your gateway is correctly configured in the Vercel dashboard."
             ) from e
         raise

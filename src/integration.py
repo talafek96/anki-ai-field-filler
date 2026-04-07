@@ -8,7 +8,15 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 from aqt import gui_hooks, mw
 from aqt.browser import Browser
 from aqt.editor import Editor, EditorWebView
-from aqt.qt import QDialog, QMenu, qconnect, QVBoxLayout, QCheckBox, QDialogButtonBox, Qt
+from aqt.qt import (
+    QCheckBox,
+    QDialog,
+    QDialogButtonBox,
+    QMenu,
+    QVBoxLayout,
+    QWidget,
+    qconnect,
+)
 from aqt.utils import showWarning, tooltip
 
 from .core.config import Config
@@ -16,7 +24,6 @@ from .core.filler import BatchFiller, BatchNoteItem, Filler
 from .ui.browser.fill_dialog import BatchFillDialog
 from .ui.browser.progress import BatchProgressDialog, BatchSummaryDialog
 from .ui.browser.review import BatchReviewDialog
-from .ui.common.icons import get_themed_icon
 from .ui.config.field_dialog import FieldInstructionDialog
 from .ui.editor.progress_dialog import GeneratingDialog
 
@@ -89,10 +96,10 @@ class BrowserIntegration:
                 f"  - {name}: {count} notes" for name, count in note_types.items()
             )
             showWarning(
-                f"Batch fill requires all selected cards to be the "
-                f"same note type.\n\n"
+                "Batch fill requires all selected cards to be the "
+                "same note type.\n\n"
                 f"Found {len(note_types)} note types:\n{detail}\n\n"
-                f"Please select cards from a single note type.",
+                "Please select cards from a single note type.",
                 title="AI Filler",
                 parent=browser,
             )
@@ -166,24 +173,24 @@ class FieldSelectorDialog(QDialog):
     """A dialog to select which fields the AI should fill/update."""
 
     def __init__(
-        self, 
-        fields: List[str], 
-        selected: List[str], 
+        self,
+        fields: List[str],
+        selected: List[str],
         parent: Optional[QWidget] = None
     ):
         super().__init__(parent)
         self.setWindowTitle("AI Filler: Select Fields")
         self.setMinimumWidth(300)
-        
+
         layout = QVBoxLayout(self)
         self.checkboxes: Dict[str, QCheckBox] = {}
-        
+
         for field in fields:
             cb = QCheckBox(field)
             cb.setChecked(field in selected)
             self.checkboxes[field] = cb
             layout.addWidget(cb)
-            
+
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -207,17 +214,17 @@ class HistoryManager:
         """Save the current note state before an AI fill."""
         if not editor.note:
             return
-        
+
         eid = id(editor)
         state = {name: editor.note[name] for name in editor.note.keys()}
-        
+
         if eid not in self._history:
             self._history[eid] = []
-        
+
         self._history[eid].append(state)
         # Clear redo stack on new action
         self._redo_stack[eid] = []
-        
+
         # Limit depth
         if len(self._history[eid]) > self._depth:
             self._history[eid].pop(0)
@@ -227,7 +234,7 @@ class HistoryManager:
         eid = id(editor)
         if eid not in self._history or not self._history[eid]:
             return False
-        
+
         if not editor.note:
             return False
 
@@ -241,7 +248,7 @@ class HistoryManager:
         prev_state = self._history[eid].pop()
         for name, value in prev_state.items():
             editor.note[name] = value
-        
+
         editor.loadNote()
         return True
 
@@ -250,7 +257,7 @@ class HistoryManager:
         eid = id(editor)
         if eid not in self._redo_stack or not self._redo_stack[eid]:
             return False
-            
+
         if not editor.note:
             return False
 
@@ -262,7 +269,7 @@ class HistoryManager:
         next_state = self._redo_stack[eid].pop()
         for name, value in next_state.items():
             editor.note[name] = value
-            
+
         editor.loadNote()
         return True
 
@@ -281,7 +288,9 @@ class EditorIntegration:
         gui_hooks.editor_will_show_context_menu.append(cls._add_context_menu)
         gui_hooks.editor_did_init.append(cls._on_editor_did_init)
         gui_hooks.editor_did_load_note.append(cls._on_editor_did_load_note)
-        gui_hooks.webview_did_receive_js_message.append(cls._on_webview_did_receive_js_message)
+        gui_hooks.webview_did_receive_js_message.append(
+            cls._on_webview_did_receive_js_message
+        )
 
 
     @classmethod
@@ -353,16 +362,20 @@ class EditorIntegration:
         webview = editor.web
         addon_dir = os.path.dirname(os.path.dirname(__file__))
         editor_dir = os.path.join(addon_dir, "src", "ui", "editor")
-        
+
         css_path = os.path.join(editor_dir, "editor.css")
         js_path = os.path.join(editor_dir, "editor.js")
-        
+
         try:
             # Read assets
             with open(css_path, "r", encoding="utf-8") as f:
                 css = f.read().replace("`", "\\`").replace("\n", " ")
-                webview.eval(f"const s = document.createElement('style'); s.innerHTML = `{css}`; document.head.appendChild(s);")
-            
+                webview.eval(
+                    "const s = document.createElement('style'); "
+                    f"s.innerHTML = `{css}`; "
+                    "document.head.appendChild(s);"
+                )
+
             # Read SVG sparkle icon
             sparkle_ico_path = os.path.join(addon_dir, "assets", "app", "sparkles.svg")
             sparkle_svg = ""
@@ -374,12 +387,12 @@ class EditorIntegration:
                 js = f.read()
                 webview.eval(f"window.aiFillerSparkleSVG = `{sparkle_svg}`;")
                 webview.eval(js)
-                
+
                 # Check initial expansion state
                 config = Config()
                 expanded = config.get_general_settings().prompt_expanded
                 expanded_js = "true" if expanded else "false"
-                
+
                 # Force init check
                 webview.eval(f"if (window.aiFiller) aiFiller.init({expanded_js});")
         except Exception as e:
@@ -408,12 +421,12 @@ class EditorIntegration:
             prompt = message[len("ai_filler:generate:") :]
             cls._run_integrated_fill(editor, prompt)
             return (True, None)
-        
+
         if message == "ai_filler:undo":
             if cls._history.undo(editor):
                 cls._update_prompt_button(editor)
             return (True, None)
-            
+
         if message == "ai_filler:redo":
             if cls._history.redo(editor):
                 cls._update_prompt_button(editor)
@@ -439,20 +452,20 @@ class EditorIntegration:
         """Open the field selector dialog."""
         if not editor.note:
             return
-            
+
         eid = id(editor)
         all_fields = list(editor.note.keys())
-        
+
         # Default to all fields if none selected yet
         if eid not in cls._selected_fields:
             cls._selected_fields[eid] = all_fields
-            
+
         dialog = FieldSelectorDialog(
-            all_fields, 
-            cls._selected_fields[eid], 
+            all_fields,
+            cls._selected_fields[eid],
             parent=editor.widget
         )
-        
+
         if dialog.exec():
             cls._selected_fields[eid] = dialog.get_selected_fields()
             cls._update_prompt_button(editor)
@@ -465,7 +478,7 @@ class EditorIntegration:
 
         eid = id(editor)
         note = editor.note
-        
+
         # Use manually selected fields if available, otherwise filter by config
         if eid in cls._selected_fields:
             target_fields = cls._selected_fields[eid]
@@ -515,7 +528,7 @@ class EditorIntegration:
 
         eid = id(editor)
         note = editor.note
-        
+
         # Use manually selected fields if available, otherwise filter by config
         if eid in cls._selected_fields:
             target_fields = cls._selected_fields[eid]
@@ -536,5 +549,5 @@ class EditorIntegration:
         # Check if any target fields are non-empty
         has_content = any(note[f].strip() for f in target_fields if f in note)
         mode = "modify" if has_content else "generate"
-        
+
         editor.web.eval(f"if (window.aiFiller) aiFiller.updateButton('{mode}');")
