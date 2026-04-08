@@ -232,7 +232,7 @@ ai_field_filler/
 
 ## License
 
-MIT License. See LICENSE file for details.
+GPL-3.0 License. See [LICENSE](LICENSE) file for details.
 
 ## Contributing
 
