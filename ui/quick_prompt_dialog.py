@@ -30,14 +30,14 @@ class QuickPromptDialog(QDialog):
         self.setWindowTitle("AI Field Filler")
         self.setMinimumWidth(400)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
-        self.setStyleSheet(GLOBAL_STYLE)
+        self.setStyleSheet(GLOBAL_STYLE())
 
         layout = QVBoxLayout()
         layout.setSpacing(14)
         layout.setContentsMargins(18, 18, 18, 18)
 
         header = QLabel(f"\U0001f9e0  Fill <b>{self._field_name}</b> with AI")
-        header.setStyleSheet(HEADER_STYLE)
+        header.setStyleSheet(HEADER_STYLE())
         layout.addWidget(header)
 
         layout.addWidget(QLabel("Additional instructions (optional):"))

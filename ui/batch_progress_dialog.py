@@ -8,7 +8,7 @@ from typing import List, Optional
 from aqt.qt import *
 
 from ..field_filler import BatchFiller, BatchNoteItem, BatchProgress, BatchResult
-from .styles import ACCENT_COLOR, GLOBAL_STYLE, MUTED_LABEL_STYLE
+from .styles import ACCENT_COLOR, GLOBAL_STYLE, MUTED_LABEL_STYLE, PROGRESS_BAR_STYLE
 
 
 def _fmt_time(seconds: float) -> str:
@@ -39,7 +39,7 @@ class BatchProgressDialog(QDialog):
         self.setFixedHeight(200)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowCloseButtonHint)
-        self.setStyleSheet(GLOBAL_STYLE)
+        self.setStyleSheet(GLOBAL_STYLE())
 
         layout = QVBoxLayout()
         layout.setSpacing(12)
@@ -47,36 +47,22 @@ class BatchProgressDialog(QDialog):
 
         self._status_label = QLabel("\u2728 Preparing batch...")
         self._status_label.setStyleSheet(
-            f"font-size: 14px; font-weight: 600; color: {ACCENT_COLOR};"
+            f"font-size: 14px; font-weight: 600; color: {ACCENT_COLOR()};"
         )
         layout.addWidget(self._status_label)
 
         self._progress_bar = QProgressBar()
         self._progress_bar.setRange(0, 100)
         self._progress_bar.setValue(0)
-        self._progress_bar.setStyleSheet(
-            f"""
-            QProgressBar {{
-                border: 1px solid #DDE1E6;
-                border-radius: 6px;
-                background: #F0F2F5;
-                height: 20px;
-                text-align: center;
-            }}
-            QProgressBar::chunk {{
-                background: {ACCENT_COLOR};
-                border-radius: 5px;
-            }}
-            """
-        )
+        self._progress_bar.setStyleSheet(PROGRESS_BAR_STYLE())
         layout.addWidget(self._progress_bar)
 
         self._detail_label = QLabel("")
-        self._detail_label.setStyleSheet(MUTED_LABEL_STYLE)
+        self._detail_label.setStyleSheet(MUTED_LABEL_STYLE())
         layout.addWidget(self._detail_label)
 
         self._preview_label = QLabel("")
-        self._preview_label.setStyleSheet(MUTED_LABEL_STYLE)
+        self._preview_label.setStyleSheet(MUTED_LABEL_STYLE())
         self._preview_label.setMaximumWidth(420)
         layout.addWidget(self._preview_label)
 
@@ -155,7 +141,7 @@ class BatchSummaryDialog(QDialog):
         self.setWindowTitle("AI Field Filler \u2014 Batch Complete")
         self.setMinimumWidth(460)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
-        self.setStyleSheet(GLOBAL_STYLE)
+        self.setStyleSheet(GLOBAL_STYLE())
 
         layout = QVBoxLayout()
         layout.setSpacing(14)
@@ -165,7 +151,7 @@ class BatchSummaryDialog(QDialog):
         mode = " (dry run)" if r.dry_run else ""
         icon = "\u2705" if r.failed == 0 else "\u26a0\ufe0f"
         header = QLabel(f"{icon}  Batch Complete{mode}")
-        header.setStyleSheet(f"font-size: 15px; font-weight: 600; color: {ACCENT_COLOR};")
+        header.setStyleSheet(f"font-size: 15px; font-weight: 600; color: {ACCENT_COLOR()};")
         layout.addWidget(header)
 
         # Summary stats

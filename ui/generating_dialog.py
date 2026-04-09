@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from aqt.qt import *
 
-from .styles import ACCENT_COLOR, GLOBAL_STYLE
+from .styles import ACCENT_COLOR, GLOBAL_STYLE, palette
 
 
 class GeneratingDialog(QDialog):
@@ -27,7 +27,7 @@ class GeneratingDialog(QDialog):
             & ~Qt.WindowType.WindowCloseButtonHint
             & ~Qt.WindowType.WindowContextHelpButtonHint
         )
-        self.setStyleSheet(GLOBAL_STYLE)
+        self.setStyleSheet(GLOBAL_STYLE())
 
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -40,12 +40,12 @@ class GeneratingDialog(QDialog):
 
         self._label = QLabel("Generating\u2026")
         self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._label.setStyleSheet(f"font-size: 16px; font-weight: 600; color: {ACCENT_COLOR};")
+        self._label.setStyleSheet(f"font-size: 16px; font-weight: 600; color: {ACCENT_COLOR()};")
         layout.addWidget(self._label)
 
         self._sub = QLabel("This may take a moment")
         self._sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._sub.setStyleSheet("font-size: 12px; color: #6B7280;")
+        self._sub.setStyleSheet(f"font-size: 12px; color: {palette()['text_muted']};")
         layout.addWidget(self._sub)
 
         self.setLayout(layout)

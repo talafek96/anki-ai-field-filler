@@ -37,7 +37,7 @@ class BatchFillDialog(QDialog):
         self.setWindowTitle("AI Field Filler \u2014 Batch Fill")
         self.setMinimumWidth(480)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
-        self.setStyleSheet(GLOBAL_STYLE)
+        self.setStyleSheet(GLOBAL_STYLE())
 
         layout = QVBoxLayout()
         layout.setSpacing(14)
@@ -45,11 +45,11 @@ class BatchFillDialog(QDialog):
 
         # Header
         header = QLabel(f"\u2728  Batch Fill \u2014 {self._note_count} notes")
-        header.setStyleSheet(HEADER_STYLE)
+        header.setStyleSheet(HEADER_STYLE())
         layout.addWidget(header)
 
         sub = QLabel(f"Note type: <b>{self._note_type_name}</b>")
-        sub.setStyleSheet(MUTED_LABEL_STYLE)
+        sub.setStyleSheet(MUTED_LABEL_STYLE())
         layout.addWidget(sub)
 
         # Field selection
@@ -95,7 +95,7 @@ class BatchFillDialog(QDialog):
         cost_label = QLabel(
             f"\u26a0\ufe0f  This will make up to <b>{self._note_count}</b> API calls."
         )
-        cost_label.setStyleSheet(MUTED_LABEL_STYLE)
+        cost_label.setStyleSheet(MUTED_LABEL_STYLE())
         info_row.addWidget(cost_label)
         info_row.addStretch()
 

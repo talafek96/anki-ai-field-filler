@@ -11,7 +11,7 @@ from aqt.qt import *
 
 from ..config_manager import ConfigManager, FieldInstruction
 from . import create_auto_fill_checkbox, create_field_type_combo
-from .styles import GLOBAL_STYLE, HEADER_STYLE
+from .styles import GLOBAL_STYLE, HEADER_STYLE, palette
 
 
 class FieldInstructionDialog(QDialog):
@@ -36,7 +36,7 @@ class FieldInstructionDialog(QDialog):
         self.setWindowTitle(f"AI Instructions \u2014 {self._field_name}")
         self.setMinimumWidth(440)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
-        self.setStyleSheet(GLOBAL_STYLE)
+        self.setStyleSheet(GLOBAL_STYLE())
 
         layout = QVBoxLayout()
         layout.setSpacing(14)
@@ -46,10 +46,10 @@ class FieldInstructionDialog(QDialog):
         scope = f" [{self._deck_name}]" if self._deck_name else ""
         header = QLabel(
             f"\U0001f4dd  <b>{self._field_name}</b>"
-            f"<span style='color: #6B7280;'>"
+            f"<span style='color: {palette()['text_muted']};'>"
             f" \u2014 {self._note_type_name}{scope}</span>"
         )
-        header.setStyleSheet(HEADER_STYLE)
+        header.setStyleSheet(HEADER_STYLE())
         layout.addWidget(header)
 
         # Scope selector
