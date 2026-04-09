@@ -37,7 +37,7 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("AI Field Filler \u2014 Settings")
         self.setMinimumSize(740, 540)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
-        self.setStyleSheet(GLOBAL_STYLE)
+        self.setStyleSheet(GLOBAL_STYLE())
 
         layout = QVBoxLayout()
         layout.setSpacing(12)

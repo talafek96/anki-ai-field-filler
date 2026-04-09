@@ -15,26 +15,17 @@ from aqt.sound import av_player
 
 from ..field_filler import BatchProposedChange
 from .styles import (
+    ERROR_LABEL_STYLE,
+    FIELD_ERROR_STYLE,
     FILTER_CHIP_STYLE,
     GLOBAL_STYLE,
     HEADER_STYLE,
     MUTED_LABEL_STYLE,
+    PREVIEW_RENDERED_STYLE,
+    PREVIEW_STYLE,
+    REGEN_CHECKBOX_STYLE,
     REGEN_TOGGLE_STYLE,
-)
-
-_PREVIEW_STYLE = (
-    "border: 1px solid #DDE1E6; border-radius: 6px; "
-    "padding: 6px 8px; background: #FFFFFF; color: #1F2937; font-size: 13px;"
-)
-
-_PREVIEW_RENDERED_STYLE = (
-    "background: #FFFFFF; border: 1px solid #DDE1E6; border-radius: 6px; "
-    "color: #1F2937; font-size: 13px;"
-)
-
-_FIELD_ERROR_STYLE = (
-    "color: #92400E; font-size: 12px; padding: 4px 8px; "
-    "background: #FEF3C7; border-left: 3px solid #F59E0B; border-radius: 2px;"
+    palette,
 )
 
 _INITIAL_CONTENT_HEIGHT = 200
@@ -192,7 +183,7 @@ class _ResizeHandle(QWidget):
     def paintEvent(self, event: object) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor("#C4CAD3"))
+        pen = QPen(QColor(palette()["resize_handle"]))
         pen.setWidth(1)
         p.setPen(pen)
         cx = self.width() // 2
@@ -301,7 +292,8 @@ class _ClickableArrow(QLabel):
         self.setFixedSize(22, 22)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setStyleSheet(
-            "font-size: 11px; color: #6B7280; background: transparent; border: none;"
+            f"font-size: 11px; color: {palette()['text_muted']}; "
+            f"background: transparent; border: none;"
         )
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip("Collapse / Expand")
@@ -376,7 +368,7 @@ class BatchReviewDialog(QDialog):
         self.setWindowTitle(f"AI Field Filler \u2014 {title}")
         self.setMinimumSize(680, 540)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
-        self.setStyleSheet(GLOBAL_STYLE)
+        self.setStyleSheet(GLOBAL_STYLE())
 
         layout = QVBoxLayout()
         layout.setSpacing(10)
@@ -393,7 +385,7 @@ class BatchReviewDialog(QDialog):
         if failed:
             parts.append(f"{len(failed)} failed")
         self._header_label = QLabel(", ".join(parts))
-        self._header_label.setStyleSheet(HEADER_STYLE)
+        self._header_label.setStyleSheet(HEADER_STYLE())
         self._header_label.setWordWrap(True)
         layout.addWidget(self._header_label)
 
@@ -403,13 +395,13 @@ class BatchReviewDialog(QDialog):
                 f"Generated in {_fmt_seconds(self._elapsed_seconds)}  \u2022  {avg:.1f}s per note"
             )
             stats_label = QLabel(stats_text)
-            stats_label.setStyleSheet(MUTED_LABEL_STYLE)
+            stats_label.setStyleSheet(MUTED_LABEL_STYLE())
             layout.addWidget(stats_label)
 
         if not self._dry_run:
             hint_row = QHBoxLayout()
             hint = QLabel("Toggle <b>Show raw HTML</b> to view and edit the raw HTML.")
-            hint.setStyleSheet(MUTED_LABEL_STYLE)
+            hint.setStyleSheet(MUTED_LABEL_STYLE())
             hint_row.addWidget(hint)
             hint_row.addStretch()
             self._raw_toggle = QCheckBox("Show raw HTML")
@@ -536,7 +528,7 @@ class BatchReviewDialog(QDialog):
             btn.setCheckable(True)
             btn.setChecked(False)
             btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            btn.setStyleSheet(FILTER_CHIP_STYLE)
+            btn.setStyleSheet(FILTER_CHIP_STYLE())
             btn.setToolTip("Toggle filter (multi-select)")
             qconnect(btn.clicked, lambda _c=False, k=key: self._on_content_filter(k))
             row1.addWidget(btn)
@@ -607,7 +599,7 @@ class BatchReviewDialog(QDialog):
 
         if not prop.success:
             self._add_error_block(
-                content_layout, f"\u274c Error: {prop.error}", "color: #DC2626; font-size: 12px;"
+                content_layout, f"\u274c Error: {prop.error}", ERROR_LABEL_STYLE()
             )
             # Show blank fields with context so user can retry
             for field_name in prop.blank_fields:
@@ -615,7 +607,7 @@ class BatchReviewDialog(QDialog):
         elif self._dry_run:
             fields_text = ", ".join(prop.blank_fields) if prop.blank_fields else "none"
             info = QLabel(f"Fields to fill: <b>{fields_text}</b>")
-            info.setStyleSheet(MUTED_LABEL_STYLE)
+            info.setStyleSheet(MUTED_LABEL_STYLE())
             content_layout.addWidget(info)
         else:
             for field_name, new_value in prop.changes.items():
@@ -628,7 +620,7 @@ class BatchReviewDialog(QDialog):
                 self._add_error_block(
                     content_layout,
                     f"\u26a0\ufe0f <b>{field_name}</b>: {err_msg}",
-                    _FIELD_ERROR_STYLE,
+                    FIELD_ERROR_STYLE(),
                 )
 
         content_container.setLayout(content_layout)
@@ -723,10 +715,7 @@ class BatchReviewDialog(QDialog):
             regen_cb = QCheckBox("Batch regen")
             regen_cb.setChecked(False)
             regen_cb.setToolTip("Check this to include the field when clicking 'Regenerate Marked'")
-            regen_cb.setStyleSheet(
-                "QCheckBox { font-size: 11px; color: #92400E; }"
-                "QCheckBox::indicator:checked { background: #F59E0B; border-color: #D97706; }"
-            )
+            regen_cb.setStyleSheet(REGEN_CHECKBOX_STYLE())
             label_row.addWidget(regen_cb)
             self._regen_checks[(prop_idx, field_name)] = regen_cb
 
@@ -734,7 +723,7 @@ class BatchReviewDialog(QDialog):
             regen_btn = QPushButton("\u21bb Regen")
             regen_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             regen_btn.setToolTip(f"Regenerate '{field_name}' now")
-            regen_btn.setStyleSheet(REGEN_TOGGLE_STYLE)
+            regen_btn.setStyleSheet(REGEN_TOGGLE_STYLE())
             qconnect(
                 regen_btn.clicked,
                 lambda _c=False, pi=prop_idx, fn=field_name: self._on_regenerate(pi, fn),
@@ -757,7 +746,7 @@ class BatchReviewDialog(QDialog):
         except Exception:
             pass
         rendered = _ImageTextEdit(media_dir=media_dir)
-        rendered.setStyleSheet(_PREVIEW_RENDERED_STYLE)
+        rendered.setStyleSheet(PREVIEW_RENDERED_STYLE())
         if value.strip():
             rendered.setHtml(value)
         else:
@@ -766,7 +755,7 @@ class BatchReviewDialog(QDialog):
         stack.addWidget(rendered)
 
         edit = QPlainTextEdit()
-        edit.setStyleSheet(_PREVIEW_STYLE)
+        edit.setStyleSheet(PREVIEW_STYLE())
         if value.strip():
             edit.setPlainText(value)
         else:

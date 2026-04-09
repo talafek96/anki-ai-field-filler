@@ -38,7 +38,7 @@ class FillDialog(QDialog):
         self.setWindowTitle("AI Field Filler")
         self.setMinimumWidth(440)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
-        self.setStyleSheet(GLOBAL_STYLE)
+        self.setStyleSheet(GLOBAL_STYLE())
 
         layout = QVBoxLayout()
         layout.setSpacing(14)
@@ -46,7 +46,7 @@ class FillDialog(QDialog):
 
         # --- Header ---
         header = QLabel("\u2728  Select Fields to Fill")
-        header.setStyleSheet(HEADER_STYLE)
+        header.setStyleSheet(HEADER_STYLE())
         layout.addWidget(header)
 
         # --- Field selection ---
@@ -65,7 +65,7 @@ class FillDialog(QDialog):
                 if len(value) > 80:
                     preview += "..."
                 cb.setToolTip(f"Already filled: {preview}")
-                cb.setStyleSheet(MUTED_LABEL_STYLE)
+                cb.setStyleSheet(MUTED_LABEL_STYLE())
             else:
                 is_pre_selected = not self._pre_selected or name in self._pre_selected
                 instr = self._field_instructions.get(name)

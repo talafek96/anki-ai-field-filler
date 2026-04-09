@@ -9,6 +9,7 @@ from aqt.qt import *
 
 from ..config_manager import ConfigManager, FieldInstruction
 from . import create_auto_fill_checkbox, create_field_type_combo
+from .styles import palette
 
 
 class _ResizeHandle(QWidget):
@@ -31,7 +32,7 @@ class _ResizeHandle(QWidget):
         """Draw three short horizontal lines as a grip indicator."""
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor("#B0B7C3"))
+        pen = QPen(QColor(palette()["resize_handle"]))
         pen.setWidth(1)
         p.setPen(pen)
         cx = self.width() // 2
@@ -126,7 +127,7 @@ class NoteTypeSettingsTab(QWidget):
             "appropriate content."
         )
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("color: gray; margin-bottom: 6px;")
+        info_label.setStyleSheet(f"color: {palette()['text_muted']}; margin-bottom: 6px;")
         right_panel.addWidget(info_label)
 
         scroll = QScrollArea()
