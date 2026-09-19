@@ -171,8 +171,10 @@ def _fetch_openrouter_models(config: ProviderConfig, capability: str) -> List[st
         if capability == "image":
             if "image" in modalities:
                 models.append(model_id)
-        # A model that can emit images is an image model, not a chat model.
-        elif "text" in modalities and "image" not in modalities:
+        # Models that emit images or audio are not chat models, even though
+        # they also list "text": the audio ones (gpt-audio, lyria music
+        # generation) reject a plain chat request.
+        elif "text" in modalities and not {"image", "audio"} & set(modalities):
             models.append(model_id)
     return sorted(models)
 
