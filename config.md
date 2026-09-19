@@ -58,3 +58,4 @@ Example:
 | `fill_field_shortcut` | Keyboard shortcut for filling the current field |
 | `default_user_prompt` | Default additional prompt included with every AI request |
 | `show_fill_dialog` | Show a confirmation dialog before filling fields |
+| `dev_mode` | Adds a "Developer Tools" entry to the addon menu. The dialog is always reachable with `Ctrl+Shift+Alt+D` regardless of this setting. |

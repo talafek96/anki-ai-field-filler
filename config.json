@@ -45,6 +45,7 @@
         "fill_all_shortcut": "Ctrl+Shift+G",
         "fill_field_shortcut": "Ctrl+Shift+F",
         "default_user_prompt": "",
-        "show_fill_dialog": true
+        "show_fill_dialog": true,
+        "dev_mode": false
     }
 }

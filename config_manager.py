@@ -49,6 +49,8 @@ class GeneralSettings:
     fill_field_shortcut: str = "Ctrl+Shift+F"
     default_user_prompt: str = ""
     show_fill_dialog: bool = True
+    dev_mode: bool = False
+    """Adds a Developer Tools entry to the addon menu (hidden by default)."""
 
 
 class ConfigManager:
@@ -332,6 +334,7 @@ class ConfigManager:
             fill_field_shortcut=g.get("fill_field_shortcut", "Ctrl+Shift+F"),
             default_user_prompt=g.get("default_user_prompt", ""),
             show_fill_dialog=g.get("show_fill_dialog", True),
+            dev_mode=bool(g.get("dev_mode", False)),
         )
 
     def set_general_settings(self, settings: GeneralSettings) -> None:
@@ -341,6 +344,7 @@ class ConfigManager:
             "fill_field_shortcut": settings.fill_field_shortcut,
             "default_user_prompt": settings.default_user_prompt,
             "show_fill_dialog": settings.show_fill_dialog,
+            "dev_mode": settings.dev_mode,
         }
 
     # --- Settings export / import ---
