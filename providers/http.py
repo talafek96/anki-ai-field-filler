@@ -109,6 +109,49 @@ def http_get_json(
 # ---------------------------------------------------------------------------
 
 
+# Gateway messages that say nothing on their own; the real reason is in
+# ``error.metadata`` instead.
+_GENERIC_ERROR_MESSAGES = ("provider returned error",)
+
+
+def _upstream_message(metadata: dict) -> str:
+    """Pull the upstream provider's own wording out of ``error.metadata``.
+
+    OpenRouter wraps the real failure in ``metadata.raw`` — sometimes a JSON
+    document, sometimes a bare sentence — while ``error.message`` stays a
+    generic "Provider returned error".  Without this, an end-of-life model
+    and a malformed request are indistinguishable to the user.
+    """
+    raw = metadata.get("raw")
+    message = ""
+    if isinstance(raw, str):
+        try:
+            parsed_raw = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            message = raw
+        else:
+            if isinstance(parsed_raw, dict):
+                message = str(
+                    parsed_raw.get("message")
+                    or parsed_raw.get("msg")
+                    or parsed_raw.get("error")
+                    or ""
+                )
+            else:
+                message = str(parsed_raw)
+    elif isinstance(raw, dict):
+        message = str(raw.get("message") or raw.get("msg") or "")
+
+    message = " ".join(message.split())
+    provider = metadata.get("provider_name")
+    if message and provider:
+        return f"{provider}: {message}"
+    if message:
+        return message
+    # No raw payload, but the gateway may still suggest a remedy.
+    return " ".join(str(metadata.get("remedy_hint") or "").split())
+
+
 def _http_error(label: str, code: int, body: str) -> ProviderError:
     """Build a ProviderError with a one-line summary and the full body.
 
@@ -128,6 +171,13 @@ def _http_error(label: str, code: int, body: str) -> ProviderError:
         err = parsed.get("error")
         if isinstance(err, dict):
             summary = str(err.get("message") or err.get("type") or "")
+            metadata = err.get("metadata")
+            if isinstance(metadata, dict):
+                upstream = _upstream_message(metadata)
+                if upstream and summary.strip().lower() in _GENERIC_ERROR_MESSAGES:
+                    summary = upstream
+                elif upstream and upstream not in summary:
+                    summary = f"{summary} — {upstream}"
         elif isinstance(err, str):
             summary = err
         if not summary:

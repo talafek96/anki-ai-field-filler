@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import urllib.error
 from io import BytesIO
 from unittest.mock import MagicMock, patch
@@ -334,3 +335,74 @@ class TestHttpErrorSummary:
         assert str(exc_info.value) == "OpenAI API error 401: bad key"
         assert exc_info.value.detail is not None
         assert '"message": "bad key"' in exc_info.value.detail
+
+
+class TestUpstreamErrorDetail:
+    """OpenRouter hides the real reason in error.metadata."""
+
+    def test_generic_message_replaced_by_upstream_reason(self) -> None:
+        body = json.dumps(
+            {
+                "error": {
+                    "message": "Provider returned error",
+                    "code": 404,
+                    "metadata": {
+                        "raw": '{"message":"This model version has reached the end of its life."}',
+                        "provider_name": "Amazon Bedrock",
+                    },
+                }
+            }
+        )
+        err = _http_error("OpenRouter API", 404, body)
+        assert str(err) == (
+            "OpenRouter API error 404: Amazon Bedrock: This model version has "
+            "reached the end of its life."
+        )
+
+    def test_plain_string_raw_is_used(self) -> None:
+        body = json.dumps(
+            {
+                "error": {
+                    "message": "Provider returned error",
+                    "code": 429,
+                    "metadata": {
+                        "raw": "temporarily rate-limited upstream. Please retry shortly.",
+                        "provider_name": "Google AI Studio",
+                    },
+                }
+            }
+        )
+        err = _http_error("OpenRouter API", 429, body)
+        assert "temporarily rate-limited upstream" in str(err)
+        assert "Google AI Studio" in str(err)
+
+    def test_remedy_hint_used_when_no_raw(self) -> None:
+        body = json.dumps(
+            {
+                "error": {
+                    "message": "Provider returned error",
+                    "code": 429,
+                    "metadata": {"remedy_hint": "Retry shortly, or add your own key."},
+                }
+            }
+        )
+        assert "Retry shortly, or add your own key." in str(_http_error("API", 429, body))
+
+    def test_specific_message_is_kept(self) -> None:
+        """A message that already explains itself must not be replaced."""
+        body = json.dumps(
+            {
+                "error": {
+                    "message": "This model requires you to complete the following "
+                    "before use: 18+ age confirmation.",
+                    "code": 403,
+                    "metadata": {"missing_attestation_types": ["age_18plus"]},
+                }
+            }
+        )
+        err = _http_error("OpenRouter API", 403, body)
+        assert "18+ age confirmation" in str(err)
+
+    def test_no_metadata_is_unaffected(self) -> None:
+        body = json.dumps({"error": {"message": "bad key", "code": 401}})
+        assert str(_http_error("API", 401, body)) == "API error 401: bad key"

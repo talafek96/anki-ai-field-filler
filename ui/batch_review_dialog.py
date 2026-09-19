@@ -14,6 +14,7 @@ from aqt.qt import *
 from aqt.sound import av_player
 
 from ..field_filler import BatchProposedChange
+from . import install_wheel_guard
 from .styles import (
     ERROR_LABEL_STYLE,
     FIELD_ERROR_STYLE,
@@ -358,6 +359,7 @@ class BatchReviewDialog(QDialog):
         self._regen_done_signal.connect(self._on_regen_done)
         self._apply_btn: Optional[QPushButton] = None
         self._setup_ui()
+        install_wheel_guard(self)
 
     # ------------------------------------------------------------------
     # UI setup

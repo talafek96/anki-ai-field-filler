@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Tuple
 from aqt.qt import *
 
 from ..config_manager import FieldInstruction
+from . import install_wheel_guard
 from .styles import GLOBAL_STYLE, HEADER_STYLE, MUTED_LABEL_STYLE
 
 
@@ -32,6 +33,7 @@ class BatchFillDialog(QDialog):
         self._checkboxes: Dict[str, QCheckBox] = {}
         self._result: Optional[Tuple[List[str], str, bool]] = None
         self._setup_ui()
+        install_wheel_guard(self)
 
     def _setup_ui(self) -> None:
         self.setWindowTitle("AI Field Filler \u2014 Batch Fill")

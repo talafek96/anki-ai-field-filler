@@ -14,6 +14,7 @@ from aqt.utils import restoreGeom, saveGeom, showWarning, tooltip
 
 from ..config_manager import ConfigManager
 from ..settings_io import SettingsIOError, export_settings, import_settings
+from . import install_wheel_guard
 from .general_settings_tab import GeneralSettingsTab
 from .note_type_settings_tab import NoteTypeSettingsTab
 from .provider_settings_tab import ProviderSettingsTab
@@ -31,6 +32,7 @@ class SettingsDialog(QDialog):
         super().__init__(parent or mw)
         self._config = ConfigManager()
         self._setup_ui()
+        install_wheel_guard(self)
         restoreGeom(self, self._GEOM_KEY, adjustSize=True)
 
     def _setup_ui(self) -> None:
