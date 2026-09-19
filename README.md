@@ -60,7 +60,7 @@ Configure credentials and models for each supported provider:
 | OpenAI | Yes | Yes | Yes | Also works with Azure OpenAI and other compatible APIs |
 | Anthropic | Yes | No | No | Claude models |
 | Google | Yes | Yes | Yes | Gemini text, Nano Banana image gen, Gemini TTS |
-| OpenRouter | Yes | No | Yes | One key for every vendor; normalises per-model parameter differences |
+| OpenRouter | Yes | Yes | Yes | One key for every vendor; normalises per-model parameter differences. Speech via streamed gpt-audio models |
 
 - **Model dropdowns** are editable combo boxes with a refresh icon button that fetches available models from the provider's API. Fetched models are cached per provider — switching between providers restores each one's model list.
 - **API key** field has a "Show" checkbox to toggle visibility.
@@ -172,7 +172,7 @@ ai_field_filler/
 │   ├── openai_provider.py     # OpenAI (text + TTS + image)
 │   ├── anthropic_provider.py  # Anthropic (text)
 │   ├── google_provider.py     # Google Gemini (text + TTS + image)
-│   └── openrouter_provider.py # OpenRouter (text + image, all vendors)
+│   └── openrouter_provider.py # OpenRouter (text + TTS + image, all vendors)
 ├── ui/
 │   ├── __init__.py            # Shared UI widget helpers
 │   ├── styles.py                    # Shared styles and colors

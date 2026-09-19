@@ -28,8 +28,8 @@
             "api_url": "https://openrouter.ai/api/v1",
             "api_key": "",
             "text_model": "anthropic/claude-sonnet-5",
-            "tts_model": "",
-            "tts_voice": "",
+            "tts_model": "openai/gpt-audio-mini",
+            "tts_voice": "alloy",
             "image_model": "google/gemini-3.1-flash-image",
             "max_tokens": 4096
         }

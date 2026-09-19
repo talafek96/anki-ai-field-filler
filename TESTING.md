@@ -58,7 +58,7 @@ Also check both themes: Anki *Preferences → Appearance → Theme*, light and d
 
 | Button | What to look for |
 |--------|------------------|
-| List models (all providers) | Counts per provider × capability. **Anthropic tts/image and OpenRouter tts must report 0** — those providers have no such models. |
+| List models (all providers) | Counts per provider × capability. **Anthropic tts/image must report 0** — Claude has no such models. OpenRouter tts reports 2 (`gpt-audio`, `gpt-audio-mini`); the Lyria music models must not appear there. |
 | Show models filtered OUT | Every model the API returned that the dropdowns hide, e.g. `davinci-002`, `babbage-002`, `*-instruct`, `*-deep-research`, `lyria-*` (music), `*-robotics-*`, `*-transcribe`, `*-computer-use`, and OpenRouter's `*:batch` variants. Selecting any of these could only ever fail. |
 
 OpenRouter's `:batch` models deserve a specific look: they are half-price
@@ -77,7 +77,7 @@ to *Text model*. The dropdown should contain none of the names listed above.
 | Test connection | `result: OK` for a working key. Break the key deliberately → the new error dialog appears with details, instead of the old plain message box. |
 | Generate text | Reply is `'OK'`. |
 | Generate image → report format | Reports magic bytes and the extension chosen. **Gemini 3.x must report JPEG → `.jpg`**; OpenAI reports PNG → `.png`. This is the bug where JPEG data was written to a `.png` filename. |
-| Synthesize speech → report format | Google returns `raw/unknown (PCM?)` — expected; `MediaHandler` wraps it in a WAV header. OpenAI returns MP3. |
+| Synthesize speech → report format | Google and OpenRouter return `raw/unknown (PCM?)` — expected; `MediaHandler` wraps it in a WAV header. OpenAI returns MP3. For OpenRouter, only `openai/gpt-audio` and `openai/gpt-audio-mini` are offered, the voice must be one of the 13 accepted names, and the request is streamed — a blank voice or a non-`pcm16` format is a 400. |
 
 ## 4 · Compatibility probe
 
@@ -111,7 +111,9 @@ another model — not a raw JSON body.
    `[sound:...]` tag plays.
 4. **OpenRouter.** Settings → AI Providers → *OpenRouter (all vendors)*, paste
    a key, refresh the model list, set it active for text, and fill a field.
-   The TTS rows are hidden for this provider, by design.
+   Then set it active for TTS as well and fill an `audio` field: speech is
+   streamed, so this exercises `http_post_sse` end to end. The saved file
+   must be a playable `.wav` (24 kHz mono).
 5. **Batch fill.** Select several notes of one type in the browser →
    right-click → batch fill, then regenerate a field in the review dialog. A
    failure there should open the new error dialog.
@@ -119,7 +121,7 @@ another model — not a raw JSON body.
 ## Automated checks
 
 ```bash
-make check    # lint + typecheck + test (362 tests)
+make check    # lint + typecheck + test (390 tests)
 python build_ankiaddon.py --check   # confirm new files are packaged
 ```
 

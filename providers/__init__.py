@@ -40,6 +40,10 @@ def create_tts_provider(config: ProviderConfig) -> TTSProvider:
         from .google_provider import GoogleTTSProvider
 
         return GoogleTTSProvider(config)
+    elif config.provider_type == "openrouter":
+        from .openrouter_provider import OpenRouterTTSProvider
+
+        return OpenRouterTTSProvider(config)
     raise ProviderError(f"No TTS support for provider: {config.provider_type}")
 
 
@@ -159,17 +163,18 @@ _OPENROUTER_NON_CHAT_SIGNALS = (
     "merges ai-suggested edits",
 )
 
+# Audio-output models that generate music rather than speech (Lyria), so
+# they cannot read a field aloud.
+_OPENROUTER_MUSIC_SIGNALS = ("music generation", "generate high-quality, 48khz")
+
 
 def _fetch_openrouter_models(config: ProviderConfig, capability: str) -> List[str]:
     """Fetch models from OpenRouter's /models endpoint.
 
     OpenRouter is the only provider that publishes real capability
     metadata, so this classifies on ``architecture.output_modalities``
-    instead of guessing from the model id.  TTS is not supported: the few
-    audio models there use a different request shape.
+    instead of guessing from the model id.
     """
-    if capability not in ("text", "image"):
-        return []
     url = f"{config.base_url}/models"
     data = http_get_json(url, {"Authorization": f"Bearer {config.api_key}"}, label="OpenRouter")
 
@@ -187,9 +192,15 @@ def _fetch_openrouter_models(config: ProviderConfig, capability: str) -> List[st
         if capability == "image":
             if "image" in modalities:
                 models.append(model_id)
+        elif capability == "tts":
+            # Audio output covers both speech and music generation; only
+            # the speech models can read a field aloud.
+            if "audio" in modalities and not any(
+                signal in description for signal in _OPENROUTER_MUSIC_SIGNALS
+            ):
+                models.append(model_id)
         # Models that emit images or audio are not chat models, even though
-        # they also list "text": the audio ones (gpt-audio, lyria music
-        # generation) reject a plain chat request.
+        # they also list "text".
         elif "text" in modalities and not {"image", "audio"} & set(modalities):
             models.append(model_id)
     return sorted(models)

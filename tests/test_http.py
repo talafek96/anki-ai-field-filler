@@ -19,6 +19,7 @@ from ai_field_filler.providers.http import (
     http_get_json,
     http_post_json,
     http_post_raw,
+    http_post_sse,
 )
 
 
@@ -406,3 +407,81 @@ class TestUpstreamErrorDetail:
     def test_no_metadata_is_unaffected(self) -> None:
         body = json.dumps({"error": {"message": "bad key", "code": 401}})
         assert str(_http_error("API", 401, body)) == "API error 401: bad key"
+
+    def test_python_repr_raw_is_parsed(self) -> None:
+        """Some gateways forward a str()-ed dict, which json.loads rejects."""
+        body = json.dumps(
+            {
+                "error": {
+                    "message": "Provider returned error",
+                    "code": 400,
+                    "metadata": {
+                        "raw": "{'message': \"Invalid value: 'zzz'.\", 'code': 'invalid_value'}",
+                        "provider_name": "OpenAI",
+                    },
+                }
+            }
+        )
+        err = _http_error("OpenRouter API", 400, body)
+        assert str(err) == "OpenRouter API error 400: OpenAI: Invalid value: 'zzz'."
+
+
+class TestSse:
+    """The streaming helper used for OpenRouter audio output."""
+
+    @staticmethod
+    def _response(lines: list):
+        resp = MagicMock()
+        resp.__iter__ = lambda self: iter([ln.encode() for ln in lines])
+        return resp
+
+    @patch("ai_field_filler.providers.http._urlopen_stream")
+    def test_parses_data_frames(self, mock_open) -> None:
+        mock_open.return_value = self._response(
+            ['data: {"n": 1}\n', 'data: {"n": 2}\n', "data: [DONE]\n"]
+        )
+        assert list(http_post_sse("https://api.test", {}, {})) == [{"n": 1}, {"n": 2}]
+
+    @patch("ai_field_filler.providers.http._urlopen_stream")
+    def test_stops_at_done(self, mock_open) -> None:
+        mock_open.return_value = self._response(
+            ['data: {"n": 1}\n', "data: [DONE]\n", 'data: {"n": 99}\n']
+        )
+        assert list(http_post_sse("https://api.test", {}, {})) == [{"n": 1}]
+
+    @patch("ai_field_filler.providers.http._urlopen_stream")
+    def test_skips_comments_blanks_and_junk(self, mock_open) -> None:
+        mock_open.return_value = self._response(
+            [
+                ": OPENROUTER PROCESSING\n",
+                "\n",
+                "event: ping\n",
+                "data: not-json\n",
+                'data: {"n": 1}\n',
+            ]
+        )
+        assert list(http_post_sse("https://api.test", {}, {})) == [{"n": 1}]
+
+    @patch("ai_field_filler.providers.http._urlopen_stream")
+    def test_closes_the_response(self, mock_open) -> None:
+        resp = self._response(['data: {"n": 1}\n', "data: [DONE]\n"])
+        mock_open.return_value = resp
+        list(http_post_sse("https://api.test", {}, {}))
+        resp.close.assert_called_once()
+
+    @patch("ai_field_filler.providers.http.urllib.request.urlopen")
+    def test_http_error_raises_eagerly(self, mock_urlopen) -> None:
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            "https://api.test", 400, "Bad", {}, BytesIO(b'{"error":{"message":"needs stream"}}')
+        )
+        # Must raise from the call itself, not from the first iteration.
+        with pytest.raises(ProviderError, match="needs stream"):
+            http_post_sse("https://api.test", {}, {}, label="OpenRouter API")
+
+    @patch("ai_field_filler.providers.http._urlopen_stream")
+    def test_sets_event_stream_accept_header(self, mock_open) -> None:
+        mock_open.return_value = self._response(["data: [DONE]\n"])
+        list(http_post_sse("https://api.test", {"X-Custom": "v"}, {}))
+        req = mock_open.call_args[0][0]
+        assert req.get_header("Accept") == "text/event-stream"
+        assert req.get_header("X-custom") == "v"

@@ -96,11 +96,30 @@ have, because it normalises requests per model **server-side**:
   of guessing from the model id. 89 of its text models declare no
   `temperature` support — information no other provider exposes.
 
-It is not a total replacement: there is no TTS (only a handful of audio
-models, with a different request shape), and it has its own failure mode —
-models are listed whose upstream providers are all offline, returning
-"No endpoints found", which `OpenRouterTextProvider.generate` translates
-into a "pick a different model" message.
+It has its own failure modes: models are listed whose upstream providers
+are all offline, returning "No endpoints found", which
+`OpenRouterTextProvider.generate` translates into a "pick a different
+model" message; and `:batch` variants are listed but served only by
+`/api/v1/batches`, so they are filtered out.
+
+### OpenRouter speech is streaming-only
+
+There is no `/audio/speech` endpoint and no dedicated TTS models — of 447
+models only `openai/gpt-audio` and `openai/gpt-audio-mini` produce speech
+(the other audio-output models are Lyria *music* generation). Speech comes
+from a chat completion with an audio modality, and **only when `stream` is
+set**: a normal request is refused with "Audio output requires stream:
+true". That is why `providers/http.py` grew `http_post_sse`.
+
+Two more constraints found by testing, not documented anywhere obvious:
+
+- **`pcm16` is the only format the streaming path accepts.** `wav`, `mp3`
+  and `opus` are all rejected with a 400. The result is raw 24 kHz mono
+  PCM, so `MediaHandler` adds the WAV header exactly as it does for Google.
+- **The voice is validated and cannot be blank.** An empty or unknown
+  voice is a 400. The accepted list, taken from the API's own error
+  message, is alloy, ash, ballad, cedar, coral, echo, fable, marin, nova,
+  onyx, sage, shimmer, verse.
 
 Vendoring a unified-API library (LiteLLM, any-llm, aisuite) was rejected:
 all need compiled dependencies (`tokenizers`, `pydantic-core`) and Python

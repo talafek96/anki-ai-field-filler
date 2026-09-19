@@ -798,7 +798,8 @@ class DevToolsDialog(QDialog):
                 except Exception as e:
                     ctx.log(f"{ptype:12} {cap:6}  ERROR  {e}")
         ctx.log("")
-        ctx.log("Anthropic tts/image and OpenRouter tts should report 0 models.")
+        ctx.log("Anthropic tts/image should report 0. OpenRouter tts should report 2")
+        ctx.log("speech models — the Lyria music models must not appear there.")
 
     def _filtered_work(self, ctx: _RunContext) -> None:
         for ptype in self._config.get_all_provider_types():
