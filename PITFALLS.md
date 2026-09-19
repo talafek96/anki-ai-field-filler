@@ -134,3 +134,19 @@ requires `<3.15`, while this addon targets 3.9+.
   (`ff d8 ff e0`). OpenAI's return real PNG (`89 50 4e 47`).
 - **Fix:** `MediaHandler._sniff_image_ext()` picks the extension from the magic
   bytes (png/jpg/webp/gif). Mirrors what `save_audio()` already did for PCM.
+
+### `gemini-3-pro-image-preview` (Nano Banana Pro): intermittent `finishReason: OTHER`
+
+- **Symptom:** image generation fails with `finishReason: OTHER` and no
+  content parts, sometimes even for a trivial prompt ("a small red circle").
+- **Cause:** a **Google-side, unresolved** bug in the preview model, not ours.
+  Confirmed on Google's own dev forum (works in AI Studio, fails via the API;
+  Google staff investigating, no fix). `OTHER` is a catch-all — it is *not* a
+  safety block (that is `SAFETY`/`PROHIBITED_CONTENT`), and it also covers
+  copyright/IP refusals and content moderation.
+- **Fix (ours):** `_finish_reason_message()` now maps each `finishReason` to
+  accurate guidance instead of always saying "blocked by safety filters":
+  `OTHER` → "preview model may be unstable — retry or pick another model";
+  `MAX_TOKENS` → raise the budget; `SAFETY`/etc → the real block, with the
+  triggered categories. No payload change was applied because none is known to
+  help; retry or a different image model is the only workaround.

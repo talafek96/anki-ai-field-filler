@@ -14,6 +14,7 @@ it proves the runtime behaviour that mocks cannot.
 from __future__ import annotations
 
 import contextlib
+import shutil
 import tempfile
 import threading
 import time
@@ -21,8 +22,10 @@ import traceback
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
+from anki.sound import SoundOrVideoTag
 from aqt import mw
 from aqt.qt import *
+from aqt.sound import av_player
 from aqt.utils import tooltip
 
 from ..config.config_manager import ConfigManager, ProviderConfig
@@ -234,6 +237,9 @@ class DevToolsDialog(QDialog):
                 parent=self.parentWidget() or mw,
             )
         self._closed = True
+        # Generated previews are throwaway; drop the scratch dir so nothing
+        # accumulates. (ignore_errors: a file may still be held by the player.)
+        shutil.rmtree(self._media_dir, ignore_errors=True)
 
     # ---- layout ---------------------------------------------------------
 
@@ -971,8 +977,13 @@ class DevToolsDialog(QDialog):
         dialog.setLayout(layout)
         dialog.exec()
 
+    @staticmethod
+    def _play_audio(path: Path) -> None:
+        """Play the generated audio in-app via Anki's player."""
+        av_player.play_tags([SoundOrVideoTag(filename=str(path))])
+
     def _preview_audio(self, path: Path) -> None:
-        """Offer to play/open the generated audio file."""
+        """Offer to play (in-app) or open the generated audio file."""
         if self._closed:
             return
         dialog = QDialog(self)
@@ -981,15 +992,16 @@ class DevToolsDialog(QDialog):
         layout.addWidget(QLabel(f"Audio saved to:\n{path}"))
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        play_btn = buttons.addButton("Play / open", QDialogButtonBox.ButtonRole.ActionRole)
-        qconnect(play_btn.clicked, lambda: self._open_externally(path))
+        play_btn = buttons.addButton("Play", QDialogButtonBox.ButtonRole.ActionRole)
+        qconnect(play_btn.clicked, lambda: self._play_audio(path))
+        open_btn = buttons.addButton("Open file", QDialogButtonBox.ButtonRole.ActionRole)
+        qconnect(open_btn.clicked, lambda: self._open_externally(path))
         qconnect(buttons.rejected, dialog.reject)
         layout.addWidget(buttons)
 
         dialog.setLayout(layout)
-        # Play immediately in the OS default player, then leave the dialog open
-        # so it can be replayed or the file opened.
-        self._open_externally(path)
+        # Play once immediately in-app; the dialog stays open to replay or open.
+        self._play_audio(path)
         dialog.exec()
 
 
