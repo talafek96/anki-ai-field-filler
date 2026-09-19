@@ -233,3 +233,73 @@ class TestBatchVariantsExcluded:
         models = _fetch_openrouter_models(_CFG, "text")
         assert "meta-llama/llama-4-maverick:free" in models
         assert "perplexity/sonar:online" in models
+
+
+class TestNonChatModalitiesExcluded:
+    """Audio-output models reject plain chat requests."""
+
+    @staticmethod
+    def _payload() -> dict:
+        def entry(mid, outs):
+            return {"id": mid, "architecture": {"output_modalities": outs}}
+
+        return {
+            "data": [
+                entry("anthropic/claude-sonnet-5", ["text"]),
+                entry("openai/gpt-audio", ["text", "audio"]),
+                entry("google/lyria-3-pro-preview", ["text", "audio"]),
+                entry("google/gemini-3.1-flash-image", ["image", "text"]),
+            ]
+        }
+
+    @patch(_HTTP_GET_JSON)
+    def test_audio_models_are_not_text_models(self, mock_get) -> None:
+        mock_get.return_value = self._payload()
+        assert _fetch_openrouter_models(_CFG, "text") == ["anthropic/claude-sonnet-5"]
+
+    @patch(_HTTP_GET_JSON)
+    def test_audio_models_are_not_image_models(self, mock_get) -> None:
+        mock_get.return_value = self._payload()
+        assert _fetch_openrouter_models(_CFG, "image") == ["google/gemini-3.1-flash-image"]
+
+
+class TestErrorDeliveredWithStatus200:
+    """OpenRouter reports some upstream failures in the body, not the status."""
+
+    @patch(_HTTP_POST_JSON)
+    def test_embedded_error_is_surfaced(self, mock_post) -> None:
+        mock_post.return_value = {
+            "id": "gen-1",
+            "error": {
+                "message": "Upstream error from Nvidia: ResourceExhausted",
+                "code": 502,
+            },
+        }
+        with pytest.raises(ProviderError) as exc:
+            OpenRouterTextProvider(_CFG).generate("sys", "user")
+        assert "ResourceExhausted" in str(exc.value)
+        assert "OpenRouter API error 502" in str(exc.value)
+        assert exc.value.detail is not None
+
+    @patch(_HTTP_POST_JSON)
+    def test_reasoning_only_reply_is_rejected(self, mock_post) -> None:
+        mock_post.return_value = {
+            "choices": [
+                {
+                    "finish_reason": "stop",
+                    "message": {"content": None, "reasoning": "I should say OK.\nOK"},
+                }
+            ]
+        }
+        with pytest.raises(ProviderError) as exc:
+            OpenRouterTextProvider(_CFG).generate("sys", "user")
+        assert "only its reasoning" in str(exc.value)
+        # The monologue is kept as detail, never used as the field value.
+        assert exc.value.detail is not None and "I should say OK" in exc.value.detail
+
+    @patch(_HTTP_POST_JSON)
+    def test_normal_reply_unaffected(self, mock_post) -> None:
+        mock_post.return_value = {
+            "choices": [{"message": {"content": "OK", "reasoning": "thinking"}}]
+        }
+        assert OpenRouterTextProvider(_CFG).generate("sys", "user") == "OK"

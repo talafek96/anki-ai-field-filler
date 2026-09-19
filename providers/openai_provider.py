@@ -12,6 +12,7 @@ quirks at runtime instead of hard-coding a model list.  See
 from __future__ import annotations
 
 import base64
+import json
 from typing import Dict, Set
 
 from ..config_manager import ProviderConfig
@@ -82,13 +83,31 @@ class _OpenAIRequestMixin:
 
     def _request(self, url: str, payload: dict, timeout: int = 120) -> dict:
         """Make a JSON request to an OpenAI-compatible endpoint."""
-        return http_post_json(
+        result = http_post_json(
             url,
             self._auth_headers(),
             payload,
             timeout=timeout,
             label=self._label,
         )
+        self._raise_for_embedded_error(result)
+        return result
+
+    def _raise_for_embedded_error(self, result: dict) -> None:
+        """Surface an error delivered with a 200 status.
+
+        OpenRouter reports some upstream failures in the response *body*
+        rather than the HTTP status — ``{"id": ..., "error": {...}}`` with
+        no ``choices``. Without this the caller only sees a confusing
+        "unexpected response format" about the missing key.
+        """
+        error = result.get("error")
+        if not isinstance(error, dict):
+            return
+        message = error.get("message") or error.get("type") or "unknown error"
+        code = error.get("code")
+        prefix = f"{self._label} error {code}: " if code else f"{self._label} error: "
+        raise ProviderError(prefix + str(message), detail=json.dumps(result, indent=2))
 
     def _request_raw(self, url: str, payload: dict, timeout: int = 120) -> bytes:
         """Make a JSON request and return raw response bytes."""
@@ -185,6 +204,16 @@ class OpenAITextProvider(_OpenAIRequestMixin, TextProvider):
                     "The model used its entire token budget on reasoning and "
                     "returned no text. Raise 'Max tokens' in the provider "
                     "settings, or pick a non-reasoning model."
+                )
+            # Some reasoning models emit their whole reply as reasoning and
+            # leave content null.  That text is an internal monologue, not an
+            # answer, so it must not be used to fill a field.
+            if message.get("reasoning"):
+                raise ProviderError(
+                    "The model returned only its reasoning and no answer text, "
+                    "so there is nothing to put in the field. Pick a different "
+                    "model.",
+                    detail=str(message.get("reasoning")),
                 )
             raise ProviderError(f"OpenAI returned an empty response (finish_reason: {finish}).")
         return content
