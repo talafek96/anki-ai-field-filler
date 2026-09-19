@@ -4,13 +4,16 @@ Opened with Ctrl+Shift+Alt+D from the main window, or from
 Tools -> AI Field Filler -> Developer Tools when ``general.dev_mode`` is
 enabled in the config.
 
-Every button runs against the *live* configured providers and writes to
-the log pane, so this is the manual counterpart to the unit tests: it
-proves the runtime behaviour that mocks cannot.
+Every run uses the Parameters panel — provider, models, prompts and token
+budget — so a behaviour can be tried against different setups without
+touching the real settings.  Runs stream into the log as they go and can
+be stopped part-way.  This is the manual counterpart to the unit tests:
+it proves the runtime behaviour that mocks cannot.
 """
 
 from __future__ import annotations
 
+import threading
 import time
 import traceback
 from typing import Callable, List, Optional, Tuple
@@ -29,6 +32,12 @@ from ..providers import (
 )
 from ..providers.http import http_get_json
 from .error_dialog import show_error
+from .provider_settings_tab import (
+    KNOWN_TTS_VOICES,
+    PROVIDER_CAPABILITIES,
+    PROVIDER_LABELS,
+    ModelComboWithRefresh,
+)
 from .styles import GLOBAL_STYLE, HEADER_STYLE, MUTED_LABEL_STYLE
 
 _SHORTCUT = "Ctrl+Shift+Alt+D"
@@ -37,6 +46,8 @@ _SHORTCUT = "Ctrl+Shift+Alt+D"
 # layout; their width is measured from the longest label at runtime, since
 # hard-coding it clips labels under a different font or UI scale.
 _BUTTON_HEIGHT = 34
+
+_ACTIVE = "⟨use active providers⟩"
 
 # Models that failed before the compatibility work, kept as a regression
 # probe: each one exercises a different quirk.
@@ -66,6 +77,11 @@ _PROBE_MODELS = {
     ],
 }
 
+_DEFAULT_SYSTEM_PROMPT = "Reply with exactly the word OK and nothing else."
+_DEFAULT_USER_PROMPT = "Test connection."
+_DEFAULT_IMAGE_PROMPT = "A small red circle on a white background."
+_DEFAULT_TTS_TEXT = "This is a test of the speech synthesis pipeline."
+
 _SAMPLE_ERROR_BODY = (
     '{"error": {"message": "Unsupported value: \'temperature\' does not support '
     '0.7 with this model. Only the default (1) value is supported.", '
@@ -74,13 +90,39 @@ _SAMPLE_ERROR_BODY = (
 )
 
 
+class _Aborted(Exception):
+    """Raised inside a run when the user presses Stop."""
+
+
+class _RunContext:
+    """Handed to each run: streams log lines and reports aborts."""
+
+    def __init__(self, dialog: DevToolsDialog, abort: threading.Event) -> None:
+        self._dialog = dialog
+        self._abort = abort
+
+    @property
+    def aborted(self) -> bool:
+        return self._abort.is_set()
+
+    def check(self) -> None:
+        """Raise :class:`_Aborted` if Stop was pressed."""
+        if self._abort.is_set():
+            raise _Aborted()
+
+    def log(self, line: str = "") -> None:
+        """Append a line to the log from a worker thread."""
+        mw.taskman.run_on_main(lambda text=line: self._dialog._safe_log(text))
+
+
 def _raw_model_ids(cfg: ProviderConfig) -> List[str]:
     """Every model id the provider's API returns, before classification."""
-    if cfg.provider_type == "openai":
+    if cfg.provider_type in ("openai", "openrouter"):
+        label = "OpenAI" if cfg.provider_type == "openai" else "OpenRouter"
         data = http_get_json(
             f"{cfg.base_url}/models",
             {"Authorization": f"Bearer {cfg.api_key}"},
-            label="OpenAI",
+            label=label,
         )
         return [m["id"] for m in data.get("data", []) if m.get("id")]
     if cfg.provider_type == "anthropic":
@@ -97,13 +139,6 @@ def _raw_model_ids(cfg: ProviderConfig) -> List[str]:
         return [
             m.get("name", "").split("/", 1)[-1] for m in data.get("models", []) if m.get("name")
         ]
-    if cfg.provider_type == "openrouter":
-        data = http_get_json(
-            f"{cfg.base_url}/models",
-            {"Authorization": f"Bearer {cfg.api_key}"},
-            label="OpenRouter",
-        )
-        return [m["id"] for m in data.get("data", []) if m.get("id")]
     return []
 
 
@@ -125,14 +160,13 @@ def _describe_bytes(data: bytes) -> str:
 class DevToolsDialog(QDialog):
     """Buttons that exercise each provider behaviour, with a log pane."""
 
-    _GEOM_KEY = "ai_field_filler_dev_tools"
-
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent or mw)
         self._config = ConfigManager()
         self._busy = False
         self._closed = False
         self._widths_normalized = False
+        self._abort = threading.Event()
         self._buttons: List[QPushButton] = []
         self._setup_ui()
 
@@ -154,6 +188,7 @@ class DevToolsDialog(QDialog):
         width = max(b.sizeHint().width() for b in self._buttons)
         for btn in self._buttons:
             btn.setFixedWidth(width)
+        self._params_box.setFixedWidth(width)
         # Leave room for the column's vertical scrollbar.
         self._left_scroll.setFixedWidth(width + 44)
 
@@ -170,10 +205,11 @@ class DevToolsDialog(QDialog):
     def _mark_closed(self) -> None:
         """Stop pending results from touching widgets that are going away.
 
-        An in-flight HTTP request cannot be cancelled, so the call still
+        The request already in flight cannot be cancelled, so it still
         finishes in the background — its result is simply discarded.
         """
         if self._busy and not self._closed:
+            self._abort.set()
             tooltip(
                 "A developer-tools run is still in flight; its result will be discarded.",
                 parent=self.parentWidget() or mw,
@@ -184,7 +220,7 @@ class DevToolsDialog(QDialog):
 
     def _setup_ui(self) -> None:
         self.setWindowTitle("AI Field Filler — Developer Tools")
-        self.setMinimumSize(940, 620)
+        self.setMinimumSize(980, 640)
         self.setStyleSheet(GLOBAL_STYLE())
 
         root = QVBoxLayout()
@@ -196,7 +232,7 @@ class DevToolsDialog(QDialog):
         root.addWidget(title)
 
         subtitle = QLabel(
-            "Each button runs against your live configured providers. Calls cost real API credits."
+            "Runs use the parameters below, not your saved settings. Calls cost real API credits."
         )
         subtitle.setStyleSheet(MUTED_LABEL_STYLE())
         root.addWidget(subtitle)
@@ -204,14 +240,16 @@ class DevToolsDialog(QDialog):
         body = QHBoxLayout()
         body.setSpacing(14)
 
-        # -- left: action buttons --
-        # Held in a scroll area so that a window shorter than the button
-        # stack scrolls instead of compressing the buttons until their
-        # labels clip.
+        # -- left: parameters + action buttons --
+        # Held in a scroll area so that a window shorter than the column
+        # scrolls instead of compressing the buttons until their labels clip.
         left_panel = QWidget()
         left = QVBoxLayout()
         left.setSpacing(10)
         left.setContentsMargins(0, 0, 0, 0)
+
+        self._params_box = self._build_params()
+        left.addWidget(self._params_box)
 
         left.addWidget(
             self._group(
@@ -234,7 +272,7 @@ class DevToolsDialog(QDialog):
         )
         left.addWidget(
             self._group(
-                "3 · Live calls (active providers)",
+                "3 · Live calls",
                 [
                     ("Test connection", self._test_connection),
                     ("Generate text", self._gen_text),
@@ -247,9 +285,15 @@ class DevToolsDialog(QDialog):
             self._group(
                 "4 · Compatibility probe",
                 [
-                    ("Probe: active text provider", self._probe_active),
+                    ("Probe: selected provider", self._probe_selected),
                     ("Probe: all providers", self._probe_all),
                 ],
+            )
+        )
+        left.addWidget(
+            self._group(
+                "5 · Everything",
+                [("▶ Run all tests", self._run_all)],
             )
         )
         left.addStretch()
@@ -284,10 +328,18 @@ class DevToolsDialog(QDialog):
         right.addWidget(self._log, 1)
 
         log_bar = QHBoxLayout()
+        self._stop_btn = QPushButton("⏹ Stop")
+        self._stop_btn.setEnabled(False)
+        self._stop_btn.setToolTip(
+            "Stop after the request in flight returns — an HTTP call already "
+            "sent cannot be cancelled."
+        )
+        qconnect(self._stop_btn.clicked, self._request_abort)
         copy_btn = QPushButton("Copy log")
         qconnect(copy_btn.clicked, self._copy_log)
         clear_btn = QPushButton("Clear")
         qconnect(clear_btn.clicked, lambda: self._log.clear())
+        log_bar.addWidget(self._stop_btn)
         log_bar.addWidget(copy_btn)
         log_bar.addWidget(clear_btn)
         log_bar.addStretch()
@@ -304,7 +356,71 @@ class DevToolsDialog(QDialog):
         root.addWidget(buttons)
         self.setLayout(root)
 
+        self._on_provider_changed()
         self._log_line("Ready. Active providers: " + self._active_summary())
+
+    def _build_params(self) -> QGroupBox:
+        """Provider / model / prompt overrides applied to every run."""
+        box = QGroupBox("Parameters")
+        form = QFormLayout()
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        form.setHorizontalSpacing(10)
+        form.setVerticalSpacing(7)
+
+        self._provider_combo = QComboBox()
+        self._provider_combo.addItem(_ACTIVE, None)
+        for ptype in self._config.get_all_provider_types():
+            self._provider_combo.addItem(PROVIDER_LABELS.get(ptype, ptype), ptype)
+        qconnect(self._provider_combo.currentIndexChanged, self._on_provider_changed)
+        form.addRow("Provider:", self._provider_combo)
+
+        self._text_model = ModelComboWithRefresh("(provider default)", "Text model override")
+        qconnect(self._text_model.refreshButton().clicked, lambda: self._fetch_models("text"))
+        self._text_model.modelsRequested.connect(lambda: self._fetch_models("text"))
+        form.addRow("Text model:", self._text_model)
+
+        self._image_model = ModelComboWithRefresh("(provider default)", "Image model override")
+        qconnect(self._image_model.refreshButton().clicked, lambda: self._fetch_models("image"))
+        self._image_model.modelsRequested.connect(lambda: self._fetch_models("image"))
+        form.addRow("Image model:", self._image_model)
+
+        self._tts_model = ModelComboWithRefresh("(provider default)", "TTS model override")
+        qconnect(self._tts_model.refreshButton().clicked, lambda: self._fetch_models("tts"))
+        self._tts_model.modelsRequested.connect(lambda: self._fetch_models("tts"))
+        form.addRow("TTS model:", self._tts_model)
+
+        self._tts_voice = QComboBox()
+        self._tts_voice.setEditable(True)
+        form.addRow("TTS voice:", self._tts_voice)
+
+        self._max_tokens = QSpinBox()
+        self._max_tokens.setRange(1, 200000)
+        self._max_tokens.setSingleStep(256)
+        self._max_tokens.setToolTip(
+            "Lower this to see a reasoning model spend its whole budget on "
+            "thinking and return no text."
+        )
+        form.addRow("Max tokens:", self._max_tokens)
+
+        self._system_prompt = QLineEdit(_DEFAULT_SYSTEM_PROMPT)
+        form.addRow("System prompt:", self._system_prompt)
+
+        self._user_prompt = QLineEdit(_DEFAULT_USER_PROMPT)
+        form.addRow("User prompt:", self._user_prompt)
+
+        self._image_prompt = QLineEdit(_DEFAULT_IMAGE_PROMPT)
+        form.addRow("Image prompt:", self._image_prompt)
+
+        self._tts_text = QLineEdit(_DEFAULT_TTS_TEXT)
+        form.addRow("TTS text:", self._tts_text)
+
+        reset = QPushButton("Reset parameters")
+        qconnect(reset.clicked, self._reset_params)
+        form.addRow("", reset)
+
+        box.setLayout(form)
+        box.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        return box
 
     def _group(self, title: str, actions: List[Tuple[str, Callable[[], None]]]) -> QGroupBox:
         box = QGroupBox(title)
@@ -324,17 +440,113 @@ class DevToolsDialog(QDialog):
         box.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         return box
 
+    # ---- parameters -----------------------------------------------------
+
+    def _selected_provider(self, capability: str) -> str:
+        """The provider these runs should use for *capability*."""
+        chosen = self._provider_combo.currentData()
+        return chosen or self._config.get_active_provider_type(capability)
+
+    def _on_provider_changed(self) -> None:
+        """Reset model lists and defaults when the provider selection changes."""
+        ptype = self._selected_provider("text")
+        cfg = self._config.get_provider_config(ptype)
+        for combo in (self._text_model, self._image_model, self._tts_model):
+            combo.setModels([])
+            combo.setCurrentText("")
+        self._max_tokens.setValue(cfg.max_tokens or 4096)
+
+        self._tts_voice.clear()
+        self._tts_voice.addItems(KNOWN_TTS_VOICES.get(ptype, []))
+        self._tts_voice.setCurrentText(cfg.tts_voice)
+
+        caps = PROVIDER_CAPABILITIES.get(ptype, {})
+        self._image_model.setEnabled(caps.get("image", True))
+        self._tts_model.setEnabled(caps.get("tts", True))
+        self._tts_voice.setEnabled(caps.get("tts", True))
+
+    def _reset_params(self) -> None:
+        self._provider_combo.setCurrentIndex(0)
+        self._system_prompt.setText(_DEFAULT_SYSTEM_PROMPT)
+        self._user_prompt.setText(_DEFAULT_USER_PROMPT)
+        self._image_prompt.setText(_DEFAULT_IMAGE_PROMPT)
+        self._tts_text.setText(_DEFAULT_TTS_TEXT)
+        self._on_provider_changed()
+        self._status.setText("Parameters reset.")
+
+    def _fetch_models(self, capability: str) -> None:
+        """Populate a model dropdown from the selected provider."""
+        combo = {
+            "text": self._text_model,
+            "image": self._image_model,
+            "tts": self._tts_model,
+        }[capability]
+        ptype = self._selected_provider(capability)
+        cfg = self._config.get_provider_config(ptype)
+        if not cfg.api_key:
+            self._log_line(f"No API key configured for {ptype}; cannot fetch models.")
+            return
+        combo.setRefreshing(True)
+
+        def task() -> None:
+            try:
+                models = fetch_available_models(cfg, capability)
+                error = None
+            except Exception as e:
+                models, error = [], str(e)
+
+            def done() -> None:
+                if self._closed:
+                    return
+                try:
+                    combo.setRefreshing(False)
+                    combo.setModels(models)
+                    if error:
+                        self._log_line(f"Model fetch failed for {ptype}/{capability}: {error}")
+                    else:
+                        self._log_line(f"{ptype}/{capability}: loaded {len(models)} model(s).")
+                except RuntimeError:
+                    pass
+
+            mw.taskman.run_on_main(done)
+
+        mw.taskman.run_in_background(task)
+
+    def _cfg_for(self, capability: str) -> ProviderConfig:
+        """Build a config from the saved provider plus panel overrides."""
+        ptype = self._selected_provider(capability)
+        base = self._config.get_provider_config(ptype)
+        return ProviderConfig(
+            provider_type=ptype,
+            api_url=base.api_url,
+            api_key=base.api_key,
+            text_model=self._text_model.currentText().strip() or base.text_model,
+            max_tokens=self._max_tokens.value(),
+            tts_model=self._tts_model.currentText().strip() or base.tts_model,
+            tts_voice=self._tts_voice.currentText().strip() or base.tts_voice,
+            image_model=self._image_model.currentText().strip() or base.image_model,
+        )
+
     # ---- logging --------------------------------------------------------
 
     def _log_line(self, text: str = "") -> None:
         self._log.appendPlainText(text)
         self._log.verticalScrollBar().setValue(self._log.verticalScrollBar().maximum())
 
+    def _safe_log(self, text: str) -> None:
+        """Log from a worker thread, ignoring a dialog that has gone away."""
+        if self._closed:
+            return
+        try:
+            self._log_line(text)
+        except RuntimeError:
+            pass
+
     def _header(self, text: str) -> None:
         self._log_line("")
-        self._log_line("=" * 64)
+        self._log_line("=" * 68)
         self._log_line(text)
-        self._log_line("=" * 64)
+        self._log_line("=" * 68)
 
     def _copy_log(self) -> None:
         clipboard = QApplication.clipboard()
@@ -354,32 +566,44 @@ class DevToolsDialog(QDialog):
         self._busy = busy
         for btn in self._buttons:
             btn.setEnabled(not busy)
+        self._params_box.setEnabled(not busy)
+        self._stop_btn.setEnabled(busy)
         self._status.setText("Working…" if busy else "")
 
-    def _run_async(self, label: str, work: Callable[[], str]) -> None:
-        """Run *work* off the UI thread and append its output to the log."""
+    def _request_abort(self) -> None:
+        self._abort.set()
+        self._stop_btn.setEnabled(False)
+        self._status.setText("Stopping…")
+        self._log_line("\n** Stop requested — finishing the call in flight. **")
+
+    def _run_async(self, label: str, work: Callable[[_RunContext], None]) -> None:
+        """Run *work* off the UI thread, streaming its output to the log."""
         if self._busy:
             return
         self._header(label)
+        self._abort.clear()
         self._set_busy(True)
+        ctx = _RunContext(self, self._abort)
         started = time.time()
 
         def task() -> None:
+            outcome = "finished"
             try:
-                output = work()
+                work(ctx)
+            except _Aborted:
+                outcome = "ABORTED"
             except Exception:
-                output = "FAILED\n" + traceback.format_exc(limit=4)
+                outcome = "FAILED"
+                ctx.log("FAILED\n" + traceback.format_exc(limit=4))
             elapsed = time.time() - started
 
             def done() -> None:
                 if self._closed:
-                    return  # dialog dismissed while this was running
+                    return
                 try:
-                    self._log_line(output)
-                    self._log_line(f"-- finished in {elapsed:.1f}s --")
+                    self._log_line(f"-- {outcome} in {elapsed:.1f}s --")
                     self._set_busy(False)
                 except RuntimeError:
-                    # Underlying Qt widgets already destroyed.
                     pass
 
             mw.taskman.run_on_main(done)
@@ -419,175 +643,202 @@ class DevToolsDialog(QDialog):
 
     # ---- 2. model lists -------------------------------------------------
 
-    def _list_models(self) -> None:
-        def work() -> str:
-            lines = []
-            for ptype in self._config.get_all_provider_types():
-                cfg = self._config.get_provider_config(ptype)
-                if not cfg.api_key:
-                    lines.append(f"{ptype:12} -- no API key configured, skipped")
-                    continue
-                for cap in ("text", "tts", "image"):
-                    try:
-                        models = fetch_available_models(cfg, cap)
-                        preview = ", ".join(models[:3])
-                        lines.append(f"{ptype:12} {cap:6} {len(models):>4} models   {preview}")
-                    except Exception as e:
-                        lines.append(f"{ptype:12} {cap:6}  ERROR  {e}")
-            lines.append("")
-            lines.append("Anthropic tts/image and OpenRouter tts should report 0 models.")
-            return "\n".join(lines)
+    # Each button and the matching "Run all" step share one implementation,
+    # defined under "step bodies" below.
 
-        self._run_async("Model lists · all providers × capabilities", work)
+    def _list_models(self) -> None:
+        self._run_async("Model lists · all providers × capabilities", self._list_models_work)
 
     def _show_filtered(self) -> None:
-        def work() -> str:
-            lines = []
-            for ptype in self._config.get_all_provider_types():
-                cfg = self._config.get_provider_config(ptype)
-                if not cfg.api_key:
-                    lines.append(f"{ptype:12} -- no API key configured, skipped")
-                    continue
-                try:
-                    raw = set(_raw_model_ids(cfg))
-                    offered = set()
-                    for cap in ("text", "tts", "image"):
-                        offered |= set(fetch_available_models(cfg, cap))
-                    hidden = sorted(raw - offered)
-                    lines.append(f"--- {ptype}: {len(raw)} returned, {len(hidden)} hidden ---")
-                    for m in hidden:
-                        lines.append(f"      {m}")
-                except Exception as e:
-                    lines.append(f"{ptype:12} ERROR  {e}")
-                lines.append("")
-            lines.append("These are hidden because calling them cannot work:")
-            lines.append("  completions-only, deep-research, music, robotics, STT, computer-use.")
-            return "\n".join(lines)
-
-        self._run_async("Models hidden from the dropdowns", work)
+        self._run_async("Models hidden from the dropdowns", self._filtered_work)
 
     # ---- 3. live calls --------------------------------------------------
 
-    def _active_cfg(self, capability: str) -> ProviderConfig:
-        ptype = self._config.get_active_provider_type(capability)
-        return self._config.get_provider_config(ptype)
-
     def _test_connection(self) -> None:
-        def work() -> str:
-            cfg = self._active_cfg("text")
-            ok, message, detail = test_provider_connection(cfg)
-            out = [f"provider : {cfg.provider_type}", f"model    : {cfg.text_model}"]
-            out.append(f"result   : {'OK' if ok else 'FAILED'}")
-            out.append(f"message  : {message}")
-            out.append(f"detail   : {'present' if detail else 'none'}")
-            return "\n".join(out)
-
-        self._run_async("Connection test · active text provider", work)
+        self._run_async("Connection test", self._connection_work)
 
     def _gen_text(self) -> None:
-        def work() -> str:
-            cfg = self._active_cfg("text")
-            reply = create_text_provider(cfg).generate(
-                "Reply with exactly the word OK and nothing else.", "Test connection."
-            )
-            return (
-                f"provider : {cfg.provider_type}\n"
-                f"model    : {cfg.text_model}\n"
-                f"reply    : {reply.strip()!r}"
-            )
-
-        self._run_async("Generate text · active text provider", work)
+        self._run_async("Generate text", self._text_work)
 
     def _gen_image(self) -> None:
-        def work() -> str:
-            cfg = self._active_cfg("image")
-            data = create_image_provider(cfg).generate_image(
-                "A small red circle on a white background."
-            )
-            from ..media_handler import MediaHandler
-
-            ext = MediaHandler._sniff_image_ext(data)
-            return (
-                f"provider : {cfg.provider_type}\n"
-                f"model    : {cfg.image_model}\n"
-                f"bytes    : {len(data)}\n"
-                f"magic    : {data[:8].hex()} -> {_describe_bytes(data)}\n"
-                f"saved as : .{ext}\n\n"
-                "Gemini 3.x returns JPEG; it must save as .jpg, not .png."
-            )
-
-        self._run_async("Generate image · report detected format", work)
+        self._run_async("Generate image · report detected format", self._image_work)
 
     def _gen_tts(self) -> None:
-        def work() -> str:
-            cfg = self._active_cfg("tts")
-            data = create_tts_provider(cfg).synthesize(
-                "This is a test of the speech synthesis pipeline.",
-                language="en",
-                voice=cfg.tts_voice,
-                context="",
-            )
-            return (
-                f"provider : {cfg.provider_type}\n"
-                f"model    : {cfg.tts_model}\n"
-                f"voice    : {cfg.tts_voice}\n"
-                f"bytes    : {len(data)}\n"
-                f"magic    : {data[:8].hex()} -> {_describe_bytes(data)}\n\n"
-                "Google returns raw PCM; MediaHandler wraps it in a WAV header."
-            )
-
-        self._run_async("Synthesize speech · report detected format", work)
+        self._run_async("Synthesize speech · report detected format", self._tts_work)
 
     # ---- 4. compatibility probe ----------------------------------------
 
-    def _probe(self, ptypes: List[str]) -> Callable[[], str]:
-        def work() -> str:
-            lines = []
+    def _probe_work(self, ptypes: List[str]) -> Callable[[_RunContext], None]:
+        def work(ctx: _RunContext) -> None:
             for ptype in ptypes:
+                ctx.check()
                 cfg = self._config.get_provider_config(ptype)
                 if not cfg.api_key:
-                    lines.append(f"--- {ptype}: no API key configured, skipped ---")
+                    ctx.log(f"--- {ptype}: no API key configured, skipped ---")
                     continue
-                lines.append(f"--- {ptype} ---")
+                ctx.log(f"--- {ptype} ---")
                 for model, why in _PROBE_MODELS.get(ptype, []):
+                    ctx.check()
                     probe_cfg = ProviderConfig(
                         provider_type=ptype,
                         api_url=cfg.api_url,
                         api_key=cfg.api_key,
                         text_model=model,
-                        max_tokens=cfg.max_tokens,
+                        max_tokens=self._max_tokens.value(),
                     )
                     started = time.time()
                     try:
                         reply = create_text_provider(probe_cfg).generate(
-                            "Reply with exactly the word OK and nothing else.",
-                            "Test connection.",
+                            self._system_prompt.text(), self._user_prompt.text()
                         )
                         status = "OK   " if reply.strip() else "EMPTY"
                         note = repr(reply.strip()[:40])
                     except Exception as e:
                         status = "FAIL "
                         note = f"{e}"[:90]
-                    lines.append(
-                        f"  [{status}] {model:34} {time.time() - started:5.1f}s  "
-                        f"({why})\n           {note}"
+                    ctx.log(
+                        f"  [{status}] {model:34} {time.time() - started:5.1f}s  ({why})"
+                        f"\n           {note}"
                     )
-                lines.append("")
-            lines.append("Entries marked 'expected clean error' should FAIL with a")
-            lines.append("readable sentence, not a raw JSON body.")
-            return "\n".join(lines)
+                ctx.log("")
+            ctx.log("Entries marked 'expected clean error' should FAIL with a")
+            ctx.log("readable sentence, not a raw JSON body.")
 
         return work
 
-    def _probe_active(self) -> None:
-        ptype = self._config.get_active_provider_type("text")
-        self._run_async(f"Compatibility probe · {ptype}", self._probe([ptype]))
+    def _probe_selected(self) -> None:
+        ptype = self._selected_provider("text")
+        self._run_async(f"Compatibility probe · {ptype}", self._probe_work([ptype]))
 
     def _probe_all(self) -> None:
         self._run_async(
             "Compatibility probe · all providers",
-            self._probe(list(_PROBE_MODELS.keys())),
+            self._probe_work(list(_PROBE_MODELS.keys())),
         )
+
+    # ---- 5. run everything ----------------------------------------------
+
+    def _run_all(self) -> None:
+        """Every non-interactive check, in order, abortable between steps."""
+
+        def work(ctx: _RunContext) -> None:
+            steps: List[Tuple[str, Callable[[_RunContext], None]]] = [
+                ("Model lists", self._list_models_work),
+                ("Models filtered out", self._filtered_work),
+                ("Connection test", self._connection_work),
+                ("Generate text", self._text_work),
+                ("Generate image", self._image_work),
+                ("Synthesize speech", self._tts_work),
+                ("Compatibility probe (all)", self._probe_work(list(_PROBE_MODELS.keys()))),
+            ]
+            for index, (name, step) in enumerate(steps, 1):
+                ctx.check()
+                ctx.log("")
+                ctx.log(f"########## {index}/{len(steps)} · {name} ##########")
+                try:
+                    step(ctx)
+                except _Aborted:
+                    raise
+                except Exception as e:
+                    ctx.log(f"  step failed: {type(e).__name__}: {e}")
+            ctx.log("")
+            ctx.log("The three error-dialog buttons are interactive and are not")
+            ctx.log("included here — run them by hand.")
+
+        self._run_async("Run all tests", work)
+
+    # ---- step bodies ----------------------------------------------------
+    # Each is used both by its own button and by "Run all tests", so the two
+    # paths cannot drift apart.
+
+    def _list_models_work(self, ctx: _RunContext) -> None:
+        for ptype in self._config.get_all_provider_types():
+            ctx.check()
+            cfg = self._config.get_provider_config(ptype)
+            if not cfg.api_key:
+                ctx.log(f"{ptype:12} -- no API key configured, skipped")
+                continue
+            for cap in ("text", "tts", "image"):
+                ctx.check()
+                try:
+                    models = fetch_available_models(cfg, cap)
+                    preview = ", ".join(models[:3])
+                    ctx.log(f"{ptype:12} {cap:6} {len(models):>4} models   {preview}")
+                except Exception as e:
+                    ctx.log(f"{ptype:12} {cap:6}  ERROR  {e}")
+        ctx.log("")
+        ctx.log("Anthropic tts/image and OpenRouter tts should report 0 models.")
+
+    def _filtered_work(self, ctx: _RunContext) -> None:
+        for ptype in self._config.get_all_provider_types():
+            ctx.check()
+            cfg = self._config.get_provider_config(ptype)
+            if not cfg.api_key:
+                ctx.log(f"{ptype:12} -- no API key configured, skipped")
+                continue
+            try:
+                raw = set(_raw_model_ids(cfg))
+                offered: set = set()
+                for cap in ("text", "tts", "image"):
+                    ctx.check()
+                    offered |= set(fetch_available_models(cfg, cap))
+                hidden = sorted(raw - offered)
+                ctx.log(f"--- {ptype}: {len(raw)} returned, {len(hidden)} hidden ---")
+                for m in hidden:
+                    ctx.log(f"      {m}")
+            except Exception as e:
+                ctx.log(f"{ptype:12} ERROR  {e}")
+            ctx.log("")
+        ctx.log("These are hidden because calling them cannot work: completions-only,")
+        ctx.log("deep-research, music, robotics, speech-to-text, batch-only.")
+
+    def _connection_work(self, ctx: _RunContext) -> None:
+        cfg = self._cfg_for("text")
+        ok, message, detail = test_provider_connection(cfg)
+        ctx.log(f"provider : {cfg.provider_type}")
+        ctx.log(f"model    : {cfg.text_model}")
+        ctx.log(f"result   : {'OK' if ok else 'FAILED'}")
+        ctx.log(f"message  : {message}")
+        ctx.log(f"detail   : {'present' if detail else 'none'}")
+
+    def _text_work(self, ctx: _RunContext) -> None:
+        cfg = self._cfg_for("text")
+        ctx.log(f"provider   : {cfg.provider_type}")
+        ctx.log(f"model      : {cfg.text_model}")
+        ctx.log(f"max_tokens : {cfg.max_tokens}")
+        ctx.check()
+        reply = create_text_provider(cfg).generate(
+            self._system_prompt.text(), self._user_prompt.text()
+        )
+        ctx.log(f"reply      : {reply.strip()!r}")
+
+    def _image_work(self, ctx: _RunContext) -> None:
+        from ..media_handler import MediaHandler
+
+        cfg = self._cfg_for("image")
+        ctx.log(f"provider : {cfg.provider_type}")
+        ctx.log(f"model    : {cfg.image_model}")
+        ctx.check()
+        data = create_image_provider(cfg).generate_image(self._image_prompt.text())
+        ctx.log(f"bytes    : {len(data)}")
+        ctx.log(f"magic    : {data[:8].hex()} -> {_describe_bytes(data)}")
+        ctx.log(f"saved as : .{MediaHandler._sniff_image_ext(data)}")
+        ctx.log("")
+        ctx.log("Gemini 3.x returns JPEG; it must save as .jpg, not .png.")
+
+    def _tts_work(self, ctx: _RunContext) -> None:
+        cfg = self._cfg_for("tts")
+        ctx.log(f"provider : {cfg.provider_type}")
+        ctx.log(f"model    : {cfg.tts_model}")
+        ctx.log(f"voice    : {cfg.tts_voice}")
+        ctx.check()
+        data = create_tts_provider(cfg).synthesize(
+            self._tts_text.text(), language="en", voice=cfg.tts_voice, context=""
+        )
+        ctx.log(f"bytes    : {len(data)}")
+        ctx.log(f"magic    : {data[:8].hex()} -> {_describe_bytes(data)}")
+        ctx.log("")
+        ctx.log("Google returns raw PCM; MediaHandler wraps it in a WAV header.")
 
 
 # ---------------------------------------------------------------------------

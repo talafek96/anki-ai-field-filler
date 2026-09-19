@@ -138,6 +138,15 @@ def _fetch_anthropic_models(config: ProviderConfig, capability: str = "text") ->
     return sorted(m["id"] for m in data.get("data", []))
 
 
+# OpenRouter model-id suffixes that cannot serve a synchronous request.
+# ``:batch`` variants are half-price asynchronous jobs; calling one through
+# chat/completions returns "This model is only available through the Batch
+# API. Use the /api/v1/batches endpoint instead". Other suffixes OpenRouter
+# uses (``:free``, ``:nitro``, ``:online``, ``:thinking``, …) work normally
+# and must stay listed.
+_OPENROUTER_SKIP_SUFFIXES = (":batch",)
+
+
 def _fetch_openrouter_models(config: ProviderConfig, capability: str) -> List[str]:
     """Fetch models from OpenRouter's /models endpoint.
 
@@ -155,6 +164,8 @@ def _fetch_openrouter_models(config: ProviderConfig, capability: str) -> List[st
     for m in data.get("data", []):
         model_id = m.get("id")
         if not model_id:
+            continue
+        if any(model_id.endswith(suffix) for suffix in _OPENROUTER_SKIP_SUFFIXES):
             continue
         modalities = (m.get("architecture") or {}).get("output_modalities") or []
         if capability == "image":
