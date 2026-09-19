@@ -19,6 +19,7 @@ def start_addon() -> None:
 
     from . import browser_hooks, editor_hooks
     from .config_manager import ConfigManager
+    from .ui.dev_tools_dialog import open_dev_tools, register_dev_shortcut
     from .ui.settings_dialog import SettingsDialog
 
     editor_hooks.EditorIntegration.init()
@@ -32,6 +33,14 @@ def start_addon() -> None:
 
     addon_name = mw.addonManager.addonFromModule(__name__)
     config = ConfigManager()
+
+    # Developer tools: always reachable by the hidden shortcut, but only
+    # listed in the menu when general.dev_mode is turned on.
+    register_dev_shortcut()
+    if config.get_general_settings().dev_mode:
+        dev_action = QAction("\U0001f9ea Developer Tools...", menu)
+        qconnect(dev_action.triggered, lambda: open_dev_tools(mw))
+        menu.addAction(dev_action)
 
     mw.addonManager.setConfigAction(addon_name, lambda: SettingsDialog(mw).exec())
     mw.addonManager.setConfigUpdatedAction(addon_name, config.update_from_addon_manager)
