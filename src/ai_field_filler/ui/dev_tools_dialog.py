@@ -17,7 +17,7 @@ import contextlib
 import threading
 import time
 import traceback
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Tuple
 
 from aqt import mw
 from aqt.qt import *
@@ -482,6 +482,7 @@ class DevToolsDialog(QDialog):
 
     def _on_provider_changed(self) -> None:
         """Reset model lists and defaults when the provider selection changes."""
+        selected = self._provider_combo.currentData()  # None = same as provider settings
         ptype = self._selected_provider("text")
         cfg = self._config.get_provider_config(ptype)
         for combo in (self._text_model, self._image_model, self._tts_model):
@@ -489,9 +490,18 @@ class DevToolsDialog(QDialog):
             combo.setCurrentText("")
         self._max_tokens.setValue(cfg.max_tokens or 4096)
 
+        # In "same as provider settings" mode text/tts/image may resolve to
+        # different providers, so leave the voice blank (like the model combos)
+        # and let _cfg_for fall back to the TTS provider's own voice — otherwise
+        # the text provider's voice (e.g. OpenAI "alloy") leaks into a Google
+        # TTS call. Offer the resolved TTS provider's known voices either way.
+        tts_ptype = self._selected_provider("tts")
         self._tts_voice.clear()
-        self._tts_voice.addItems(KNOWN_TTS_VOICES.get(ptype, []))
-        self._tts_voice.setCurrentText(cfg.tts_voice)
+        self._tts_voice.addItems(KNOWN_TTS_VOICES.get(tts_ptype, []))
+        if selected is None:
+            self._tts_voice.setCurrentText("")
+        else:
+            self._tts_voice.setCurrentText(self._config.get_provider_config(tts_ptype).tts_voice)
 
         caps = PROVIDER_CAPABILITIES.get(ptype, {})
         self._image_model.setEnabled(caps.get("image", True))
@@ -873,19 +883,23 @@ class DevToolsDialog(QDialog):
 # Entry points
 # ---------------------------------------------------------------------------
 
-_shortcut: Optional[QShortcut] = None
-
 
 def open_dev_tools(parent: QWidget | None = None) -> None:
     """Open the developer tools dialog."""
     DevToolsDialog(parent).exec()
 
 
-def register_dev_shortcut() -> None:
-    """Bind the hidden Ctrl+Shift+Alt+D shortcut on the main window."""
-    global _shortcut
-    if _shortcut is not None:
-        return
-    _shortcut = QShortcut(QKeySequence(_SHORTCUT), mw)
-    _shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
-    qconnect(_shortcut.activated, lambda: open_dev_tools(mw))
+def make_dev_tools_action(parent: QWidget) -> QAction:
+    """Build the Developer Tools action with its shortcut.
+
+    Registered on the main window unconditionally so the shortcut fires
+    application-wide on every platform; it is a menu-bound ``QAction`` rather
+    than a free ``QShortcut`` because macOS only reliably delivers shortcuts
+    that belong to an action. The caller shows it in the menu only when
+    developer mode is on.
+    """
+    action = QAction("Developer Tools...", parent)
+    action.setShortcut(QKeySequence(_SHORTCUT))
+    action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+    qconnect(action.triggered, lambda: open_dev_tools(mw))
+    return action

@@ -57,6 +57,16 @@ class GeneralSettingsTab(QWidget):
         )
         behavior_layout.addWidget(self._show_dialog_check)
 
+        self._dev_mode_check = QCheckBox("Developer mode (adds Tools ▸ Developer Tools)")
+        self._dev_mode_check.setToolTip(
+            "Adds a 'Developer Tools' entry under Tools ▸ AI Field Filler for "
+            "exercising provider behaviour by hand.\n"
+            "Restart Anki after changing this for the menu entry to appear.\n"
+            "The tools are also reachable by the shortcut Ctrl+Shift+Alt+D "
+            "(⌘⇧⌥D on macOS)."
+        )
+        behavior_layout.addWidget(self._dev_mode_check)
+
         behavior_group.setLayout(behavior_layout)
         layout.addWidget(behavior_group)
 
@@ -90,6 +100,7 @@ class GeneralSettingsTab(QWidget):
         self._fill_all_shortcut.setText(settings.fill_all_shortcut)
         self._fill_field_shortcut.setText(settings.fill_field_shortcut)
         self._show_dialog_check.setChecked(settings.show_fill_dialog)
+        self._dev_mode_check.setChecked(settings.dev_mode)
         self._default_prompt.setPlainText(settings.default_user_prompt)
 
     def save(self) -> None:
@@ -99,5 +110,6 @@ class GeneralSettingsTab(QWidget):
             fill_field_shortcut=self._fill_field_shortcut.text().strip(),
             default_user_prompt=self._default_prompt.toPlainText().strip(),
             show_fill_dialog=self._show_dialog_check.isChecked(),
+            dev_mode=self._dev_mode_check.isChecked(),
         )
         self._config.set_general_settings(settings)
