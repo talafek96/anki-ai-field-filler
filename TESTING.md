@@ -122,9 +122,9 @@ another model — not a raw JSON body.
 
 ```bash
 make check    # lint + typecheck + test (390 tests)
-python build_ankiaddon.py --check   # confirm new files are packaged
+uv run scripts/build_ankiaddon.py --check   # confirm new files are packaged
 ```
 
-Tests import the package as `ai_field_filler`, so the repo directory must be
-reachable under that name — see the "Setup package path" step in
-`.github/workflows/ci.yml`.
+Tests import the package as `ai_field_filler` from `src/`; `pyproject.toml` sets
+`pythonpath`/`mypy_path` to `src`, so `uv run pytest` and `uv run mypy --package
+ai_field_filler` resolve it with no symlink or `PYTHONPATH` setup.

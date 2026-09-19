@@ -10,8 +10,8 @@ from unittest.mock import MagicMock
 import aqt
 import pytest
 
-from ai_field_filler.config_manager import ConfigManager
-from ai_field_filler.settings_io import (
+from ai_field_filler.config.config_manager import ConfigManager
+from ai_field_filler.config.settings_io import (
     SettingsIOError,
     _decrypt_value,
     _encrypt_value,
@@ -139,7 +139,7 @@ class TestExport:
         path = str(tmp_path / "settings.aiff-settings")
         export_settings(_SAMPLE_CONFIG, path, password=None)
 
-        with open(path, "r", encoding="utf-8") as fh:
+        with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
 
         assert data["_format"] == "ai-field-filler-settings"
@@ -157,7 +157,7 @@ class TestExport:
         path = str(tmp_path / "settings.aiff-settings")
         export_settings(_SAMPLE_CONFIG, path, password="secret")
 
-        with open(path, "r", encoding="utf-8") as fh:
+        with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
 
         assert data["_encrypted"] is True
@@ -173,7 +173,7 @@ class TestExport:
         path = str(tmp_path / "settings.aiff-settings")
         export_settings(_SAMPLE_CONFIG, path, password=None)
 
-        with open(path, "r", encoding="utf-8") as fh:
+        with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
 
         assert (
@@ -192,7 +192,7 @@ class TestExport:
         config["_model_cache"] = {"openai": {"text": ["gpt-4o"]}}
         path = str(tmp_path / "out.aiff-settings")
         export_settings(config, path)
-        with open(path, "r", encoding="utf-8") as fh:
+        with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
         assert "_model_cache" not in data
 

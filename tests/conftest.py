@@ -63,6 +63,7 @@ def _install_aqt_mocks() -> None:
         "QStyleOptionComboBox",
         "QStylePainter",
         "QPainter",
+        "QImage",
         "QFont",
         "QObject",
         "QEvent",
@@ -84,6 +85,7 @@ def _install_aqt_mocks() -> None:
     aqt_utils.showInfo = MagicMock()
     aqt_utils.showWarning = MagicMock()
     aqt_utils.tooltip = MagicMock()
+    aqt_utils.getText = MagicMock()
     aqt_utils.restoreGeom = MagicMock()
     aqt_utils.saveGeom = MagicMock()
 
@@ -119,8 +121,8 @@ def _install_aqt_mocks() -> None:
 _install_aqt_mocks()
 
 # These imports MUST come after aqt mocks are installed.
-from ai_field_filler.config_manager import ProviderConfig  # noqa: E402
-from ai_field_filler.field_filler import FieldFiller  # noqa: E402
+from ai_field_filler.config.config_manager import ProviderConfig  # noqa: E402
+from ai_field_filler.core.field_filler import FieldFiller  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -154,6 +156,6 @@ def filler():
 @pytest.fixture()
 def mock_mw():
     """Patch ``mw`` inside the media_handler module."""
-    with patch("ai_field_filler.media_handler.mw") as m:
+    with patch("ai_field_filler.core.media_handler.mw") as m:
         m.col.media.write_data = MagicMock()
         yield m

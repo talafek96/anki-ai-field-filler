@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai_field_filler.config_manager import ProviderConfig
+from ai_field_filler.config.config_manager import ProviderConfig
 from ai_field_filler.providers.anthropic_provider import AnthropicTextProvider
 from ai_field_filler.providers.base import ProviderError
 from ai_field_filler.providers.google_provider import (

@@ -19,15 +19,48 @@ dev = [
 target-version = "py39"
 line-length = 100
 
+# Each rule group below statically enforces a convention from
+# .claude/rules/python.md so the linter — not review — catches violations:
+#   PLC0415  no imports inside functions (imports live at the top)
+#   ANN      type hints required on function/method signatures
+#   FA       `from __future__ import annotations` present (3.9 union-safety)
+#   N        snake_case / PascalCase / UPPER_SNAKE naming
+#   TID251   HTTP only through providers/http.py (urllib.request is banned elsewhere)
+#   PGH      no blanket `# noqa` / `# type: ignore` (must name the code)
+#   B, SIM, RET, PTH, UP  fail-fast raises, simplification, early return, pathlib, modern syntax
 [tool.ruff.lint]
-select = ["E", "F", "W", "I"]
+select = [
+    "E", "F", "W", "I",
+    "N", "ANN", "FA", "B", "SIM", "RET", "PTH", "UP", "PGH", "RUF",
+    "PLC0415", "TID251",
+]
 ignore = [
-    "F403",  # `from aqt.qt import *` — required by Anki addon convention
-    "F405",  # names from star imports — consequence of F403
+    "F403",    # `from aqt.qt import *` — required by Anki addon convention
+    "F405",    # names from star imports — consequence of F403
+    "ANN401",  # `Any` is sometimes the honest type (e.g. **overrides, JSON)
+    "UP006",   # keep `Dict`/`List` from typing (rule: 3.9-safe, explicit)
+    "UP035",   # keep importing from typing (same reason)
+    "UP045",   # keep `Optional[X]` over `X | None` (rule: no runtime `|` unions)
+    "RUF001",  # `×`/`·` etc. are intentional in user-facing UI strings
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["E501"]  # allow long lines in tests
+"tests/*" = [
+    "E501",     # long lines fine in test fixtures/URLs
+    "ANN",      # tests need not annotate every signature
+    "N",        # test/fixture naming is looser
+    "PLC0415",  # tests import lazily to sequence aqt mocks
+    "TID251",   # tests patch urllib directly
+    "B", "SIM", "RET", "PTH", "PGH", "RUF",
+]
+# Sanctioned in-function imports (documented in .claude/rules/python.md):
+"src/ai_field_filler/__init__.py" = ["PLC0415"]           # guarded Anki-startup imports
+"src/ai_field_filler/providers/__init__.py" = ["PLC0415"]  # lazy factory imports (break cycles)
+"src/ai_field_filler/providers/http.py" = ["TID251"]       # THE sanctioned HTTP layer
+"src/ai_field_filler/ui/*" = ["N802"]                      # Qt overrides (showEvent, paintEvent, …)
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"urllib.request".msg = "Route HTTP through providers/http.py (http_post_json, http_get_json, http_post_raw, http_post_sse)."
 
 [tool.ruff.lint.isort]
 known-first-party = ["ai_field_filler"]
@@ -39,6 +72,7 @@ known-third-party = ["aqt", "anki", "pytest"]
 
 [tool.mypy]
 python_version = "3.9"
+mypy_path = "src"
 ignore_missing_imports = true
 warn_unused_configs = true
 disallow_untyped_defs = false
@@ -50,7 +84,7 @@ module = "ai_field_filler.ui.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "ai_field_filler.editor_hooks"
+module = "ai_field_filler.hooks.editor_hooks"
 ignore_errors = true
 
 # --------------------------------------------------------------------------
@@ -59,3 +93,4 @@ ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]

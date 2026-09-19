@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import aqt
 
-from ai_field_filler.config_manager import (
+from ai_field_filler.config.config_manager import (
     FIELD_TYPES,
     ConfigManager,
     FieldInstruction,
