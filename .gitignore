@@ -36,6 +36,8 @@ venv/
 
 # AI
 .devin
+.claude/settings.local.json
+.research/
 
 # Plans
 plans/
