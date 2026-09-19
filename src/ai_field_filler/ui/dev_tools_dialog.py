@@ -14,10 +14,12 @@ it proves the runtime behaviour that mocks cannot.
 from __future__ import annotations
 
 import contextlib
+import tempfile
 import threading
 import time
 import traceback
-from typing import Callable, List, Tuple
+from pathlib import Path
+from typing import Callable, List, Optional, Tuple
 
 from aqt import mw
 from aqt.qt import *
@@ -175,6 +177,11 @@ class DevToolsDialog(QDialog):
         self._widths_normalized = False
         self._abort = threading.Event()
         self._buttons: List[QPushButton] = []
+        # Scratch dir for generated media so it can be previewed/opened without
+        # touching Anki's real media folder.
+        self._media_dir = Path(tempfile.mkdtemp(prefix="aiff_devtools_"))
+        self._last_image_path: Optional[Path] = None
+        self._last_audio_path: Optional[Path] = None
         self._setup_ui()
 
     # ---- sizing ---------------------------------------------------------
@@ -370,7 +377,7 @@ class DevToolsDialog(QDialog):
 
         install_wheel_guard(self)
 
-        self._on_provider_changed()
+        self._refresh_all_params()
         self._log_line("Ready. Active providers: " + self._active_summary())
 
     def _build_params(self) -> QGroupBox:
@@ -384,22 +391,26 @@ class DevToolsDialog(QDialog):
         # characters when the left panel is narrow.
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
 
-        self._provider_combo = QComboBox()
-        self._provider_combo.addItem(_ACTIVE, None)
-        for ptype in self._config.get_all_provider_types():
-            self._provider_combo.addItem(PROVIDER_LABELS.get(ptype, ptype), ptype)
-        qconnect(self._provider_combo.currentIndexChanged, self._on_provider_changed)
-        form.addRow("Provider:", self._provider_combo)
+        # A provider per generation type, mirroring the real settings dialog,
+        # so text/image/TTS can each run against a different provider.
+        self._text_provider = self._make_provider_combo("text")
+        form.addRow("Text provider:", self._text_provider)
 
         self._text_model = ModelComboWithRefresh("(provider default)", "Text model override")
         qconnect(self._text_model.refreshButton().clicked, lambda: self._fetch_models("text"))
         self._text_model.modelsRequested.connect(lambda: self._fetch_models("text"))
         form.addRow("Text model:", self._text_model)
 
+        self._image_provider = self._make_provider_combo("image")
+        form.addRow("Image provider:", self._image_provider)
+
         self._image_model = ModelComboWithRefresh("(provider default)", "Image model override")
         qconnect(self._image_model.refreshButton().clicked, lambda: self._fetch_models("image"))
         self._image_model.modelsRequested.connect(lambda: self._fetch_models("image"))
         form.addRow("Image model:", self._image_model)
+
+        self._tts_provider = self._make_provider_combo("tts")
+        form.addRow("TTS provider:", self._tts_provider)
 
         self._tts_model = ModelComboWithRefresh("(provider default)", "TTS model override")
         qconnect(self._tts_model.refreshButton().clicked, lambda: self._fetch_models("tts"))
@@ -438,7 +449,9 @@ class DevToolsDialog(QDialog):
         # Every input needs room to show its value; the prompts are long, so
         # give them a generous floor rather than letting the form shrink them.
         for widget in (
-            self._provider_combo,
+            self._text_provider,
+            self._image_provider,
+            self._tts_provider,
             self._text_model,
             self._image_model,
             self._tts_model,
@@ -475,46 +488,66 @@ class DevToolsDialog(QDialog):
 
     # ---- parameters -----------------------------------------------------
 
+    def _make_provider_combo(self, capability: str) -> QComboBox:
+        """A provider selector (active-by-default) for one generation type."""
+        combo = QComboBox()
+        combo.addItem(_ACTIVE, None)
+        for ptype in self._config.get_all_provider_types():
+            combo.addItem(PROVIDER_LABELS.get(ptype, ptype), ptype)
+        qconnect(combo.currentIndexChanged, lambda: self._on_provider_changed(capability))
+        return combo
+
+    def _provider_combo_for(self, capability: str) -> QComboBox:
+        return {
+            "text": self._text_provider,
+            "image": self._image_provider,
+            "tts": self._tts_provider,
+        }[capability]
+
     def _selected_provider(self, capability: str) -> str:
         """The provider these runs should use for *capability*."""
-        chosen = self._provider_combo.currentData()
+        chosen = self._provider_combo_for(capability).currentData()
         return chosen or self._config.get_active_provider_type(capability)
 
-    def _on_provider_changed(self) -> None:
-        """Reset model lists and defaults when the provider selection changes."""
-        selected = self._provider_combo.currentData()  # None = same as provider settings
-        ptype = self._selected_provider("text")
-        cfg = self._config.get_provider_config(ptype)
-        for combo in (self._text_model, self._image_model, self._tts_model):
-            combo.setModels([])
-            combo.setCurrentText("")
-        self._max_tokens.setValue(cfg.max_tokens or 4096)
+    def _refresh_all_params(self) -> None:
+        for capability in ("text", "image", "tts"):
+            self._on_provider_changed(capability)
 
-        # In "same as provider settings" mode text/tts/image may resolve to
-        # different providers, so leave the voice blank (like the model combos)
-        # and let _cfg_for fall back to the TTS provider's own voice — otherwise
-        # the text provider's voice (e.g. OpenAI "alloy") leaks into a Google
-        # TTS call. Offer the resolved TTS provider's known voices either way.
-        tts_ptype = self._selected_provider("tts")
-        self._tts_voice.clear()
-        self._tts_voice.addItems(KNOWN_TTS_VOICES.get(tts_ptype, []))
-        if selected is None:
-            self._tts_voice.setCurrentText("")
-        else:
-            self._tts_voice.setCurrentText(self._config.get_provider_config(tts_ptype).tts_voice)
-
+    def _on_provider_changed(self, capability: str = "text") -> None:
+        """Reset one capability's model list and defaults when its provider changes."""
+        ptype = self._selected_provider(capability)
+        specific = self._provider_combo_for(capability).currentData() is not None
         caps = PROVIDER_CAPABILITIES.get(ptype, {})
-        self._image_model.setEnabled(caps.get("image", True))
-        self._tts_model.setEnabled(caps.get("tts", True))
-        self._tts_voice.setEnabled(caps.get("tts", True))
+        if capability == "text":
+            self._text_model.setModels([])
+            self._text_model.setCurrentText("")
+            self._max_tokens.setValue(self._config.get_provider_config(ptype).max_tokens or 4096)
+        elif capability == "image":
+            self._image_model.setModels([])
+            self._image_model.setCurrentText("")
+            self._image_model.setEnabled(caps.get("image", True))
+        elif capability == "tts":
+            self._tts_model.setModels([])
+            self._tts_model.setCurrentText("")
+            self._tts_voice.clear()
+            self._tts_voice.addItems(KNOWN_TTS_VOICES.get(ptype, []))
+            # Prefill the voice only for a specifically chosen provider; in
+            # active mode leave it blank so _cfg_for falls back to that
+            # provider's own voice instead of leaking another provider's.
+            self._tts_voice.setCurrentText(
+                self._config.get_provider_config(ptype).tts_voice if specific else ""
+            )
+            self._tts_model.setEnabled(caps.get("tts", True))
+            self._tts_voice.setEnabled(caps.get("tts", True))
 
     def _reset_params(self) -> None:
-        self._provider_combo.setCurrentIndex(0)
+        for combo in (self._text_provider, self._image_provider, self._tts_provider):
+            combo.setCurrentIndex(0)
         self._system_prompt.setText(_DEFAULT_SYSTEM_PROMPT)
         self._user_prompt.setText(_DEFAULT_USER_PROMPT)
         self._image_prompt.setText(_DEFAULT_IMAGE_PROMPT)
         self._tts_text.setText(_DEFAULT_TTS_TEXT)
-        self._on_provider_changed()
+        self._refresh_all_params()
         self._status.setText("Parameters reset.")
 
     def _fetch_models(self, capability: str) -> None:
@@ -700,10 +733,16 @@ class DevToolsDialog(QDialog):
         self._run_async("Generate text", self._text_work)
 
     def _gen_image(self) -> None:
-        self._run_async("Generate image · report detected format", self._image_work)
+        self._run_async(
+            "Generate image · report detected format",
+            lambda ctx: self._image_work(ctx, preview=True),
+        )
 
     def _gen_tts(self) -> None:
-        self._run_async("Synthesize speech · report detected format", self._tts_work)
+        self._run_async(
+            "Synthesize speech · report detected format",
+            lambda ctx: self._tts_work(ctx, preview=True),
+        )
 
     # ---- 4. compatibility probe ----------------------------------------
 
@@ -852,19 +891,26 @@ class DevToolsDialog(QDialog):
         )
         ctx.log(f"reply      : {reply.strip()!r}")
 
-    def _image_work(self, ctx: _RunContext) -> None:
+    def _image_work(self, ctx: _RunContext, preview: bool = False) -> None:
         cfg = self._cfg_for("image")
         ctx.log(f"provider : {cfg.provider_type}")
         ctx.log(f"model    : {cfg.image_model}")
         ctx.check()
         data = create_image_provider(cfg).generate_image(self._image_prompt.text())
+        ext = MediaHandler._sniff_image_ext(data)
         ctx.log(f"bytes    : {len(data)}")
         ctx.log(f"magic    : {data[:8].hex()} -> {_describe_bytes(data)}")
-        ctx.log(f"saved as : .{MediaHandler._sniff_image_ext(data)}")
+        ctx.log(f"saved as : .{ext}")
+        path = self._media_dir / f"image.{ext}"
+        path.write_bytes(data)
+        self._last_image_path = path
+        ctx.log(f"file     : {path}")
+        if preview:
+            mw.taskman.run_on_main(lambda: self._preview_image(path))
         ctx.log("")
         ctx.log("Gemini 3.x returns JPEG; it must save as .jpg, not .png.")
 
-    def _tts_work(self, ctx: _RunContext) -> None:
+    def _tts_work(self, ctx: _RunContext, preview: bool = False) -> None:
         cfg = self._cfg_for("tts")
         ctx.log(f"provider : {cfg.provider_type}")
         ctx.log(f"model    : {cfg.tts_model}")
@@ -875,8 +921,76 @@ class DevToolsDialog(QDialog):
         )
         ctx.log(f"bytes    : {len(data)}")
         ctx.log(f"magic    : {data[:8].hex()} -> {_describe_bytes(data)}")
+        playable, ext = MediaHandler.audio_bytes_and_ext(data)
+        path = self._media_dir / f"audio.{ext}"
+        path.write_bytes(playable)
+        self._last_audio_path = path
+        ctx.log(f"file     : {path}")
+        if preview:
+            mw.taskman.run_on_main(lambda: self._preview_audio(path))
         ctx.log("")
         ctx.log("Google returns raw PCM; MediaHandler wraps it in a WAV header.")
+
+    # ---- media preview (main thread) ------------------------------------
+
+    @staticmethod
+    def _open_externally(path: Path) -> None:
+        """Open a generated file in the OS default application."""
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+
+    def _preview_image(self, path: Path) -> None:
+        """Show the generated image inline, with an option to open it externally."""
+        if self._closed:
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Generated image")
+        layout = QVBoxLayout()
+
+        label = QLabel()
+        pixmap = QPixmap(str(path))
+        if pixmap.isNull():
+            label.setText(f"Could not render image.\nSaved at: {path}")
+        else:
+            label.setPixmap(
+                pixmap.scaled(
+                    512,
+                    512,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(label)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        open_btn = buttons.addButton("Open file", QDialogButtonBox.ButtonRole.ActionRole)
+        qconnect(open_btn.clicked, lambda: self._open_externally(path))
+        qconnect(buttons.rejected, dialog.reject)
+        layout.addWidget(buttons)
+
+        dialog.setLayout(layout)
+        dialog.exec()
+
+    def _preview_audio(self, path: Path) -> None:
+        """Offer to play/open the generated audio file."""
+        if self._closed:
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Generated audio")
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel(f"Audio saved to:\n{path}"))
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        play_btn = buttons.addButton("Play / open", QDialogButtonBox.ButtonRole.ActionRole)
+        qconnect(play_btn.clicked, lambda: self._open_externally(path))
+        qconnect(buttons.rejected, dialog.reject)
+        layout.addWidget(buttons)
+
+        dialog.setLayout(layout)
+        # Play immediately in the OS default player, then leave the dialog open
+        # so it can be replayed or the file opened.
+        self._open_externally(path)
+        dialog.exec()
 
 
 # ---------------------------------------------------------------------------
