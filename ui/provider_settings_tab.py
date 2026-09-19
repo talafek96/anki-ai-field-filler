@@ -17,9 +17,7 @@ PROVIDER_CAPABILITIES = {
     "openai": {"text": True, "tts": True, "image": True},
     "anthropic": {"text": True, "tts": False, "image": False},
     "google": {"text": True, "tts": True, "image": True},
-    # OpenRouter proxies every vendor's text and image models, but its few
-    # audio models use a request shape we don't implement.
-    "openrouter": {"text": True, "tts": False, "image": True},
+    "openrouter": {"text": True, "tts": True, "image": True},
 }
 
 PROVIDER_LABELS = {
@@ -30,6 +28,23 @@ PROVIDER_LABELS = {
 }
 
 KNOWN_TTS_VOICES = {
+    # OpenRouter serves speech through OpenAI's gpt-audio models, which
+    # reject an unknown or empty voice, so the list must be exact.
+    "openrouter": [
+        "alloy",
+        "ash",
+        "ballad",
+        "cedar",
+        "coral",
+        "echo",
+        "fable",
+        "marin",
+        "nova",
+        "onyx",
+        "sage",
+        "shimmer",
+        "verse",
+    ],
     "openai": [
         "alloy",
         "ash",

@@ -16,17 +16,18 @@ Two differences from the plain OpenAI provider:
   ``modalities: ["image", "text"]``, returning data URIs in
   ``message.images``, not through a separate ``/images`` endpoint.
 
-There is no TTS support: OpenRouter exposes only a handful of audio
-models and they use a different request shape.
+Speech works too, but only over a streamed request — see
+:class:`OpenRouterTTSProvider`.
 """
 
 from __future__ import annotations
 
 import base64
 import binascii
+from typing import Iterator
 
-from .base import ImageProvider, ProviderError
-from .http import http_post_json
+from .base import ImageProvider, ProviderError, TTSProvider
+from .http import http_post_json, http_post_sse
 from .openai_provider import OpenAITextProvider
 
 _LABEL = "OpenRouter API"
@@ -88,6 +89,83 @@ class OpenRouterTextProvider(OpenAITextProvider):
                     detail=e.detail,
                 ) from e
             raise
+
+
+class OpenRouterTTSProvider(TTSProvider):
+    """OpenRouter speech synthesis via a streamed chat completion.
+
+    OpenRouter has no ``/audio/speech`` endpoint and no dedicated TTS
+    models; speech comes from the ``gpt-audio`` chat models with an audio
+    modality, and only when ``stream`` is set — a non-streamed request is
+    rejected with "Audio output requires stream: true".  The audio arrives
+    as base64 fragments spread across ``delta.audio.data`` in the event
+    frames, which are concatenated before decoding.
+
+    ``pcm16`` is the only format the streaming path accepts (wav, mp3 and
+    opus are all refused), so this returns raw 24 kHz mono PCM and relies
+    on :class:`~ai_field_filler.media_handler.MediaHandler` to add the WAV
+    header, exactly as it already does for Google's TTS.
+    """
+
+    _DEFAULT_MODEL = "openai/gpt-audio-mini"
+    _DEFAULT_VOICE = "alloy"
+
+    def synthesize(
+        self, text: str, language: str = "", voice: str = "", context: str = ""
+    ) -> bytes:
+        model = self._config.tts_model or self._DEFAULT_MODEL
+        # The API rejects an empty or unknown voice, so never send a blank.
+        voice_name = voice or self._config.tts_voice or self._DEFAULT_VOICE
+
+        prompt_parts = []
+        if context:
+            prompt_parts.append(
+                "Use the following context to determine the correct "
+                "language, pronunciation, intonation, and speaking style:\n" + context
+            )
+        prompt_parts.append("Read the following text aloud exactly as written:\n" + text)
+
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": "\n\n".join(prompt_parts)}],
+            "modalities": ["text", "audio"],
+            "audio": {"voice": voice_name, "format": "pcm16"},
+            "stream": True,
+        }
+        url = f"{self._config.base_url}/chat/completions"
+        events = http_post_sse(
+            url,
+            _openrouter_headers(self._config.api_key),
+            payload,
+            timeout=180,
+            label=_LABEL,
+        )
+        return self._collect_audio(events)
+
+    @staticmethod
+    def _collect_audio(events: Iterator[dict]) -> bytes:
+        """Concatenate the base64 audio fragments from the event stream."""
+        fragments: list = []
+        for event in events:
+            error = event.get("error")
+            if isinstance(error, dict):
+                # Errors can arrive mid-stream rather than as an HTTP status.
+                message = error.get("message") or "unknown error"
+                raise ProviderError(f"{_LABEL} error: {message}")
+            for choice in event.get("choices") or []:
+                audio = (choice.get("delta") or {}).get("audio")
+                if isinstance(audio, dict) and audio.get("data"):
+                    fragments.append(audio["data"])
+
+        if not fragments:
+            raise ProviderError(
+                "No audio data in OpenRouter response. The selected model may "
+                "not support speech output."
+            )
+        try:
+            return base64.b64decode("".join(fragments))
+        except (binascii.Error, ValueError) as e:
+            raise ProviderError(f"Could not decode OpenRouter audio data: {e}") from e
 
 
 class OpenRouterImageProvider(ImageProvider):

@@ -15,9 +15,9 @@ API credentials and model settings for each supported AI provider.
 | `api_key` | Your API key (keep this secret!) |
 | `text_model` | Model name for text generation |
 | `max_tokens` | Maximum tokens in AI responses |
-| `tts_model` | Model for text-to-speech (OpenAI / Google) |
-| `tts_voice` | Voice for TTS (OpenAI / Google) |
-| `image_model` | Model for image generation (OpenAI / Google) |
+| `tts_model` | Model for text-to-speech (OpenAI / Google / OpenRouter) |
+| `tts_voice` | Voice for TTS (OpenAI / Google / OpenRouter) |
+| `image_model` | Model for image generation (OpenAI / Google / OpenRouter) |
 
 ## `active_providers`
 
@@ -26,7 +26,7 @@ Which provider to use for each capability:
 | Key | Values | Description |
 |-----|--------|-------------|
 | `text` | `openai`, `anthropic`, `google`, `openrouter` | Provider for text generation |
-| `tts` | `openai`, `google`, `disabled` | Provider for text-to-speech |
+| `tts` | `openai`, `google`, `openrouter`, `disabled` | Provider for text-to-speech |
 | `image` | `openai`, `google`, `openrouter`, `disabled` | Provider for image generation |
 
 ## `note_type_field_instructions`

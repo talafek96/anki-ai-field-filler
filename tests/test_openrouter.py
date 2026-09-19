@@ -19,11 +19,13 @@ from ai_field_filler.providers.base import ProviderError
 from ai_field_filler.providers.openrouter_provider import (
     OpenRouterImageProvider,
     OpenRouterTextProvider,
+    OpenRouterTTSProvider,
     _decode_data_uri,
 )
 
 _HTTP_POST_JSON = "ai_field_filler.providers.openai_provider.http_post_json"
 _OR_POST_JSON = "ai_field_filler.providers.openrouter_provider.http_post_json"
+_OR_POST_SSE = "ai_field_filler.providers.openrouter_provider.http_post_sse"
 _HTTP_GET_JSON = "ai_field_filler.providers.http_get_json"
 
 _CFG = ProviderConfig(
@@ -45,9 +47,8 @@ class TestFactory:
     def test_creates_image_provider(self) -> None:
         assert isinstance(create_image_provider(_CFG), OpenRouterImageProvider)
 
-    def test_has_no_tts_support(self) -> None:
-        with pytest.raises(ProviderError, match="No TTS support"):
-            create_tts_provider(_CFG)
+    def test_creates_tts_provider(self) -> None:
+        assert isinstance(create_tts_provider(_CFG), OpenRouterTTSProvider)
 
 
 class TestTextProvider:
@@ -173,10 +174,9 @@ class TestModelListing:
         assert _fetch_openrouter_models(_CFG, "image") == ["google/gemini-3.1-flash-image"]
 
     @patch(_HTTP_GET_JSON)
-    def test_tts_is_empty(self, mock_get) -> None:
+    def test_tts_lists_speech_models(self, mock_get) -> None:
         mock_get.return_value = _models_payload()
-        assert _fetch_openrouter_models(_CFG, "tts") == []
-        mock_get.assert_not_called()
+        assert _fetch_openrouter_models(_CFG, "tts") == ["openai/gpt-audio"]
 
     @patch(_HTTP_GET_JSON)
     def test_sends_bearer_token(self, mock_get) -> None:
@@ -350,3 +350,76 @@ class TestEditApplyModelsExcluded:
             ]
         }
         assert _fetch_openrouter_models(_CFG, "text") == ["vendor/great-coder"]
+
+
+class TestTTSProvider:
+    """Speech is a streamed chat completion, not an /audio/speech call."""
+
+    _SPEECH = b"\x01\x02\x03\x04raw-pcm-bytes"
+
+    @staticmethod
+    def _events(payload: bytes) -> list:
+        """Two frames, so reassembly across chunks is exercised."""
+        encoded = base64.b64encode(payload).decode()
+        half = len(encoded) // 2
+        # Split on a 4-char boundary so each half is valid base64 input.
+        half -= half % 4
+        return [
+            {"choices": [{"delta": {"role": "assistant"}}]},
+            {"choices": [{"delta": {"audio": {"data": encoded[:half]}}}]},
+            {"choices": [{"delta": {"content": "Hello."}}]},
+            {"choices": [{"delta": {"audio": {"data": encoded[half:]}}}]},
+        ]
+
+    @patch(_OR_POST_SSE)
+    def test_concatenates_audio_fragments(self, mock_sse) -> None:
+        mock_sse.return_value = iter(self._events(self._SPEECH))
+        audio = OpenRouterTTSProvider(_CFG).synthesize("Hello.")
+        assert audio == self._SPEECH
+
+    @patch(_OR_POST_SSE)
+    def test_request_shape(self, mock_sse) -> None:
+        mock_sse.return_value = iter(self._events(self._SPEECH))
+        OpenRouterTTSProvider(_CFG).synthesize("Hello.", voice="nova")
+        url, headers, payload = mock_sse.call_args[0]
+        assert url == "https://openrouter.ai/api/v1/chat/completions"
+        assert headers["Authorization"] == "Bearer or-key"
+        # Streaming is mandatory and pcm16 is the only accepted format.
+        assert payload["stream"] is True
+        assert payload["modalities"] == ["text", "audio"]
+        assert payload["audio"] == {"voice": "nova", "format": "pcm16"}
+
+    @patch(_OR_POST_SSE)
+    def test_never_sends_a_blank_voice(self, mock_sse) -> None:
+        """An empty voice is rejected by the API, so a default is required."""
+        mock_sse.return_value = iter(self._events(self._SPEECH))
+        cfg = ProviderConfig(
+            provider_type="openrouter",
+            api_url="https://openrouter.ai/api/v1",
+            api_key="or-key",
+            tts_voice="",
+        )
+        OpenRouterTTSProvider(cfg).synthesize("Hello.")
+        assert mock_sse.call_args[0][2]["audio"]["voice"] == "alloy"
+
+    @patch(_OR_POST_SSE)
+    def test_context_is_included_in_the_prompt(self, mock_sse) -> None:
+        mock_sse.return_value = iter(self._events(self._SPEECH))
+        OpenRouterTTSProvider(_CFG).synthesize("Hello.", context="Japanese vocabulary note")
+        content = mock_sse.call_args[0][2]["messages"][0]["content"]
+        assert "Japanese vocabulary note" in content
+        assert "Hello." in content
+
+    @patch(_OR_POST_SSE)
+    def test_mid_stream_error_is_raised(self, mock_sse) -> None:
+        mock_sse.return_value = iter(
+            [{"choices": []}, {"error": {"message": "Audio output requires stream: true"}}]
+        )
+        with pytest.raises(ProviderError, match="Audio output requires stream"):
+            OpenRouterTTSProvider(_CFG).synthesize("Hello.")
+
+    @patch(_OR_POST_SSE)
+    def test_no_audio_frames(self, mock_sse) -> None:
+        mock_sse.return_value = iter([{"choices": [{"delta": {"content": "text only"}}]}])
+        with pytest.raises(ProviderError, match="No audio data"):
+            OpenRouterTTSProvider(_CFG).synthesize("Hello.")
