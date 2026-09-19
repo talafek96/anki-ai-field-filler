@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import contextlib
 import shutil
+import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -940,9 +942,19 @@ class DevToolsDialog(QDialog):
     # ---- media preview (main thread) ------------------------------------
 
     @staticmethod
-    def _open_externally(path: Path) -> None:
-        """Open a generated file in the OS default application."""
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+    def _reveal_in_folder(path: Path) -> None:
+        """Reveal a generated file in the OS file manager (Finder/Explorer).
+
+        Each platform reveals-and-selects differently; Linux has no universal
+        equivalent, so fall back to opening the containing folder.
+        """
+        if sys.platform == "darwin":
+            subprocess.run(["open", "-R", str(path)], check=False)
+        elif sys.platform.startswith("win"):
+            # explorer wants the path glued to /select, and exits non-zero on success.
+            subprocess.run(["explorer", f"/select,{path}"], check=False)
+        else:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.parent)))
 
     def _preview_image(self, path: Path) -> None:
         """Show the generated image inline, with an option to open it externally."""
@@ -969,8 +981,10 @@ class DevToolsDialog(QDialog):
         layout.addWidget(label)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        open_btn = buttons.addButton("Open file", QDialogButtonBox.ButtonRole.ActionRole)
-        qconnect(open_btn.clicked, lambda: self._open_externally(path))
+        folder_btn = buttons.addButton(
+            "Open containing folder", QDialogButtonBox.ButtonRole.ActionRole
+        )
+        qconnect(folder_btn.clicked, lambda: self._reveal_in_folder(path))
         qconnect(buttons.rejected, dialog.reject)
         layout.addWidget(buttons)
 
@@ -994,8 +1008,10 @@ class DevToolsDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         play_btn = buttons.addButton("Play", QDialogButtonBox.ButtonRole.ActionRole)
         qconnect(play_btn.clicked, lambda: self._play_audio(path))
-        open_btn = buttons.addButton("Open file", QDialogButtonBox.ButtonRole.ActionRole)
-        qconnect(open_btn.clicked, lambda: self._open_externally(path))
+        folder_btn = buttons.addButton(
+            "Open containing folder", QDialogButtonBox.ButtonRole.ActionRole
+        )
+        qconnect(folder_btn.clicked, lambda: self._reveal_in_folder(path))
         qconnect(buttons.rejected, dialog.reject)
         layout.addWidget(buttons)
 
