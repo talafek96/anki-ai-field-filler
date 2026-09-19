@@ -22,52 +22,58 @@ changes, and keep them current:
 - **`HANDOFF.md`** — where the last session left off and what's in flight. Update it at
   milestones.
 
-`git log` is the history. Deeper design notes: `README.md`, `TESTING.md`, `config.md`.
+`git log` is the history. Deeper design notes: `README.md`, `TESTING.md`.
 
-## Two constraints that shape every decision here
+## Core standards — the constitution
 
-1. **Pure-Python only.** An `.ankiaddon` bundles source, not wheels — it cannot ship
-   compiled dependencies. This is why unified-LLM libraries (LiteLLM, any-llm, aisuite)
-   were rejected; see PITFALLS. Any new dependency must be pure-Python **and** justified.
-2. **Python 3.9 is the floor** (`requires-python = ">=3.9"`, CI runs 3.9/3.12/3.13). Do not
-   use 3.10+ syntax: no `match`, no `X | Y` unions in runtime-evaluated annotations
-   (use `Optional[...]`/`Union[...]`), no `from __future__` workarounds assumed present.
+The durable engineering principles below are imported so they are **always in context**. They
+**supersede** any other convention or default; a warranted deviation must be justified in
+writing at the point of deviation. The short version: pure-Python only, Python 3.9 floor,
+capability negotiated at runtime (never from a model id), fail fast and legibly, tests pin
+behavior, one way to do a thing.
 
-A third, learned the hard way: **provider capability is negotiated at runtime, never assumed
-from a model id.** New models appear faster than any hard-coded list; detect quirks from the
-API's own error and cache per model id. Detail lives in `providers/CLAUDE.md` + PITFALLS.
+@.claude/constitution.md
 
 ## Stack & layout
 
 - **Stack:** Python 3.9+, PyQt (`aqt`/`anki`), `uv` for env/deps, `ruff` + `mypy`, `pytest`.
-- **Layout:** provider code in `providers/`, Qt dialogs/tabs in `ui/`, tests in `tests/`
-  (each has its own `CLAUDE.md`). Orchestration in `field_filler.py`; config dataclasses +
-  singleton in `config_manager.py`; media writes in `media_handler.py`; Anki entry points in
-  `__init__.py`, `editor_hooks.py`, `browser_hooks.py`; packaging in `build_ankiaddon.py`.
+- **Layout:** the addon package is **`src/ai_field_filler/`** — its *contents* become the
+  installed addon root. Inside it, code is grouped by role:
+  - `core/` — domain logic, no Qt: `field_filler.py` (orchestration), `media_handler.py`.
+  - `config/` — `config_manager.py` (dataclasses + singleton, `FIELD_TYPES`), `settings_io.py`.
+  - `providers/` — the provider layer (own `CLAUDE.md`).
+  - `ui/` — Qt dialogs/tabs (own `CLAUDE.md`).
+  - `hooks/` — Anki integration: `editor_hooks.py`, `browser_hooks.py`.
+  - `__init__.py`, `config.json`, `config.md` stay at the package root (Anki loads them).
+  Above the package: `tests/` (own `CLAUDE.md`), `build_ankiaddon.py`, tooling and docs
+  (these never ship). `pyproject.toml` sets `pythonpath`/`mypy_path` to `src`, so imports
+  resolve as `ai_field_filler.*`.
 
 ## Commands (always via `uv`)
 
 ```sh
-uv sync --group dev                       # install dev deps + editable package
-uv run pytest tests/ -v                   # all tests
+uv sync --group dev                       # install dev deps
+uv run pytest                             # all tests (pythonpath=src)
 uv run pytest tests/test_http.py -v       # one file
 uv run ruff format && uv run ruff check   # format, then lint (--fix to auto-apply)
-uv run mypy .                             # non-strict type check
+uv run mypy --package ai_field_filler     # non-strict type check (mypy_path=src)
 python build_ankiaddon.py [--check]       # build the .ankiaddon (--check = dry run)
 ```
 
+`make check` runs lint + typecheck + test together.
+
 ## Definition of done
 
-`uv run ruff format`, `uv run ruff check`, `uv run mypy .`, and `uv run pytest` all clean,
-at every commit. Line length 100. Adding a `# noqa` or `# type: ignore` needs explicit
-human approval — fix the underlying issue first.
+`uv run ruff format`, `uv run ruff check`, `uv run mypy --package ai_field_filler`, and
+`uv run pytest` all clean, at every commit. Line length 100. Adding a `# noqa` or
+`# type: ignore` needs explicit human approval — fix the underlying issue first.
 
-## Config: two files, don't confuse them
+## Live testing in Anki
 
-- **`config.json`** — the defaults shipped with the addon (check this when debugging what
-  a user sees out of the box).
-- **`meta.json`** — the user's live config, managed by Anki's addon manager; may differ
-  from the defaults.
+This repo is developed as a normal project; the addon is exposed to Anki by symlinking only
+the package into the profile: `addons21/ai_field_filler → <repo>/src/ai_field_filler`. Edits
+under `src/` are live on Anki restart. Anki writes the user's live config to
+`src/ai_field_filler/meta.json` (gitignored).
 
 ## Boundaries
 
@@ -81,6 +87,6 @@ human approval — fix the underlying issue first.
 
 - Python conventions — `.claude/rules/python.md`
 - Git & commit conventions — `.claude/rules/git-conventions.md`
-- Provider layer internals — `providers/CLAUDE.md`
+- Provider layer internals — `src/ai_field_filler/providers/CLAUDE.md`
 - Test harness (fixtures, singleton reset) — `tests/CLAUDE.md`
-- Testing guide — `TESTING.md` · Config reference — `config.md`
+- Testing guide — `TESTING.md` · Config reference — `src/ai_field_filler/config.md`

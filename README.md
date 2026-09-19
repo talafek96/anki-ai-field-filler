@@ -153,53 +153,37 @@ Exported files include provider configs, active provider selections, all note ty
 
 ## File Structure
 
+The addon package lives in `src/ai_field_filler/`; its *contents* become the installed
+`.ankiaddon`. Code is grouped by role, with tests and tooling kept above the package (they
+never ship).
+
 ```
-ai_field_filler/
-├── __init__.py                # Addon entry point
-├── config.json                # Default configuration
-├── config.md                  # Configuration documentation
-├── config_manager.py          # Typed config wrapper (singleton)
-├── field_filler.py            # Core orchestrator (single + batch)
-├── settings_io.py             # Settings export/import + encryption
-├── media_handler.py           # Audio/image media management
-├── editor_hooks.py            # Editor toolbar + context menu
-├── browser_hooks.py           # Browser batch fill integration
-├── AGENTS.md                  # Development notes & conventions
+src/ai_field_filler/            # the addon package (contents = installed addon root)
+├── __init__.py                 # Addon entry point
+├── config.json                 # Default configuration
+├── config.md                   # Configuration documentation (shown in Anki's config screen)
+├── core/
+│   ├── field_filler.py         # Core orchestrator (single + batch)
+│   └── media_handler.py        # Audio/image media management
+├── config/
+│   ├── config_manager.py       # Typed config wrapper (singleton) + FIELD_TYPES
+│   └── settings_io.py          # Settings export/import + encryption
 ├── providers/
-│   ├── __init__.py            # Provider factory + model fetching
-│   ├── base.py                # Abstract base classes
-│   ├── http.py                # Shared HTTP request helpers
-│   ├── openai_provider.py     # OpenAI (text + TTS + image)
-│   ├── anthropic_provider.py  # Anthropic (text)
-│   ├── google_provider.py     # Google Gemini (text + TTS + image)
-│   └── openrouter_provider.py # OpenRouter (text + TTS + image, all vendors)
-├── ui/
-│   ├── __init__.py            # Shared UI widget helpers
-│   ├── styles.py                    # Shared styles and colors
-│   ├── settings_dialog.py           # Main tabbed settings dialog
-│   ├── provider_settings_tab.py     # Provider credentials tab
-│   ├── note_type_settings_tab.py    # Per-field instructions tab
-│   ├── general_settings_tab.py      # General settings tab
-│   ├── fill_dialog.py               # Fill All activation dialog
-│   ├── quick_prompt_dialog.py       # Single-field prompt dialog
-│   ├── generating_dialog.py         # Single-note progress dialog
-│   ├── field_instruction_dialog.py  # Quick field instruction editor
-│   ├── batch_fill_dialog.py         # Batch config dialog
-│   ├── batch_progress_dialog.py     # Batch progress + summary
-│   └── batch_review_dialog.py       # Before/after review dialog
-└── tests/
-    ├── conftest.py            # aqt mocks + shared fixtures
-    ├── test_config.py         # ConfigManager + dataclass tests
-    ├── test_field_filler.py   # Response parsing + HTML conversion
-    ├── test_batch_fill.py     # Batch fill orchestration tests
-    ├── test_batch_review_dialog.py  # Review dialog tests
-    ├── test_prompt_builder.py # Prompt construction
-    ├── test_media_handler.py  # Audio/image saving + PCM→WAV
-    ├── test_providers.py      # Factory functions + model classifiers
-    ├── test_provider_generate.py  # Provider methods (mocked HTTP)
-    ├── test_http.py           # Shared HTTP helper tests
-    ├── test_fetch_models.py   # Model fetching + connection test
-    └── test_settings_io.py    # Settings export/import + encryption
+│   ├── __init__.py             # Provider factory + model fetching
+│   ├── base.py                 # Abstract base classes + ProviderError
+│   ├── http.py                 # Shared HTTP request helpers (the only HTTP layer)
+│   ├── openai_provider.py      # OpenAI (text + TTS + image)
+│   ├── anthropic_provider.py   # Anthropic (text)
+│   ├── google_provider.py      # Google Gemini (text + TTS + image)
+│   └── openrouter_provider.py  # OpenRouter (text + TTS + image, all vendors)
+├── ui/                         # Qt dialogs, tabs, and shared widget helpers
+└── hooks/
+    ├── editor_hooks.py         # Editor toolbar + context menu
+    └── browser_hooks.py        # Browser batch fill integration
+
+tests/                          # pytest suite (aqt mocked; never ships)
+build_ankiaddon.py              # packages src/ai_field_filler/ into the .ankiaddon
+pyproject.toml  Makefile  CLAUDE.md  .claude/   # tooling, agent context (never ship)
 ```
 
 ## Requirements

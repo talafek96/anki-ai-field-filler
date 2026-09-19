@@ -12,7 +12,9 @@ the root file wins.
 ## Tooling — always through `uv`
 
 - **Never invoke the OS Python.** Every action goes through `uv`: `uv run python …`,
-  `uv run ruff …`, `uv run mypy .`, `uv run pytest`. No bare `python`, `python3`, or `pip`.
+  `uv run ruff …`, `uv run mypy --package ai_field_filler`, `uv run pytest`. No bare
+  `python`, `python3`, or `pip`. (The package lives in `src/ai_field_filler/`;
+  `pyproject.toml` points `pythonpath`/`mypy_path` at `src` so imports resolve.)
 - Config lives in `pyproject.toml`. Line length **100**. `ruff` owns formatting and import
   sorting; code MUST be clean under `uv run ruff check` before a change is done.
 - `uv run mypy .` runs **non-strict** by decision — do not enable `strict`. `ui/*` and
