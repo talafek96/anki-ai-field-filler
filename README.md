@@ -4,7 +4,7 @@ An Anki addon that uses AI (LLM-based) to intelligently auto-fill blank note fie
 
 ## Features
 
-- **Multi-provider AI support** — OpenAI, Anthropic (Claude), Google (Gemini / Nano Banana), and any OpenAI-compatible API
+- **Multi-provider AI support** — OpenAI, Anthropic (Claude), Google (Gemini / Nano Banana), OpenRouter (one key for every vendor), and any OpenAI-compatible API
 - **Smart field filling** — The AI decides what content type fits each field (text, audio, image) and leaves irrelevant fields empty
 - **Batch fill from browser** — Select multiple cards in the browser, fill all their blank fields in one go with a full review workflow (configure → progress → review diffs → apply)
 - **Optional inline images** — For text fields, the AI can include a generated illustration when it would help the learner, appended below the text in the same field
@@ -60,6 +60,7 @@ Configure credentials and models for each supported provider:
 | OpenAI | Yes | Yes | Yes | Also works with Azure OpenAI and other compatible APIs |
 | Anthropic | Yes | No | No | Claude models |
 | Google | Yes | Yes | Yes | Gemini text, Nano Banana image gen, Gemini TTS |
+| OpenRouter | Yes | No | Yes | One key for every vendor; normalises per-model parameter differences |
 
 - **Model dropdowns** are editable combo boxes with a refresh icon button that fetches available models from the provider's API. Fetched models are cached per provider — switching between providers restores each one's model list.
 - **API key** field has a "Show" checkbox to toggle visibility.
@@ -170,7 +171,8 @@ ai_field_filler/
 │   ├── http.py                # Shared HTTP request helpers
 │   ├── openai_provider.py     # OpenAI (text + TTS + image)
 │   ├── anthropic_provider.py  # Anthropic (text)
-│   └── google_provider.py     # Google Gemini (text + TTS + image)
+│   ├── google_provider.py     # Google Gemini (text + TTS + image)
+│   └── openrouter_provider.py # OpenRouter (text + image, all vendors)
 ├── ui/
 │   ├── __init__.py            # Shared UI widget helpers
 │   ├── styles.py                    # Shared styles and colors

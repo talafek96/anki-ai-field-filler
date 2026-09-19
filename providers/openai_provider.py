@@ -73,6 +73,10 @@ class _OpenAIRequestMixin:
 
     _config: ProviderConfig
 
+    # Subclasses serving a different OpenAI-compatible API override this so
+    # their errors are attributed to the right service.
+    _label: str = _LABEL
+
     def _auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._config.api_key}"}
 
@@ -83,7 +87,7 @@ class _OpenAIRequestMixin:
             self._auth_headers(),
             payload,
             timeout=timeout,
-            label=_LABEL,
+            label=self._label,
         )
 
     def _request_raw(self, url: str, payload: dict, timeout: int = 120) -> bytes:
@@ -93,7 +97,7 @@ class _OpenAIRequestMixin:
             self._auth_headers(),
             payload,
             timeout=timeout,
-            label=_LABEL,
+            label=self._label,
         )
 
 

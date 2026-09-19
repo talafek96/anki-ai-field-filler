@@ -17,12 +17,16 @@ PROVIDER_CAPABILITIES = {
     "openai": {"text": True, "tts": True, "image": True},
     "anthropic": {"text": True, "tts": False, "image": False},
     "google": {"text": True, "tts": True, "image": True},
+    # OpenRouter proxies every vendor's text and image models, but its few
+    # audio models use a request shape we don't implement.
+    "openrouter": {"text": True, "tts": False, "image": True},
 }
 
 PROVIDER_LABELS = {
     "openai": "OpenAI",
     "anthropic": "Anthropic",
     "google": "Google (Gemini)",
+    "openrouter": "OpenRouter (all vendors)",
 }
 
 KNOWN_TTS_VOICES = {

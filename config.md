@@ -25,9 +25,9 @@ Which provider to use for each capability:
 
 | Key | Values | Description |
 |-----|--------|-------------|
-| `text` | `openai`, `anthropic`, `google` | Provider for text generation |
+| `text` | `openai`, `anthropic`, `google`, `openrouter` | Provider for text generation |
 | `tts` | `openai`, `google`, `disabled` | Provider for text-to-speech |
-| `image` | `openai`, `google`, `disabled` | Provider for image generation |
+| `image` | `openai`, `google`, `openrouter`, `disabled` | Provider for image generation |
 
 ## `note_type_field_instructions`
 

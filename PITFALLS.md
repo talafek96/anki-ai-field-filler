@@ -82,6 +82,31 @@ The `/models` endpoints are catalogues, not capability manifests:
   cannot be detected statically — they now raise a clear "pick a current model"
   error instead of a raw 404 body.
 
+### OpenRouter absorbs most of this, and is the hedge against it recurring
+
+Measured against the same audit, OpenRouter is the most resilient option we
+have, because it normalises requests per model **server-side**:
+
+- `openai/gpt-6-astra` accepts `temperature` through OpenRouter, while the
+  native OpenAI API rejects it. The same holds for the `*-pro` models, which
+  need `/v1/responses` natively but work over plain chat/completions here.
+- Its `/models` endpoint is the only one of the four that publishes real
+  capability metadata (`architecture.output_modalities`,
+  `supported_parameters`), so `_fetch_openrouter_models` classifies instead
+  of guessing from the model id. 89 of its text models declare no
+  `temperature` support — information no other provider exposes.
+
+It is not a total replacement: there is no TTS (only a handful of audio
+models, with a different request shape), and it has its own failure mode —
+models are listed whose upstream providers are all offline, returning
+"No endpoints found", which `OpenRouterTextProvider.generate` translates
+into a "pick a different model" message.
+
+Vendoring a unified-API library (LiteLLM, any-llm, aisuite) was rejected:
+all need compiled dependencies (`tokenizers`, `pydantic-core`) and Python
+≥3.10, and an `.ankiaddon` can only bundle pure-Python code. LiteLLM also
+requires `<3.15`, while this addon targets 3.9+.
+
 ### Gemini image models return JPEG, not PNG
 
 - **Symptom:** none visible at first — the file is written and usually renders.
