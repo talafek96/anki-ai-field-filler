@@ -31,6 +31,7 @@ from ..providers import (
     test_provider_connection,
 )
 from ..providers.http import http_get_json
+from . import install_wheel_guard
 from .error_dialog import show_error
 from .provider_settings_tab import (
     KNOWN_TTS_VOICES,
@@ -46,6 +47,10 @@ _SHORTCUT = "Ctrl+Shift+Alt+D"
 # layout; their width is measured from the longest label at runtime, since
 # hard-coding it clips labels under a different font or UI scale.
 _BUTTON_HEIGHT = 34
+
+# Minimum width for every input in the Parameters form, so the field column
+# stays usable however narrow the left panel gets.
+_FIELD_MIN_WIDTH = 260
 
 _ACTIVE = "⟨use active providers⟩"
 
@@ -179,13 +184,18 @@ class DevToolsDialog(QDialog):
             self._normalize_button_widths()
 
     def _normalize_button_widths(self) -> None:
-        """Size every button to the longest label, and the column to match.
+        """Size the left column to whichever is wider: buttons or parameters.
 
-        Must run after the first show: a button's sizeHint only accounts for
+        Must run after the first show: a widget's sizeHint only accounts for
         the dialog stylesheet's padding once Qt has applied it, so measuring
         during construction clips the longest label.
+
+        The parameters form is measured too — sizing the column to the
+        buttons alone squeezes its label and field columns until the inputs
+        are unusable.
         """
         width = max(b.sizeHint().width() for b in self._buttons)
+        width = max(width, self._params_box.sizeHint().width())
         for btn in self._buttons:
             btn.setFixedWidth(width)
         self._params_box.setFixedWidth(width)
@@ -220,7 +230,7 @@ class DevToolsDialog(QDialog):
 
     def _setup_ui(self) -> None:
         self.setWindowTitle("AI Field Filler — Developer Tools")
-        self.setMinimumSize(980, 640)
+        self.setMinimumSize(1120, 680)
         self.setStyleSheet(GLOBAL_STYLE())
 
         root = QVBoxLayout()
@@ -356,6 +366,8 @@ class DevToolsDialog(QDialog):
         root.addWidget(buttons)
         self.setLayout(root)
 
+        install_wheel_guard(self)
+
         self._on_provider_changed()
         self._log_line("Ready. Active providers: " + self._active_summary())
 
@@ -366,6 +378,9 @@ class DevToolsDialog(QDialog):
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         form.setHorizontalSpacing(10)
         form.setVerticalSpacing(7)
+        # Without a floor the form collapses its field column to a few
+        # characters when the left panel is narrow.
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
 
         self._provider_combo = QComboBox()
         self._provider_combo.addItem(_ACTIVE, None)
@@ -417,6 +432,22 @@ class DevToolsDialog(QDialog):
         reset = QPushButton("Reset parameters")
         qconnect(reset.clicked, self._reset_params)
         form.addRow("", reset)
+
+        # Every input needs room to show its value; the prompts are long, so
+        # give them a generous floor rather than letting the form shrink them.
+        for widget in (
+            self._provider_combo,
+            self._text_model,
+            self._image_model,
+            self._tts_model,
+            self._tts_voice,
+            self._max_tokens,
+            self._system_prompt,
+            self._user_prompt,
+            self._image_prompt,
+            self._tts_text,
+        ):
+            widget.setMinimumWidth(_FIELD_MIN_WIDTH)
 
         box.setLayout(form)
         box.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from aqt.qt import QCheckBox, QComboBox
+from aqt.qt import QAbstractSpinBox, QCheckBox, QComboBox, QEvent, QObject, QWidget
 
 from ..config_manager import FIELD_TYPES
 
@@ -31,3 +31,38 @@ def create_auto_fill_checkbox() -> QCheckBox:
     cb = QCheckBox("Include in auto-fill")
     cb.setToolTip(_AUTO_FILL_TOOLTIP)
     return cb
+
+
+class _WheelGuard(QObject):
+    """Event filter that swallows wheel events.
+
+    Qt's default is for the mouse wheel to change a combo box's selection
+    and a spin box's value.  In a scrollable dialog that means scrolling
+    past one silently edits a setting — here, silently switching the model
+    or provider.  Scrolling the dialog must never change a value, so the
+    event is dropped rather than forwarded to the parent scroll area,
+    which would otherwise scroll twice.
+    """
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # noqa: N802 — Qt naming
+        if event is not None and event.type() == QEvent.Type.Wheel:
+            event.ignore()
+            return True
+        return False
+
+
+# Parented to nothing and kept alive for the process: the filter is
+# stateless, so one shared instance serves every dialog.
+_WHEEL_GUARD = _WheelGuard()
+
+
+def install_wheel_guard(root: QWidget) -> None:
+    """Stop the wheel from changing combo/spin values inside *root*.
+
+    Call once after a dialog's widgets are built; it walks the whole
+    subtree, so nested tabs and group boxes are covered.
+    """
+    for widget in root.findChildren(QComboBox):
+        widget.installEventFilter(_WHEEL_GUARD)
+    for widget in root.findChildren(QAbstractSpinBox):
+        widget.installEventFilter(_WHEEL_GUARD)

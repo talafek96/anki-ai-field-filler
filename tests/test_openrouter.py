@@ -303,3 +303,50 @@ class TestErrorDeliveredWithStatus200:
             "choices": [{"message": {"content": "OK", "reasoning": "thinking"}}]
         }
         assert OpenRouterTextProvider(_CFG).generate("sys", "user") == "OK"
+
+
+class TestEditApplyModelsExcluded:
+    """Code edit-apply models reject the system+user pair we always send."""
+
+    @staticmethod
+    def _payload() -> dict:
+        return {
+            "data": [
+                {
+                    "id": "morph/morph-v3-fast",
+                    "description": "Morph's fastest apply model for code edits.",
+                    "architecture": {"output_modalities": ["text"]},
+                },
+                {
+                    "id": "relace/relace-apply-3",
+                    "description": "A specialized code-patching LLM that merges "
+                    "AI-suggested edits straight into your source files.",
+                    "architecture": {"output_modalities": ["text"]},
+                },
+                {
+                    "id": "anthropic/claude-sonnet-5",
+                    "description": "Frontier performance across coding, agents and "
+                    "professional work.",
+                    "architecture": {"output_modalities": ["text"]},
+                },
+            ]
+        }
+
+    @patch(_HTTP_GET_JSON)
+    def test_apply_models_are_hidden(self, mock_get) -> None:
+        mock_get.return_value = self._payload()
+        assert _fetch_openrouter_models(_CFG, "text") == ["anthropic/claude-sonnet-5"]
+
+    @patch(_HTTP_GET_JSON)
+    def test_a_coding_model_is_not_caught(self, mock_get) -> None:
+        """'coding' in a description must not trigger the edit-apply filter."""
+        mock_get.return_value = {
+            "data": [
+                {
+                    "id": "vendor/great-coder",
+                    "description": "Strong at coding, code edits and refactoring.",
+                    "architecture": {"output_modalities": ["text"]},
+                }
+            ]
+        }
+        assert _fetch_openrouter_models(_CFG, "text") == ["vendor/great-coder"]

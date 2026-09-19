@@ -10,7 +10,7 @@ from typing import Optional
 from aqt.qt import *
 
 from ..config_manager import ConfigManager, FieldInstruction
-from . import create_auto_fill_checkbox, create_field_type_combo
+from . import create_auto_fill_checkbox, create_field_type_combo, install_wheel_guard
 from .styles import GLOBAL_STYLE, HEADER_STYLE, palette
 
 
@@ -30,6 +30,7 @@ class FieldInstructionDialog(QDialog):
         self._field_name = field_name
         self._deck_name = deck_name
         self._setup_ui()
+        install_wheel_guard(self)
         self._load()
 
     def _setup_ui(self) -> None:

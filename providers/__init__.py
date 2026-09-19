@@ -146,6 +146,19 @@ def _fetch_anthropic_models(config: ProviderConfig, capability: str = "text") ->
 # and must stay listed.
 _OPENROUTER_SKIP_SUFFIXES = (":batch",)
 
+# Description signals for code edit-apply models (Morph, Relace).  They are
+# ordinary text models by every metadata field, but reject the system+user
+# pair this addon always sends: "Multi-turn conversations are not supported".
+# They expect a single <instruction>/<code> payload instead, so they can
+# never fill a field.  Verified to match these three models and nothing else
+# across OpenRouter's full catalogue.
+_OPENROUTER_NON_CHAT_SIGNALS = (
+    "apply model",
+    "code-patching",
+    "patching llm",
+    "merges ai-suggested edits",
+)
+
 
 def _fetch_openrouter_models(config: ProviderConfig, capability: str) -> List[str]:
     """Fetch models from OpenRouter's /models endpoint.
@@ -166,6 +179,9 @@ def _fetch_openrouter_models(config: ProviderConfig, capability: str) -> List[st
         if not model_id:
             continue
         if any(model_id.endswith(suffix) for suffix in _OPENROUTER_SKIP_SUFFIXES):
+            continue
+        description = (m.get("description") or "").lower()
+        if any(signal in description for signal in _OPENROUTER_NON_CHAT_SIGNALS):
             continue
         modalities = (m.get("architecture") or {}).get("output_modalities") or []
         if capability == "image":
