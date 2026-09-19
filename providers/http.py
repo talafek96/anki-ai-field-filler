@@ -109,6 +109,36 @@ def http_get_json(
 # ---------------------------------------------------------------------------
 
 
+def _http_error(label: str, code: int, body: str) -> ProviderError:
+    """Build a ProviderError with a one-line summary and the full body.
+
+    OpenAI, Anthropic and Google all nest the useful sentence at
+    ``error.message``; everything around it is noise in a message box.  The
+    untouched body is kept as ``detail`` so the error dialog can show it
+    pretty-printed on demand.
+    """
+    summary = ""
+    detail = body
+    try:
+        parsed = json.loads(body)
+    except (json.JSONDecodeError, TypeError):
+        parsed = None
+    if isinstance(parsed, dict):
+        detail = json.dumps(parsed, indent=2, ensure_ascii=False)
+        err = parsed.get("error")
+        if isinstance(err, dict):
+            summary = str(err.get("message") or err.get("type") or "")
+        elif isinstance(err, str):
+            summary = err
+        if not summary:
+            summary = str(parsed.get("message") or "")
+
+    summary = " ".join(summary.split())
+    if not summary:
+        summary = " ".join(body.split())[:300]
+    return ProviderError(f"{label} error {code}: {summary}", detail=detail)
+
+
 def _backoff_delay(attempt: int) -> float:
     """Exponential backoff with jitter: ``base * 2^attempt + jitter``."""
     delay = min(_MAX_DELAY, _BASE_DELAY * (2**attempt))
@@ -149,9 +179,9 @@ def _urlopen_with_errors(
                 time.sleep(wait if wait is not None else _backoff_delay(attempt))
                 # urllib re-reads req.data on each call, so the
                 # Request object is safe to reuse.
-                last_exc = ProviderError(f"{label} error {e.code}: {body}")
+                last_exc = _http_error(label, e.code, body)
                 continue
-            raise ProviderError(f"{label} error {e.code}: {body}") from e
+            raise _http_error(label, e.code, body) from e
         except urllib.error.URLError as e:
             raise ProviderError(f"Connection error: {e.reason}") from e
     raise last_exc  # type: ignore[misc]
@@ -178,9 +208,9 @@ def _urlopen_bytes(
             if e.code in _RETRYABLE_STATUS_CODES and attempt < _MAX_RETRIES:
                 wait = _retry_after(e) if e.code == 429 else None
                 time.sleep(wait if wait is not None else _backoff_delay(attempt))
-                last_exc = ProviderError(f"{label} error {e.code}: {body}")
+                last_exc = _http_error(label, e.code, body)
                 continue
-            raise ProviderError(f"{label} error {e.code}: {body}") from e
+            raise _http_error(label, e.code, body) from e
         except urllib.error.URLError as e:
             raise ProviderError(f"Connection error: {e.reason}") from e
     raise last_exc  # type: ignore[misc]

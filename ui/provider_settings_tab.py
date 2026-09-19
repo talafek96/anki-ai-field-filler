@@ -11,6 +11,7 @@ from aqt.utils import showInfo, tooltip
 
 from ..config_manager import ConfigManager, ProviderConfig
 from ..providers import fetch_available_models, test_provider_connection
+from .error_dialog import show_error
 
 PROVIDER_CAPABILITIES = {
     "openai": {"text": True, "tts": True, "image": True},
@@ -460,8 +461,11 @@ class ProviderSettingsTab(QWidget):
                 )
             except Exception as e:
                 err_msg = str(e)
+                err_detail = getattr(e, "detail", None)
                 mw.taskman.run_on_main(
-                    lambda: self._on_models_fetched(ptype, capability, target, [], err_msg)
+                    lambda: self._on_models_fetched(
+                        ptype, capability, target, [], err_msg, err_detail
+                    )
                 )
 
         threading.Thread(target=do_fetch, daemon=True).start()
@@ -473,10 +477,15 @@ class ProviderSettingsTab(QWidget):
         combo: ModelComboWithRefresh,
         models: List[str],
         error: Optional[str],
+        detail: Optional[str] = None,
     ) -> None:
         combo.setRefreshing(False)
         if error:
-            tooltip(f"Failed to fetch models: {error}", parent=self)
+            show_error(
+                f"Failed to fetch models:\n\n{error}",
+                detail,
+                parent=self,
+            )
         elif models:
             # Persist the results for this provider + capability
             self._config.set_cached_models(ptype, capability, models)
@@ -508,21 +517,18 @@ class ProviderSettingsTab(QWidget):
         self._test_btn.setText("  Testing...  ")
 
         def test() -> None:
-            success, message = test_provider_connection(cfg)
-            mw.taskman.run_on_main(lambda: self._show_test_result(success, message))
+            success, message, detail = test_provider_connection(cfg)
+            mw.taskman.run_on_main(lambda: self._show_test_result(success, message, detail))
 
         threading.Thread(target=test, daemon=True).start()
 
-    def _show_test_result(self, success: bool, message: str) -> None:
+    def _show_test_result(self, success: bool, message: str, detail: Optional[str] = None) -> None:
         self._test_btn.setEnabled(True)
         self._test_btn.setText("  Test Connection  ")
         if success:
             tooltip("Connection successful!", parent=self)
         else:
-            showInfo(
-                f"Connection failed:\n\n{message}",
-                title="AI Field Filler",
-            )
+            show_error(f"Connection failed:\n\n{message}", detail, parent=self)
 
     # ---- save ----------------------------------------------------------
 

@@ -3,12 +3,24 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from ..config_manager import ProviderConfig
 
 
 class ProviderError(Exception):
-    """Raised when an AI provider encounters an error."""
+    """Raised when an AI provider encounters an error.
+
+    ``str(e)`` is always a short, human-readable summary suitable for a
+    one-line message.  *detail* optionally carries the full raw response
+    body (pretty-printed when it is JSON) for the expandable "Details"
+    pane of the error dialog — API errors are far easier to diagnose with
+    the whole payload, but it must not be the headline.
+    """
+
+    def __init__(self, message: str, *, detail: Optional[str] = None) -> None:
+        super().__init__(message)
+        self.detail = detail
 
 
 class TextProvider(ABC):

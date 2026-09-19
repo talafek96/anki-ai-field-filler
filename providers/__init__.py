@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from ..config_manager import ProviderConfig
 from .base import ImageProvider, ProviderError, TextProvider, TTSProvider
@@ -52,19 +52,24 @@ def create_image_provider(config: ProviderConfig) -> ImageProvider:
     raise ProviderError(f"No image support for provider: {config.provider_type}")
 
 
-def test_provider_connection(config: ProviderConfig) -> Tuple[bool, str]:
-    """Test connection to a provider. Returns (success, message)."""
+def test_provider_connection(config: ProviderConfig) -> Tuple[bool, str, Optional[str]]:
+    """Test connection to a provider.
+
+    Returns ``(success, message, detail)``, where *detail* is the raw API
+    response body when one is available, for the error dialog's details
+    pane.
+    """
     try:
         provider = create_text_provider(config)
         provider.generate(
             "Reply with exactly the word OK and nothing else.",
             "Test connection.",
         )
-        return True, "Connection successful!"
+        return True, "Connection successful!", None
     except ProviderError as e:
-        return False, str(e)
+        return False, str(e), e.detail
     except Exception as e:
-        return False, f"Unexpected error: {e}"
+        return False, f"Unexpected error: {e}", None
 
 
 # ---------------------------------------------------------------------------
