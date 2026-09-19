@@ -14,13 +14,20 @@ it proves the runtime behaviour that mocks cannot.
 from __future__ import annotations
 
 import contextlib
+import shutil
+import subprocess
+import sys
+import tempfile
 import threading
 import time
 import traceback
+from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
+from anki.sound import SoundOrVideoTag
 from aqt import mw
 from aqt.qt import *
+from aqt.sound import av_player
 from aqt.utils import tooltip
 
 from ..config.config_manager import ConfigManager, ProviderConfig
@@ -175,6 +182,11 @@ class DevToolsDialog(QDialog):
         self._widths_normalized = False
         self._abort = threading.Event()
         self._buttons: List[QPushButton] = []
+        # Scratch dir for generated media so it can be previewed/opened without
+        # touching Anki's real media folder.
+        self._media_dir = Path(tempfile.mkdtemp(prefix="aiff_devtools_"))
+        self._last_image_path: Optional[Path] = None
+        self._last_audio_path: Optional[Path] = None
         self._setup_ui()
 
     # ---- sizing ---------------------------------------------------------
@@ -227,6 +239,9 @@ class DevToolsDialog(QDialog):
                 parent=self.parentWidget() or mw,
             )
         self._closed = True
+        # Generated previews are throwaway; drop the scratch dir so nothing
+        # accumulates. (ignore_errors: a file may still be held by the player.)
+        shutil.rmtree(self._media_dir, ignore_errors=True)
 
     # ---- layout ---------------------------------------------------------
 
@@ -370,7 +385,7 @@ class DevToolsDialog(QDialog):
 
         install_wheel_guard(self)
 
-        self._on_provider_changed()
+        self._refresh_all_params()
         self._log_line("Ready. Active providers: " + self._active_summary())
 
     def _build_params(self) -> QGroupBox:
@@ -384,22 +399,26 @@ class DevToolsDialog(QDialog):
         # characters when the left panel is narrow.
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
 
-        self._provider_combo = QComboBox()
-        self._provider_combo.addItem(_ACTIVE, None)
-        for ptype in self._config.get_all_provider_types():
-            self._provider_combo.addItem(PROVIDER_LABELS.get(ptype, ptype), ptype)
-        qconnect(self._provider_combo.currentIndexChanged, self._on_provider_changed)
-        form.addRow("Provider:", self._provider_combo)
+        # A provider per generation type, mirroring the real settings dialog,
+        # so text/image/TTS can each run against a different provider.
+        self._text_provider = self._make_provider_combo("text")
+        form.addRow("Text provider:", self._text_provider)
 
         self._text_model = ModelComboWithRefresh("(provider default)", "Text model override")
         qconnect(self._text_model.refreshButton().clicked, lambda: self._fetch_models("text"))
         self._text_model.modelsRequested.connect(lambda: self._fetch_models("text"))
         form.addRow("Text model:", self._text_model)
 
+        self._image_provider = self._make_provider_combo("image")
+        form.addRow("Image provider:", self._image_provider)
+
         self._image_model = ModelComboWithRefresh("(provider default)", "Image model override")
         qconnect(self._image_model.refreshButton().clicked, lambda: self._fetch_models("image"))
         self._image_model.modelsRequested.connect(lambda: self._fetch_models("image"))
         form.addRow("Image model:", self._image_model)
+
+        self._tts_provider = self._make_provider_combo("tts")
+        form.addRow("TTS provider:", self._tts_provider)
 
         self._tts_model = ModelComboWithRefresh("(provider default)", "TTS model override")
         qconnect(self._tts_model.refreshButton().clicked, lambda: self._fetch_models("tts"))
@@ -438,7 +457,9 @@ class DevToolsDialog(QDialog):
         # Every input needs room to show its value; the prompts are long, so
         # give them a generous floor rather than letting the form shrink them.
         for widget in (
-            self._provider_combo,
+            self._text_provider,
+            self._image_provider,
+            self._tts_provider,
             self._text_model,
             self._image_model,
             self._tts_model,
@@ -475,36 +496,66 @@ class DevToolsDialog(QDialog):
 
     # ---- parameters -----------------------------------------------------
 
+    def _make_provider_combo(self, capability: str) -> QComboBox:
+        """A provider selector (active-by-default) for one generation type."""
+        combo = QComboBox()
+        combo.addItem(_ACTIVE, None)
+        for ptype in self._config.get_all_provider_types():
+            combo.addItem(PROVIDER_LABELS.get(ptype, ptype), ptype)
+        qconnect(combo.currentIndexChanged, lambda: self._on_provider_changed(capability))
+        return combo
+
+    def _provider_combo_for(self, capability: str) -> QComboBox:
+        return {
+            "text": self._text_provider,
+            "image": self._image_provider,
+            "tts": self._tts_provider,
+        }[capability]
+
     def _selected_provider(self, capability: str) -> str:
         """The provider these runs should use for *capability*."""
-        chosen = self._provider_combo.currentData()
+        chosen = self._provider_combo_for(capability).currentData()
         return chosen or self._config.get_active_provider_type(capability)
 
-    def _on_provider_changed(self) -> None:
-        """Reset model lists and defaults when the provider selection changes."""
-        ptype = self._selected_provider("text")
-        cfg = self._config.get_provider_config(ptype)
-        for combo in (self._text_model, self._image_model, self._tts_model):
-            combo.setModels([])
-            combo.setCurrentText("")
-        self._max_tokens.setValue(cfg.max_tokens or 4096)
+    def _refresh_all_params(self) -> None:
+        for capability in ("text", "image", "tts"):
+            self._on_provider_changed(capability)
 
-        self._tts_voice.clear()
-        self._tts_voice.addItems(KNOWN_TTS_VOICES.get(ptype, []))
-        self._tts_voice.setCurrentText(cfg.tts_voice)
-
+    def _on_provider_changed(self, capability: str = "text") -> None:
+        """Reset one capability's model list and defaults when its provider changes."""
+        ptype = self._selected_provider(capability)
+        specific = self._provider_combo_for(capability).currentData() is not None
         caps = PROVIDER_CAPABILITIES.get(ptype, {})
-        self._image_model.setEnabled(caps.get("image", True))
-        self._tts_model.setEnabled(caps.get("tts", True))
-        self._tts_voice.setEnabled(caps.get("tts", True))
+        if capability == "text":
+            self._text_model.setModels([])
+            self._text_model.setCurrentText("")
+            self._max_tokens.setValue(self._config.get_provider_config(ptype).max_tokens or 4096)
+        elif capability == "image":
+            self._image_model.setModels([])
+            self._image_model.setCurrentText("")
+            self._image_model.setEnabled(caps.get("image", True))
+        elif capability == "tts":
+            self._tts_model.setModels([])
+            self._tts_model.setCurrentText("")
+            self._tts_voice.clear()
+            self._tts_voice.addItems(KNOWN_TTS_VOICES.get(ptype, []))
+            # Prefill the voice only for a specifically chosen provider; in
+            # active mode leave it blank so _cfg_for falls back to that
+            # provider's own voice instead of leaking another provider's.
+            self._tts_voice.setCurrentText(
+                self._config.get_provider_config(ptype).tts_voice if specific else ""
+            )
+            self._tts_model.setEnabled(caps.get("tts", True))
+            self._tts_voice.setEnabled(caps.get("tts", True))
 
     def _reset_params(self) -> None:
-        self._provider_combo.setCurrentIndex(0)
+        for combo in (self._text_provider, self._image_provider, self._tts_provider):
+            combo.setCurrentIndex(0)
         self._system_prompt.setText(_DEFAULT_SYSTEM_PROMPT)
         self._user_prompt.setText(_DEFAULT_USER_PROMPT)
         self._image_prompt.setText(_DEFAULT_IMAGE_PROMPT)
         self._tts_text.setText(_DEFAULT_TTS_TEXT)
-        self._on_provider_changed()
+        self._refresh_all_params()
         self._status.setText("Parameters reset.")
 
     def _fetch_models(self, capability: str) -> None:
@@ -690,10 +741,16 @@ class DevToolsDialog(QDialog):
         self._run_async("Generate text", self._text_work)
 
     def _gen_image(self) -> None:
-        self._run_async("Generate image · report detected format", self._image_work)
+        self._run_async(
+            "Generate image · report detected format",
+            lambda ctx: self._image_work(ctx, preview=True),
+        )
 
     def _gen_tts(self) -> None:
-        self._run_async("Synthesize speech · report detected format", self._tts_work)
+        self._run_async(
+            "Synthesize speech · report detected format",
+            lambda ctx: self._tts_work(ctx, preview=True),
+        )
 
     # ---- 4. compatibility probe ----------------------------------------
 
@@ -842,19 +899,26 @@ class DevToolsDialog(QDialog):
         )
         ctx.log(f"reply      : {reply.strip()!r}")
 
-    def _image_work(self, ctx: _RunContext) -> None:
+    def _image_work(self, ctx: _RunContext, preview: bool = False) -> None:
         cfg = self._cfg_for("image")
         ctx.log(f"provider : {cfg.provider_type}")
         ctx.log(f"model    : {cfg.image_model}")
         ctx.check()
         data = create_image_provider(cfg).generate_image(self._image_prompt.text())
+        ext = MediaHandler._sniff_image_ext(data)
         ctx.log(f"bytes    : {len(data)}")
         ctx.log(f"magic    : {data[:8].hex()} -> {_describe_bytes(data)}")
-        ctx.log(f"saved as : .{MediaHandler._sniff_image_ext(data)}")
+        ctx.log(f"saved as : .{ext}")
+        path = self._media_dir / f"image.{ext}"
+        path.write_bytes(data)
+        self._last_image_path = path
+        ctx.log(f"file     : {path}")
+        if preview:
+            mw.taskman.run_on_main(lambda: self._preview_image(path))
         ctx.log("")
         ctx.log("Gemini 3.x returns JPEG; it must save as .jpg, not .png.")
 
-    def _tts_work(self, ctx: _RunContext) -> None:
+    def _tts_work(self, ctx: _RunContext, preview: bool = False) -> None:
         cfg = self._cfg_for("tts")
         ctx.log(f"provider : {cfg.provider_type}")
         ctx.log(f"model    : {cfg.tts_model}")
@@ -865,15 +929,101 @@ class DevToolsDialog(QDialog):
         )
         ctx.log(f"bytes    : {len(data)}")
         ctx.log(f"magic    : {data[:8].hex()} -> {_describe_bytes(data)}")
+        playable, ext = MediaHandler.audio_bytes_and_ext(data)
+        path = self._media_dir / f"audio.{ext}"
+        path.write_bytes(playable)
+        self._last_audio_path = path
+        ctx.log(f"file     : {path}")
+        if preview:
+            mw.taskman.run_on_main(lambda: self._preview_audio(path))
         ctx.log("")
         ctx.log("Google returns raw PCM; MediaHandler wraps it in a WAV header.")
+
+    # ---- media preview (main thread) ------------------------------------
+
+    @staticmethod
+    def _reveal_in_folder(path: Path) -> None:
+        """Reveal a generated file in the OS file manager (Finder/Explorer).
+
+        Each platform reveals-and-selects differently; Linux has no universal
+        equivalent, so fall back to opening the containing folder.
+        """
+        if sys.platform == "darwin":
+            subprocess.run(["open", "-R", str(path)], check=False)
+        elif sys.platform.startswith("win"):
+            # explorer wants the path glued to /select, and exits non-zero on success.
+            subprocess.run(["explorer", f"/select,{path}"], check=False)
+        else:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.parent)))
+
+    def _preview_image(self, path: Path) -> None:
+        """Show the generated image inline, with an option to open it externally."""
+        if self._closed:
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Generated image")
+        layout = QVBoxLayout()
+
+        label = QLabel()
+        pixmap = QPixmap(str(path))
+        if pixmap.isNull():
+            label.setText(f"Could not render image.\nSaved at: {path}")
+        else:
+            label.setPixmap(
+                pixmap.scaled(
+                    512,
+                    512,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(label)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        folder_btn = buttons.addButton(
+            "Open containing folder", QDialogButtonBox.ButtonRole.ActionRole
+        )
+        qconnect(folder_btn.clicked, lambda: self._reveal_in_folder(path))
+        qconnect(buttons.rejected, dialog.reject)
+        layout.addWidget(buttons)
+
+        dialog.setLayout(layout)
+        dialog.exec()
+
+    @staticmethod
+    def _play_audio(path: Path) -> None:
+        """Play the generated audio in-app via Anki's player."""
+        av_player.play_tags([SoundOrVideoTag(filename=str(path))])
+
+    def _preview_audio(self, path: Path) -> None:
+        """Offer to play (in-app) or open the generated audio file."""
+        if self._closed:
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Generated audio")
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel(f"Audio saved to:\n{path}"))
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        play_btn = buttons.addButton("Play", QDialogButtonBox.ButtonRole.ActionRole)
+        qconnect(play_btn.clicked, lambda: self._play_audio(path))
+        folder_btn = buttons.addButton(
+            "Open containing folder", QDialogButtonBox.ButtonRole.ActionRole
+        )
+        qconnect(folder_btn.clicked, lambda: self._reveal_in_folder(path))
+        qconnect(buttons.rejected, dialog.reject)
+        layout.addWidget(buttons)
+
+        dialog.setLayout(layout)
+        # Play once immediately in-app; the dialog stays open to replay or open.
+        self._play_audio(path)
+        dialog.exec()
 
 
 # ---------------------------------------------------------------------------
 # Entry points
 # ---------------------------------------------------------------------------
-
-_shortcut: Optional[QShortcut] = None
 
 
 def open_dev_tools(parent: QWidget | None = None) -> None:
@@ -881,11 +1031,17 @@ def open_dev_tools(parent: QWidget | None = None) -> None:
     DevToolsDialog(parent).exec()
 
 
-def register_dev_shortcut() -> None:
-    """Bind the hidden Ctrl+Shift+Alt+D shortcut on the main window."""
-    global _shortcut
-    if _shortcut is not None:
-        return
-    _shortcut = QShortcut(QKeySequence(_SHORTCUT), mw)
-    _shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
-    qconnect(_shortcut.activated, lambda: open_dev_tools(mw))
+def make_dev_tools_action(parent: QWidget) -> QAction:
+    """Build the Developer Tools action with its shortcut.
+
+    Registered on the main window unconditionally so the shortcut fires
+    application-wide on every platform; it is a menu-bound ``QAction`` rather
+    than a free ``QShortcut`` because macOS only reliably delivers shortcuts
+    that belong to an action. The caller shows it in the menu only when
+    developer mode is on.
+    """
+    action = QAction("Developer Tools...", parent)
+    action.setShortcut(QKeySequence(_SHORTCUT))
+    action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+    qconnect(action.triggered, lambda: open_dev_tools(mw))
+    return action

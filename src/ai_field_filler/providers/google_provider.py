@@ -16,6 +16,44 @@ from .http import http_post_json
 _LABEL = "Google API"
 
 
+def _finish_reason_message(finish: str, candidate: dict) -> str:
+    """A finishReason-specific, actionable message for an empty response.
+
+    ``finishReason`` is not always a safety block: ``OTHER`` is a catch-all,
+    ``MAX_TOKENS`` means the budget was spent (often on a thinking model's
+    reasoning) before any output, and only ``SAFETY``/``PROHIBITED_CONTENT``
+    are genuine content blocks — so each gets its own guidance instead of
+    always blaming safety filters.
+    """
+    reason = (finish or "unknown").upper()
+    if reason in ("SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII"):
+        blocked = [
+            r.get("category", "?") for r in candidate.get("safetyRatings", []) if r.get("blocked")
+        ]
+        detail = f" Triggered: {', '.join(blocked)}." if blocked else ""
+        return (
+            f"Google blocked the response for content policy (finishReason: {reason})."
+            f"{detail} Try rephrasing the prompt."
+        )
+    if reason == "MAX_TOKENS":
+        return (
+            "Google returned no content (finishReason: MAX_TOKENS) — the token budget was "
+            "spent before any output, which thinking models can do on their reasoning. "
+            "Raise Max tokens or pick a non-thinking model."
+        )
+    if reason in ("RECITATION", "IMAGE_RECITATION"):
+        return (
+            "Google blocked the output for reproducing recited/recognizable content "
+            f"(finishReason: {reason}) — the image models flag this readily, even for "
+            "generic prompts. Make the prompt more original/abstract, or switch to "
+            "another image model (e.g. gemini-2.5-flash-image)."
+        )
+    return (
+        f"Google returned no content (finishReason: {reason}). This preview model may be "
+        "unstable or unable to fulfil the request — try a different model or rephrase the prompt."
+    )
+
+
 class _GoogleRequestMixin:
     """Shared request logic for Google Gemini endpoints."""
 
@@ -41,10 +79,7 @@ class _GoogleRequestMixin:
         content = candidate.get("content")
         if not content or "parts" not in content:
             finish = candidate.get("finishReason", "unknown")
-            raise ProviderError(
-                f"Google API returned no content (finishReason: {finish}). "
-                "The response may have been blocked by safety filters."
-            )
+            raise ProviderError(_finish_reason_message(finish, candidate))
 
         return content["parts"]
 

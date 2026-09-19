@@ -17,6 +17,7 @@ from ai_field_filler.providers.google_provider import (
     GoogleImageProvider,
     GoogleTextProvider,
     GoogleTTSProvider,
+    _finish_reason_message,
 )
 from ai_field_filler.providers.openai_provider import (
     OpenAIImageProvider,
@@ -321,3 +322,30 @@ class TestGoogleTTSProvider:
         provider = GoogleTTSProvider(_GOOGLE_CFG)
         with pytest.raises(ProviderError, match="No audio data"):
             provider.synthesize("Hello")
+
+
+class TestFinishReasonMessage:
+    def test_other_is_not_blamed_on_safety(self) -> None:
+        msg = _finish_reason_message("OTHER", {})
+        assert "OTHER" in msg
+        assert "safety" not in msg.lower()
+        assert "another model" in msg.lower() or "different model" in msg.lower()
+
+    def test_safety_lists_blocked_categories(self) -> None:
+        candidate = {"safetyRatings": [{"category": "HARM_CATEGORY_HATE", "blocked": True}]}
+        msg = _finish_reason_message("SAFETY", candidate)
+        assert "content policy" in msg.lower()
+        assert "HARM_CATEGORY_HATE" in msg
+
+    def test_max_tokens_suggests_raising_budget(self) -> None:
+        msg = _finish_reason_message("MAX_TOKENS", {})
+        assert "MAX_TOKENS" in msg
+        assert "budget" in msg.lower()
+
+    def test_recitation(self) -> None:
+        assert "RECITATION" in _finish_reason_message("RECITATION", {})
+
+    def test_image_recitation(self) -> None:
+        msg = _finish_reason_message("IMAGE_RECITATION", {})
+        assert "IMAGE_RECITATION" in msg
+        assert "another image model" in msg.lower() or "gemini-2.5-flash-image" in msg

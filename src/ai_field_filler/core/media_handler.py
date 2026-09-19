@@ -27,6 +27,27 @@ class MediaHandler:
     """Saves generated media files to Anki's media folder."""
 
     @staticmethod
+    def audio_bytes_and_ext(audio_bytes: bytes) -> tuple[bytes, str]:
+        """Return playable audio bytes and their extension.
+
+        Handles MP3, WAV, and raw PCM (linear16 24 kHz mono, as returned by
+        Google Gemini TTS) — raw PCM is wrapped in a WAV container so it plays
+        anywhere. Shared by :meth:`save_audio` and the developer tools preview
+        so both interpret provider output identically.
+        """
+        if audio_bytes[:4] == b"RIFF":
+            return audio_bytes, "wav"
+        if audio_bytes[:3] == b"ID3" or audio_bytes[:2] in (
+            b"\xff\xfb",
+            b"\xff\xf3",
+            b"\xff\xf2",
+            b"\xff\xe2",
+        ):
+            return audio_bytes, "mp3"
+        # Assume raw PCM (linear16, 24 kHz, mono) — wrap in WAV
+        return _pcm_to_wav(audio_bytes), "wav"
+
+    @staticmethod
     def save_audio(audio_bytes: bytes, field_name: str) -> str:
         """Save audio bytes to Anki's media folder (auto-detects format).
 
@@ -34,20 +55,7 @@ class MediaHandler:
         by Google Gemini TTS).  Returns an Anki sound tag like
         [sound:ai_filler_xyz.mp3].
         """
-        if audio_bytes[:4] == b"RIFF":
-            ext = "wav"
-        elif audio_bytes[:3] == b"ID3" or audio_bytes[:2] in (
-            b"\xff\xfb",
-            b"\xff\xf3",
-            b"\xff\xf2",
-            b"\xff\xe2",
-        ):
-            ext = "mp3"
-        else:
-            # Assume raw PCM (linear16, 24 kHz, mono) — wrap in WAV
-            audio_bytes = _pcm_to_wav(audio_bytes)
-            ext = "wav"
-
+        audio_bytes, ext = MediaHandler.audio_bytes_and_ext(audio_bytes)
         filename = MediaHandler._generate_filename(field_name, ext)
         mw.col.media.write_data(filename, audio_bytes)
         return f"[sound:{filename}]"

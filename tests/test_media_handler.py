@@ -64,6 +64,27 @@ class TestMediaHandler:
         assert f1.startswith("ai_filler_Same_")
 
 
+class TestAudioBytesAndExt:
+    def test_wav_passthrough(self) -> None:
+        wav = b"RIFF" + b"\x00" * 100
+        data, ext = MediaHandler.audio_bytes_and_ext(wav)
+        assert ext == "wav"
+        assert data is wav  # unchanged
+
+    def test_mp3_sync_bytes(self) -> None:
+        data, ext = MediaHandler.audio_bytes_and_ext(b"\xff\xfb\x90\x00" + b"\x00" * 100)
+        assert ext == "mp3"
+
+    def test_id3_mp3(self) -> None:
+        data, ext = MediaHandler.audio_bytes_and_ext(b"ID3" + b"\x00" * 100)
+        assert ext == "mp3"
+
+    def test_raw_pcm_wrapped_as_wav(self) -> None:
+        data, ext = MediaHandler.audio_bytes_and_ext(b"\x00\x01\x02\x03" * 100)
+        assert ext == "wav"
+        assert data[:4] == b"RIFF"  # wrapped in a WAV container
+
+
 class TestPcmToWav:
     def test_output_starts_with_riff(self) -> None:
         pcm = b"\x00" * 480  # 10ms of silence at 24kHz/16bit
