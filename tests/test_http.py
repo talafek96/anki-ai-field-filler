@@ -12,6 +12,7 @@ from ai_field_filler.providers.base import ProviderError
 from ai_field_filler.providers.http import (
     _RETRYABLE_STATUS_CODES,
     _backoff_delay,
+    _http_error,
     _parse_json,
     _retry_after,
     http_get_json,
@@ -287,3 +288,49 @@ class TestRetryOnTransientErrors:
 
     def test_retryable_codes_complete(self) -> None:
         assert _RETRYABLE_STATUS_CODES == {429, 500, 502, 503, 504}
+
+
+class TestHttpErrorSummary:
+    """_http_error keeps the headline short and the body in .detail."""
+
+    def test_extracts_nested_error_message(self) -> None:
+        body = (
+            '{"error": {"message": "Unsupported value: \'temperature\' does not '
+            'support 0.7 with this model.", "type": "invalid_request_error"}}'
+        )
+        err = _http_error("OpenAI API", 400, body)
+        assert str(err) == (
+            "OpenAI API error 400: Unsupported value: 'temperature' does not "
+            "support 0.7 with this model."
+        )
+        # The full payload stays available, pretty-printed.
+        assert err.detail is not None
+        assert '"type": "invalid_request_error"' in err.detail
+        assert "\n" in err.detail
+
+    def test_collapses_whitespace_in_summary(self) -> None:
+        body = r'{"error": {"message": "line one\n  line two"}}'
+        err = _http_error("Google API", 400, body)
+        assert str(err) == "Google API error 400: line one line two"
+
+    def test_falls_back_to_type_when_no_message(self) -> None:
+        body = '{"error": {"type": "overloaded_error"}}'
+        err = _http_error("Anthropic API", 529, body)
+        assert str(err) == "Anthropic API error 529: overloaded_error"
+
+    def test_non_json_body_is_used_verbatim(self) -> None:
+        err = _http_error("API", 502, "  Bad   Gateway  ")
+        assert str(err) == "API error 502: Bad Gateway"
+        assert err.detail == "  Bad   Gateway  "
+
+    def test_raised_error_carries_detail(self) -> None:
+        body = '{"error": {"message": "bad key"}}'
+        error = urllib.error.HTTPError(
+            "https://api.test", 401, "Unauthorized", {}, BytesIO(body.encode())
+        )
+        with patch("urllib.request.urlopen", side_effect=error):
+            with pytest.raises(ProviderError) as exc_info:
+                http_post_json("https://api.test", {}, {}, label="OpenAI API")
+        assert str(exc_info.value) == "OpenAI API error 401: bad key"
+        assert exc_info.value.detail is not None
+        assert '"message": "bad key"' in exc_info.value.detail

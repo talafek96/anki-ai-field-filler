@@ -1169,11 +1169,10 @@ class BatchReviewDialog(QDialog):
                         self._batch_regen_btn.setText("\u21bb Regenerate Marked")
 
         if error:
-            from aqt.utils import showWarning
+            from .error_dialog import show_error
 
-            showWarning(
-                f"Regeneration failed for '{field_name}':\n{error}",
-                title="AI Field Filler",
+            show_error(
+                f"Regeneration failed for '{field_name}':\n\n{error}",
                 parent=self,
             )
             return

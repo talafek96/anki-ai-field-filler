@@ -54,7 +54,11 @@ def with_retry(fn: Callable[..., _T], *args: Any, **kwargs: Any) -> _T:
             last_error = e
             if not _is_retryable(e) or attempt == _GENERATION_MAX_RETRIES - 1:
                 if attempt > 0:
-                    raise type(e)(f"{e} (failed after {attempt + 1} attempts)") from e
+                    msg = f"{e} (failed after {attempt + 1} attempts)"
+                    detail = getattr(e, "detail", None)
+                    if isinstance(e, ProviderError):
+                        raise ProviderError(msg, detail=detail) from e
+                    raise type(e)(msg) from e
                 raise
             time.sleep(_GENERATION_RETRY_BASE * (2**attempt))
     raise last_error  # type: ignore[misc]

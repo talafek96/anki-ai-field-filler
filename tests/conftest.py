@@ -63,6 +63,7 @@ def _install_aqt_mocks() -> None:
         "QStyleOptionComboBox",
         "QStylePainter",
         "QPainter",
+        "QFont",
         "QPen",
         "QColor",
         "QPropertyAnimation",

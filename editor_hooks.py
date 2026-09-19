@@ -7,10 +7,11 @@ from typing import List, Optional
 from aqt import gui_hooks, mw
 from aqt.editor import Editor, EditorWebView
 from aqt.qt import QDialog, QMenu, qconnect
-from aqt.utils import showWarning, tooltip
+from aqt.utils import tooltip
 
 from .config_manager import ConfigManager, FieldInstruction
 from .field_filler import FieldFiller
+from .ui.error_dialog import show_error
 from .ui.field_instruction_dialog import FieldInstructionDialog
 from .ui.fill_dialog import FillDialog
 from .ui.generating_dialog import GeneratingDialog
@@ -248,9 +249,8 @@ class EditorIntegration:
 
         def on_error(msg: str) -> None:
             progress.finish_with_error(msg)
-            showWarning(
+            show_error(
                 f"AI Field Filler error:\n\n{msg}",
-                title="AI Field Filler",
                 parent=editor.widget,
             )
 

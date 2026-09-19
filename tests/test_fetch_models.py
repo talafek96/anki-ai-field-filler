@@ -189,7 +189,7 @@ class TestTestProviderConnection:
             api_key="k",
             text_model="gpt-4o",
         )
-        ok, msg = _test_provider_connection(cfg)
+        ok, msg, _detail = _test_provider_connection(cfg)
         assert ok is True
         assert "successful" in msg.lower()
 
@@ -209,6 +209,6 @@ class TestTestProviderConnection:
             api_key="bad",
             text_model="gpt-4o",
         )
-        ok, msg = _test_provider_connection(cfg)
+        ok, msg, _detail = _test_provider_connection(cfg)
         assert ok is False
         assert "401" in msg
