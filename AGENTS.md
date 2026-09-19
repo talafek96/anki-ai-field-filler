@@ -30,7 +30,8 @@ python build_ankiaddon.py --check  # dry-run
 
 - `providers/http.py` — Shared HTTP helpers (all providers use these)
 - `providers/base.py` — Abstract base classes and `ProviderError`
-- `providers/{openai,anthropic,google}_provider.py` — Provider implementations
+- `providers/{openai,anthropic,google,openrouter}_provider.py` — Provider implementations
+  (`openrouter_provider.py` subclasses the OpenAI one; it is OpenAI-compatible)
 - `providers/__init__.py` — Factory functions, model fetching, model classification
 - `config_manager.py` — Config dataclasses (`ProviderConfig`, `FieldInstruction`, `GeneralSettings`, `FIELD_TYPES`) and singleton `ConfigManager`
 - `field_filler.py` — Core orchestrator (prompt building, AI calls, response parsing)

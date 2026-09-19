@@ -100,7 +100,10 @@ class ConfigManager:
     def get_provider_config(self, provider_type: str) -> ProviderConfig:
         """Get config for a specific provider."""
         providers = self._get("providers", {})
-        p = providers.get(provider_type, {})
+        p = providers.get(provider_type)
+        if p is None:
+            # Provider shipped in a newer version than the stored config.
+            p = self._defaults.get("providers", {}).get(provider_type, {})
         return ProviderConfig(
             provider_type=provider_type,
             api_url=p.get("api_url", ""),
@@ -156,9 +159,18 @@ class ConfigManager:
         return cfg if cfg.image_model else None
 
     def get_all_provider_types(self) -> List[str]:
-        """Get all configured provider type names."""
-        providers = self._get("providers", {})
-        return list(providers.keys())
+        """Get all configured provider type names.
+
+        Unions the shipped defaults with the user's saved providers, so a
+        provider added in a new addon version still appears for users whose
+        stored config predates it (Anki does not merge new default keys
+        into an existing meta.json).
+        """
+        names = list(self._defaults.get("providers", {}).keys())
+        for name in self._get("providers", {}):
+            if name not in names:
+                names.append(name)
+        return names
 
     # --- Field instructions ---
 

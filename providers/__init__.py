@@ -23,6 +23,10 @@ def create_text_provider(config: ProviderConfig) -> TextProvider:
         from .google_provider import GoogleTextProvider
 
         return GoogleTextProvider(config)
+    elif config.provider_type == "openrouter":
+        from .openrouter_provider import OpenRouterTextProvider
+
+        return OpenRouterTextProvider(config)
     raise ProviderError(f"Unknown text provider: {config.provider_type}")
 
 
@@ -49,6 +53,10 @@ def create_image_provider(config: ProviderConfig) -> ImageProvider:
         from .google_provider import GoogleImageProvider
 
         return GoogleImageProvider(config)
+    elif config.provider_type == "openrouter":
+        from .openrouter_provider import OpenRouterImageProvider
+
+        return OpenRouterImageProvider(config)
     raise ProviderError(f"No image support for provider: {config.provider_type}")
 
 
@@ -93,6 +101,8 @@ def fetch_available_models(config: ProviderConfig, capability: str = "text") -> 
         return _fetch_anthropic_models(config, capability)
     elif config.provider_type == "google":
         return _fetch_google_models(config, capability)
+    elif config.provider_type == "openrouter":
+        return _fetch_openrouter_models(config, capability)
     return []
 
 
@@ -126,6 +136,34 @@ def _fetch_anthropic_models(config: ProviderConfig, capability: str = "text") ->
     }
     data = http_get_json(url, headers, label="Anthropic")
     return sorted(m["id"] for m in data.get("data", []))
+
+
+def _fetch_openrouter_models(config: ProviderConfig, capability: str) -> List[str]:
+    """Fetch models from OpenRouter's /models endpoint.
+
+    OpenRouter is the only provider that publishes real capability
+    metadata, so this classifies on ``architecture.output_modalities``
+    instead of guessing from the model id.  TTS is not supported: the few
+    audio models there use a different request shape.
+    """
+    if capability not in ("text", "image"):
+        return []
+    url = f"{config.base_url}/models"
+    data = http_get_json(url, {"Authorization": f"Bearer {config.api_key}"}, label="OpenRouter")
+
+    models = []
+    for m in data.get("data", []):
+        model_id = m.get("id")
+        if not model_id:
+            continue
+        modalities = (m.get("architecture") or {}).get("output_modalities") or []
+        if capability == "image":
+            if "image" in modalities:
+                models.append(model_id)
+        # A model that can emit images is an image model, not a chat model.
+        elif "text" in modalities and "image" not in modalities:
+            models.append(model_id)
+    return sorted(models)
 
 
 # OpenAI model ID substrings that indicate non-text-chat categories.
