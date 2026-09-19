@@ -17,6 +17,7 @@ from typing import Callable, List, Optional, Tuple
 
 from aqt import mw
 from aqt.qt import *
+from aqt.utils import tooltip
 
 from ..config_manager import ConfigManager, ProviderConfig
 from ..providers import (
@@ -31,6 +32,11 @@ from .error_dialog import show_error
 from .styles import GLOBAL_STYLE, HEADER_STYLE, MUTED_LABEL_STYLE
 
 _SHORTCUT = "Ctrl+Shift+Alt+D"
+
+# Buttons must keep their natural height rather than being squeezed by the
+# layout; their width is measured from the longest label at runtime, since
+# hard-coding it clips labels under a different font or UI scale.
+_BUTTON_HEIGHT = 34
 
 # Models that failed before the compatibility work, kept as a regression
 # probe: each one exercises a different quirk.
@@ -125,8 +131,54 @@ class DevToolsDialog(QDialog):
         super().__init__(parent or mw)
         self._config = ConfigManager()
         self._busy = False
+        self._closed = False
+        self._widths_normalized = False
         self._buttons: List[QPushButton] = []
         self._setup_ui()
+
+    # ---- sizing ---------------------------------------------------------
+
+    def showEvent(self, event) -> None:  # noqa: N802 — Qt naming
+        super().showEvent(event)
+        if not self._widths_normalized:
+            self._widths_normalized = True
+            self._normalize_button_widths()
+
+    def _normalize_button_widths(self) -> None:
+        """Size every button to the longest label, and the column to match.
+
+        Must run after the first show: a button's sizeHint only accounts for
+        the dialog stylesheet's padding once Qt has applied it, so measuring
+        during construction clips the longest label.
+        """
+        width = max(b.sizeHint().width() for b in self._buttons)
+        for btn in self._buttons:
+            btn.setFixedWidth(width)
+        # Leave room for the column's vertical scrollbar.
+        self._left_scroll.setFixedWidth(width + 44)
+
+    # ---- closing --------------------------------------------------------
+
+    def closeEvent(self, event) -> None:  # noqa: N802 — Qt naming
+        self._mark_closed()
+        super().closeEvent(event)
+
+    def reject(self) -> None:
+        self._mark_closed()
+        super().reject()
+
+    def _mark_closed(self) -> None:
+        """Stop pending results from touching widgets that are going away.
+
+        An in-flight HTTP request cannot be cancelled, so the call still
+        finishes in the background — its result is simply discarded.
+        """
+        if self._busy and not self._closed:
+            tooltip(
+                "A developer-tools run is still in flight; its result will be discarded.",
+                parent=self.parentWidget() or mw,
+            )
+        self._closed = True
 
     # ---- layout ---------------------------------------------------------
 
@@ -153,8 +205,13 @@ class DevToolsDialog(QDialog):
         body.setSpacing(14)
 
         # -- left: action buttons --
+        # Held in a scroll area so that a window shorter than the button
+        # stack scrolls instead of compressing the buttons until their
+        # labels clip.
+        left_panel = QWidget()
         left = QVBoxLayout()
         left.setSpacing(10)
+        left.setContentsMargins(0, 0, 0, 0)
 
         left.addWidget(
             self._group(
@@ -181,8 +238,8 @@ class DevToolsDialog(QDialog):
                 [
                     ("Test connection", self._test_connection),
                     ("Generate text", self._gen_text),
-                    ("Generate image → report format", self._gen_image),
-                    ("Synthesize speech → report format", self._gen_tts),
+                    ("Generate image (report format)", self._gen_image),
+                    ("Synthesize speech (report format)", self._gen_tts),
                 ],
             )
         )
@@ -190,13 +247,25 @@ class DevToolsDialog(QDialog):
             self._group(
                 "4 · Compatibility probe",
                 [
-                    ("Probe tricky models (active text provider)", self._probe_active),
-                    ("Probe tricky models (ALL providers)", self._probe_all),
+                    ("Probe: active text provider", self._probe_active),
+                    ("Probe: all providers", self._probe_all),
                 ],
             )
         )
         left.addStretch()
-        body.addLayout(left, 0)
+        left_panel.setLayout(left)
+
+        left_scroll = QScrollArea()
+        left_scroll.setWidget(left_panel)
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        left_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        left_scroll.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        # Widths are normalised in showEvent, not here: the dialog's
+        # stylesheet padding only reaches the buttons once Qt shows them, so
+        # measuring sizeHint now under-reports and the longest label elides.
+        self._left_scroll = left_scroll
+        body.addWidget(left_scroll, 0)
 
         # -- right: log --
         right = QVBoxLayout()
@@ -243,11 +312,16 @@ class DevToolsDialog(QDialog):
         lay.setSpacing(6)
         for label, handler in actions:
             btn = QPushButton(label)
-            btn.setMinimumWidth(300)
+            # Vertically Fixed, or Qt shrinks the buttons below their
+            # sizeHint when the column is taller than the window and the
+            # labels get clipped.
+            btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            btn.setMinimumHeight(_BUTTON_HEIGHT)
             qconnect(btn.clicked, handler)
             self._buttons.append(btn)
             lay.addWidget(btn)
         box.setLayout(lay)
+        box.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         return box
 
     # ---- logging --------------------------------------------------------
@@ -298,9 +372,15 @@ class DevToolsDialog(QDialog):
             elapsed = time.time() - started
 
             def done() -> None:
-                self._log_line(output)
-                self._log_line(f"-- finished in {elapsed:.1f}s --")
-                self._set_busy(False)
+                if self._closed:
+                    return  # dialog dismissed while this was running
+                try:
+                    self._log_line(output)
+                    self._log_line(f"-- finished in {elapsed:.1f}s --")
+                    self._set_busy(False)
+                except RuntimeError:
+                    # Underlying Qt widgets already destroyed.
+                    pass
 
             mw.taskman.run_on_main(done)
 
