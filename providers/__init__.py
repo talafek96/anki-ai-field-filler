@@ -85,7 +85,7 @@ def fetch_available_models(config: ProviderConfig, capability: str = "text") -> 
     if config.provider_type == "openai":
         return _fetch_openai_models(config, capability)
     elif config.provider_type == "anthropic":
-        return _fetch_anthropic_models(config)
+        return _fetch_anthropic_models(config, capability)
     elif config.provider_type == "google":
         return _fetch_google_models(config, capability)
     return []
@@ -105,8 +105,15 @@ def _fetch_openai_models(config: ProviderConfig, capability: str) -> List[str]:
     return sorted(classified.get(capability, []))
 
 
-def _fetch_anthropic_models(config: ProviderConfig) -> List[str]:
-    """Fetch models from the Anthropic /models endpoint."""
+def _fetch_anthropic_models(config: ProviderConfig, capability: str = "text") -> List[str]:
+    """Fetch models from the Anthropic /models endpoint.
+
+    Anthropic ships text models only — no TTS or image generation — so
+    every other capability returns an empty list rather than offering
+    Claude models that can only fail when selected.
+    """
+    if capability != "text":
+        return []
     url = f"{config.base_url}/models?limit=100"
     headers = {
         "x-api-key": config.api_key,
@@ -129,6 +136,16 @@ _OPENAI_SKIP_SIGNALS = (
     "audio",
     "sora",
     "codex",
+    # Legacy completions-only models: rejected by /chat/completions with
+    # "This is not a chat model ... Did you mean to use v1/completions?"
+    "davinci",
+    "babbage",
+    "-instruct",
+    # Served only by their own endpoints, not chat/completions or responses.
+    "deep-research",
+    "-search-api",
+    "search-preview",
+    "gpt-live",
 )
 
 
@@ -193,6 +210,26 @@ def _classify_google_model(model: dict, methods: List[str]) -> str | None:
     )
     if any(s in searchable for s in tts_signals):
         return "tts"
+
+    # Models that advertise generateContent but reject a plain text chat
+    # request — music generation, robotics, speech-to-text, computer use,
+    # and the models served only by the Interactions API.
+    non_chat_signals = (
+        "lyria",
+        "music",
+        "robotics",
+        "transcribe",
+        "computer-use",
+        "computer use",
+        "deep-research",
+        "deep research",
+        "antigravity",
+        "-omni",
+        "veo",
+        "embedding",
+    )
+    if any(s in searchable for s in non_chat_signals):
+        return None
 
     # Everything else that supports generateContent is a text model
     if "generateContent" in methods:

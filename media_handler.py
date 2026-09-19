@@ -54,13 +54,32 @@ class MediaHandler:
 
     @staticmethod
     def save_image(image_bytes: bytes, field_name: str) -> str:
-        """Save image bytes as a PNG file in Anki's media folder.
+        """Save image bytes to Anki's media folder (auto-detects format).
+
+        The extension has to follow the actual bytes: OpenAI's image models
+        return PNG, but Gemini 3.x image models return JPEG, and writing
+        JPEG data to a ``.png`` filename breaks Anki's media check and some
+        clients' rendering.
 
         Returns an HTML img tag like <img src="ai_filler_xyz.png">.
         """
-        filename = MediaHandler._generate_filename(field_name, "png")
+        ext = MediaHandler._sniff_image_ext(image_bytes)
+        filename = MediaHandler._generate_filename(field_name, ext)
         mw.col.media.write_data(filename, image_bytes)
         return f'<img src="{filename}">'
+
+    @staticmethod
+    def _sniff_image_ext(data: bytes) -> str:
+        """Detect image format from its magic bytes, defaulting to png."""
+        if data[:8] == b"\x89PNG\r\n\x1a\n":
+            return "png"
+        if data[:3] == b"\xff\xd8\xff":
+            return "jpg"
+        if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            return "webp"
+        if data[:6] in (b"GIF87a", b"GIF89a"):
+            return "gif"
+        return "png"
 
     @staticmethod
     def _generate_filename(field_name: str, extension: str) -> str:
