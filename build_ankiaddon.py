@@ -14,32 +14,23 @@ import sys
 import zipfile
 from pathlib import Path
 
+# The addon package is src/ai_field_filler/; its CONTENTS become the .ankiaddon
+# root (where Anki expects __init__.py and config.json). Project tooling, tests,
+# docs, and demo assets live above it in the repo and never ship.
+REPO_ROOT = Path(__file__).resolve().parent
+ADDON_ROOT = REPO_ROOT / "src" / "ai_field_filler"
+
 # Paths relative to the addon root that should NOT be in the package.
 EXCLUDE_DIRS = {
     "__pycache__",
-    ".git",
-    ".github",
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache",
-    ".venv",
-    "tests",
-    ".vscode",
-    ".idea",
-    "venv",
-    "env",
-    "node_modules",
 }
 
 EXCLUDE_FILES = {
-    ".gitignore",
-    "AGENTS.md",
-    "build_ankiaddon.py",
-    "ankiweb_listing.md",
-    "pyproject.toml",
-    "uv.lock",
-    "meta.json",
-    ".env",
+    "meta.json",  # the user's live config, written by Anki at runtime
+    "CLAUDE.md",  # nested agent context, not runtime
     ".DS_Store",
     "Thumbs.db",
     "desktop.ini",
@@ -54,8 +45,6 @@ EXCLUDE_EXTENSIONS = {
 }
 
 OUTPUT_NAME = "ai_field_filler.ankiaddon"
-
-ADDON_ROOT = Path(__file__).resolve().parent
 
 
 def should_include(path: Path) -> bool:
@@ -72,10 +61,7 @@ def should_include(path: Path) -> bool:
         return False
 
     # Skip excluded extensions
-    if rel.suffix in EXCLUDE_EXTENSIONS:
-        return False
-
-    return True
+    return rel.suffix not in EXCLUDE_EXTENSIONS
 
 
 def collect_files() -> list[Path]:
@@ -105,7 +91,7 @@ def build(check: bool = False) -> None:
             print(f"  {f.relative_to(ADDON_ROOT)}")
         return
 
-    output = ADDON_ROOT / OUTPUT_NAME
+    output = REPO_ROOT / OUTPUT_NAME
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as zf:
         for fpath in files:
             arcname = str(fpath.relative_to(ADDON_ROOT))

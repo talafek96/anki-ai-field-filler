@@ -7,13 +7,14 @@ addon manager's Config button.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from aqt import mw
 from aqt.qt import *
 from aqt.utils import restoreGeom, saveGeom, showWarning, tooltip
 
-from ..config_manager import ConfigManager
-from ..settings_io import SettingsIOError, export_settings, import_settings
+from ..config.config_manager import ConfigManager
+from ..config.settings_io import SettingsIOError, export_settings, import_settings
 from . import install_wheel_guard
 from .general_settings_tab import GeneralSettingsTab
 from .note_type_settings_tab import NoteTypeSettingsTab
@@ -166,7 +167,7 @@ class SettingsDialog(QDialog):
         # Peek to see if encrypted
         password: str | None = None
         try:
-            with open(path, "r", encoding="utf-8") as fh:
+            with Path(path).open(encoding="utf-8") as fh:
                 peek = json.load(fh)
             if peek.get("_encrypted", False):
                 password = self._ask_password("Import Settings", confirm=False)

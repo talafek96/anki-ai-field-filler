@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from ai_field_filler.config_manager import ProviderConfig
+from ai_field_filler.config.config_manager import ProviderConfig
 from ai_field_filler.providers import (
     _fetch_openrouter_models,
     create_image_provider,

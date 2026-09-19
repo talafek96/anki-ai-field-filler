@@ -17,8 +17,8 @@ def start_addon() -> None:
     """Initialize the addon: register hooks, menus, and config actions."""
     from aqt.qt import QAction, QMenu, qconnect
 
-    from . import browser_hooks, editor_hooks
-    from .config_manager import ConfigManager
+    from .config.config_manager import ConfigManager
+    from .hooks import browser_hooks, editor_hooks
     from .ui.dev_tools_dialog import open_dev_tools, register_dev_shortcut
     from .ui.settings_dialog import SettingsDialog
 

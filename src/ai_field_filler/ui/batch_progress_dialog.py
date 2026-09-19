@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from aqt.qt import *
 
-from ..field_filler import BatchFiller, BatchNoteItem, BatchProgress, BatchResult
+from ..core.field_filler import BatchFiller, BatchNoteItem, BatchProgress, BatchResult
 from .styles import ACCENT_COLOR, GLOBAL_STYLE, MUTED_LABEL_STYLE, PROGRESS_BAR_STYLE
 
 

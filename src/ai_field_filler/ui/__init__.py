@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from aqt.qt import QAbstractSpinBox, QCheckBox, QComboBox, QEvent, QObject, QWidget
 
-from ..config_manager import FIELD_TYPES
+from ..config.config_manager import FIELD_TYPES
 
 _TYPE_TOOLTIP = (
     "auto: let the AI decide the best type\n"
@@ -44,7 +44,7 @@ class _WheelGuard(QObject):
     which would otherwise scroll twice.
     """
 
-    def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # noqa: N802 — Qt naming
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         if event is not None and event.type() == QEvent.Type.Wheel:
             event.ignore()
             return True

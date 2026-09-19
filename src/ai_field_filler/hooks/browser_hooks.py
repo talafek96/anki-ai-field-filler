@@ -9,11 +9,11 @@ from aqt.browser import Browser
 from aqt.qt import QDialog, QMenu, qconnect
 from aqt.utils import showWarning, tooltip
 
-from .config_manager import ConfigManager
-from .field_filler import BatchFiller, BatchNoteItem
-from .ui.batch_fill_dialog import BatchFillDialog
-from .ui.batch_progress_dialog import BatchProgressDialog, BatchSummaryDialog
-from .ui.batch_review_dialog import BatchReviewDialog
+from ..config.config_manager import ConfigManager
+from ..core.field_filler import BatchFiller, BatchNoteItem
+from ..ui.batch_fill_dialog import BatchFillDialog
+from ..ui.batch_progress_dialog import BatchProgressDialog, BatchSummaryDialog
+from ..ui.batch_review_dialog import BatchReviewDialog
 
 
 class BrowserIntegration:

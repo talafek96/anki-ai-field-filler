@@ -72,7 +72,7 @@ class ErrorDialog(QDialog):
         detail: Optional[str] = None,
         *,
         title: str = "AI Field Filler",
-        parent=None,
+        parent: object = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
@@ -150,7 +150,7 @@ def show_error(
     detail: Optional[str] = None,
     *,
     title: str = "AI Field Filler",
-    parent=None,
+    parent: object = None,
 ) -> None:
     """Show :class:`ErrorDialog` modally."""
     ErrorDialog(message, detail, title=title, parent=parent).exec()
@@ -161,7 +161,7 @@ def show_exception(
     *,
     prefix: str = "",
     title: str = "AI Field Filler",
-    parent=None,
+    parent: object = None,
 ) -> None:
     """Show an exception, using its ``detail`` payload when it has one."""
     message = f"{prefix}{exc}" if prefix else str(exc)

@@ -103,7 +103,7 @@ class OpenRouterTTSProvider(TTSProvider):
 
     ``pcm16`` is the only format the streaming path accepts (wav, mp3 and
     opus are all refused), so this returns raw 24 kHz mono PCM and relies
-    on :class:`~ai_field_filler.media_handler.MediaHandler` to add the WAV
+    on :class:`~ai_field_filler.core.media_handler.MediaHandler` to add the WAV
     header, exactly as it already does for Google's TTS.
     """
 

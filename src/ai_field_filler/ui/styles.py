@@ -6,6 +6,11 @@ Every public name is a **function** so it evaluates the correct palette
 
 from __future__ import annotations
 
+try:
+    from aqt.theme import theme_manager
+except Exception:  # pragma: no cover - running outside Anki (e.g. pytest)
+    theme_manager = None  # type: ignore[assignment]
+
 # ---------------------------------------------------------------------------
 # Theme detection
 # ---------------------------------------------------------------------------
@@ -13,9 +18,9 @@ from __future__ import annotations
 
 def _is_dark() -> bool:
     """Return ``True`` when Anki's night-mode is active."""
+    if theme_manager is None:
+        return False
     try:
-        from aqt.theme import theme_manager
-
         return theme_manager.night_mode
     except Exception:
         return False
@@ -102,16 +107,16 @@ def palette() -> dict:
 # ---------------------------------------------------------------------------
 
 
-def ACCENT_COLOR() -> str:  # noqa: N802
+def ACCENT_COLOR() -> str:
     return palette()["accent"]
 
 
-def MUTED_LABEL_STYLE() -> str:  # noqa: N802
+def MUTED_LABEL_STYLE() -> str:
     p = palette()
     return f"color: {p['text_muted']}; font-size: 12px;"
 
 
-def HEADER_STYLE() -> str:  # noqa: N802
+def HEADER_STYLE() -> str:
     p = palette()
     return f"""
         font-size: 15px;
@@ -121,7 +126,7 @@ def HEADER_STYLE() -> str:  # noqa: N802
     """
 
 
-def GLOBAL_STYLE() -> str:  # noqa: N802
+def GLOBAL_STYLE() -> str:
     p = palette()
     return f"""
     QDialog {{
@@ -323,7 +328,7 @@ def GLOBAL_STYLE() -> str:  # noqa: N802
 # ---------------------------------------------------------------------------
 
 
-def FILTER_CHIP_STYLE() -> str:  # noqa: N802
+def FILTER_CHIP_STYLE() -> str:
     p = palette()
     return f"""
     QPushButton {{
@@ -359,7 +364,7 @@ def FILTER_CHIP_STYLE() -> str:  # noqa: N802
 # ---------------------------------------------------------------------------
 
 
-def REGEN_TOGGLE_STYLE() -> str:  # noqa: N802
+def REGEN_TOGGLE_STYLE() -> str:
     p = palette()
     return f"""
     QPushButton {{
@@ -393,7 +398,7 @@ def REGEN_TOGGLE_STYLE() -> str:  # noqa: N802
 # ---------------------------------------------------------------------------
 
 
-def PREVIEW_STYLE() -> str:  # noqa: N802
+def PREVIEW_STYLE() -> str:
     p = palette()
     return (
         f"border: 1px solid {p['border']}; border-radius: 6px; "
@@ -402,7 +407,7 @@ def PREVIEW_STYLE() -> str:  # noqa: N802
     )
 
 
-def PREVIEW_RENDERED_STYLE() -> str:  # noqa: N802
+def PREVIEW_RENDERED_STYLE() -> str:
     p = palette()
     return (
         f"background: {p['bg_input']}; border: 1px solid {p['border']}; "
@@ -410,7 +415,7 @@ def PREVIEW_RENDERED_STYLE() -> str:  # noqa: N802
     )
 
 
-def FIELD_ERROR_STYLE() -> str:  # noqa: N802
+def FIELD_ERROR_STYLE() -> str:
     p = palette()
     return (
         f"color: {p['warning_text']}; font-size: 12px; padding: 4px 8px; "
@@ -419,13 +424,13 @@ def FIELD_ERROR_STYLE() -> str:  # noqa: N802
     )
 
 
-def ERROR_LABEL_STYLE() -> str:  # noqa: N802
+def ERROR_LABEL_STYLE() -> str:
     """Red error text (used for fully-failed notes)."""
     p = palette()
     return f"color: {p['error_text']}; font-size: 12px;"
 
 
-def REGEN_CHECKBOX_STYLE() -> str:  # noqa: N802
+def REGEN_CHECKBOX_STYLE() -> str:
     p = palette()
     return (
         f"QCheckBox {{ font-size: 11px; color: {p['warning_text']}; }}"
@@ -434,7 +439,7 @@ def REGEN_CHECKBOX_STYLE() -> str:  # noqa: N802
     )
 
 
-def PROGRESS_BAR_STYLE() -> str:  # noqa: N802
+def PROGRESS_BAR_STYLE() -> str:
     p = palette()
     return f"""
     QProgressBar {{

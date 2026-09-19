@@ -15,7 +15,7 @@ import base64
 import json
 from typing import Dict, Set
 
-from ..config_manager import ProviderConfig
+from ..config.config_manager import ProviderConfig
 from .base import ImageProvider, ProviderError, TextProvider, TTSProvider
 from .http import http_post_json, http_post_raw
 

@@ -7,9 +7,9 @@ speech synthesis via the Gemini generateContent API.
 from __future__ import annotations
 
 import base64
-from typing import List
+from typing import ClassVar, List
 
-from ..config_manager import ProviderConfig
+from ..config.config_manager import ProviderConfig
 from .base import ImageProvider, ProviderError, TextProvider, TTSProvider
 from .http import http_post_json
 
@@ -64,7 +64,7 @@ class GoogleTextProvider(_GoogleRequestMixin, TextProvider):
 
     # Models known (at runtime) to reject system_instruction; the system
     # prompt gets folded into the user turn for these instead.
-    _no_system_instruction: set[str] = set()
+    _no_system_instruction: ClassVar[set[str]] = set()
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         model = self._config.text_model

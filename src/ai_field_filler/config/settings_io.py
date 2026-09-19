@@ -12,6 +12,7 @@ import copy
 import hashlib
 import json
 import os
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 # -- constants ---------------------------------------------------------------
@@ -76,7 +77,7 @@ def _decrypt_value(ciphertext: str, password: str, salt: bytes, context: str) ->
     try:
         return raw.decode("utf-8")
     except UnicodeDecodeError:
-        raise ValueError("Decryption produced invalid data (wrong password?)")
+        raise ValueError("Decryption produced invalid data (wrong password?)") from None
 
 
 # -- API-key encryption/decryption in config dicts --------------------------
@@ -138,7 +139,7 @@ def export_settings(
         if key in config:
             payload[key] = copy.deepcopy(config[key])
 
-    with open(path, "w", encoding="utf-8") as fh:
+    with Path(path).open("w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2, ensure_ascii=False)
 
 
@@ -151,7 +152,7 @@ def import_settings(
     Raises :class:`SettingsIOError` on any validation or decryption failure.
     """
     try:
-        with open(path, "r", encoding="utf-8") as fh:
+        with Path(path).open(encoding="utf-8") as fh:
             payload = json.load(fh)
     except json.JSONDecodeError as exc:
         raise SettingsIOError(f"The file is not valid JSON:\n{exc}") from exc
@@ -191,7 +192,7 @@ def import_settings(
         try:
             decrypted_verify = _decrypt_value(verify_token, password, salt, "__verify__")
         except Exception:
-            raise SettingsIOError("Incorrect password or corrupt file.")
+            raise SettingsIOError("Incorrect password or corrupt file.") from None
         if decrypted_verify != _VERIFY_PLAINTEXT:
             raise SettingsIOError("Incorrect password.")
 

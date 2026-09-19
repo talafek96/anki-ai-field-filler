@@ -9,7 +9,7 @@ from aqt import mw
 from aqt.qt import *
 from aqt.utils import showInfo, tooltip
 
-from ..config_manager import ConfigManager, ProviderConfig
+from ..config.config_manager import ConfigManager, ProviderConfig
 from ..providers import fetch_available_models, test_provider_connection
 from .error_dialog import show_error
 
@@ -75,13 +75,13 @@ class _AutoFetchCombo(QComboBox):
     (e.g. after an async model fetch completes).
     """
 
-    popupAboutToShow = pyqtSignal()
+    popupAboutToShow = pyqtSignal()  # noqa: N815 — Qt signal, camelCase by convention
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._suppress_popup = False
 
-    def showPopup(self) -> None:  # noqa: N802 — Qt naming
+    def showPopup(self) -> None:
         self._suppress_popup = False
         self.popupAboutToShow.emit()
         if not self._suppress_popup:
@@ -96,7 +96,7 @@ class ModelComboWithRefresh(QWidget):
     auto-fetch.
     """
 
-    modelsRequested = pyqtSignal()
+    modelsRequested = pyqtSignal()  # noqa: N815 — Qt signal, camelCase by convention
 
     def __init__(
         self,

@@ -13,6 +13,7 @@ it proves the runtime behaviour that mocks cannot.
 
 from __future__ import annotations
 
+import contextlib
 import threading
 import time
 import traceback
@@ -22,7 +23,8 @@ from aqt import mw
 from aqt.qt import *
 from aqt.utils import tooltip
 
-from ..config_manager import ConfigManager, ProviderConfig
+from ..config.config_manager import ConfigManager, ProviderConfig
+from ..core.media_handler import MediaHandler
 from ..providers import (
     create_image_provider,
     create_text_provider,
@@ -30,7 +32,7 @@ from ..providers import (
     fetch_available_models,
     test_provider_connection,
 )
-from ..providers.http import http_get_json
+from ..providers.http import _http_error, http_get_json
 from . import install_wheel_guard
 from .error_dialog import show_error
 from .provider_settings_tab import (
@@ -95,7 +97,7 @@ _SAMPLE_ERROR_BODY = (
 )
 
 
-class _Aborted(Exception):
+class _AbortedError(Exception):
     """Raised inside a run when the user presses Stop."""
 
 
@@ -111,9 +113,9 @@ class _RunContext:
         return self._abort.is_set()
 
     def check(self) -> None:
-        """Raise :class:`_Aborted` if Stop was pressed."""
+        """Raise :class:`_AbortedError` if Stop was pressed."""
         if self._abort.is_set():
-            raise _Aborted()
+            raise _AbortedError()
 
     def log(self, line: str = "") -> None:
         """Append a line to the log from a worker thread."""
@@ -177,7 +179,7 @@ class DevToolsDialog(QDialog):
 
     # ---- sizing ---------------------------------------------------------
 
-    def showEvent(self, event) -> None:  # noqa: N802 — Qt naming
+    def showEvent(self, event: object) -> None:
         super().showEvent(event)
         if not self._widths_normalized:
             self._widths_normalized = True
@@ -204,7 +206,7 @@ class DevToolsDialog(QDialog):
 
     # ---- closing --------------------------------------------------------
 
-    def closeEvent(self, event) -> None:  # noqa: N802 — Qt naming
+    def closeEvent(self, event: object) -> None:
         self._mark_closed()
         super().closeEvent(event)
 
@@ -568,10 +570,8 @@ class DevToolsDialog(QDialog):
         """Log from a worker thread, ignoring a dialog that has gone away."""
         if self._closed:
             return
-        try:
+        with contextlib.suppress(RuntimeError):
             self._log_line(text)
-        except RuntimeError:
-            pass
 
     def _header(self, text: str) -> None:
         self._log_line("")
@@ -621,7 +621,7 @@ class DevToolsDialog(QDialog):
             outcome = "finished"
             try:
                 work(ctx)
-            except _Aborted:
+            except _AbortedError:
                 outcome = "ABORTED"
             except Exception:
                 outcome = "FAILED"
@@ -652,8 +652,6 @@ class DevToolsDialog(QDialog):
         )
 
     def _err_json(self) -> None:
-        from ..providers.http import _http_error
-
         self._header("Error dialog · API error with JSON details")
         err = _http_error("OpenAI API", 400, _SAMPLE_ERROR_BODY)
         self._log_line(f"Summary line shown to the user:\n  {err}")
@@ -768,7 +766,7 @@ class DevToolsDialog(QDialog):
                 ctx.log(f"########## {index}/{len(steps)} · {name} ##########")
                 try:
                     step(ctx)
-                except _Aborted:
+                except _AbortedError:
                     raise
                 except Exception as e:
                     ctx.log(f"  step failed: {type(e).__name__}: {e}")
@@ -845,8 +843,6 @@ class DevToolsDialog(QDialog):
         ctx.log(f"reply      : {reply.strip()!r}")
 
     def _image_work(self, ctx: _RunContext) -> None:
-        from ..media_handler import MediaHandler
-
         cfg = self._cfg_for("image")
         ctx.log(f"provider : {cfg.provider_type}")
         ctx.log(f"model    : {cfg.image_model}")

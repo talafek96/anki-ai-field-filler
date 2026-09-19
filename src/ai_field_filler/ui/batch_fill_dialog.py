@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple
 
 from aqt.qt import *
 
-from ..config_manager import FieldInstruction
+from ..config.config_manager import FieldInstruction
 from . import install_wheel_guard
 from .styles import GLOBAL_STYLE, HEADER_STYLE, MUTED_LABEL_STYLE
 

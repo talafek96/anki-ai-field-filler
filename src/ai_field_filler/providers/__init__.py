@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple
 
-from ..config_manager import ProviderConfig
+from ..config.config_manager import ProviderConfig
 from .base import ImageProvider, ProviderError, TextProvider, TTSProvider
 from .http import http_get_json
 
@@ -15,15 +15,15 @@ def create_text_provider(config: ProviderConfig) -> TextProvider:
         from .openai_provider import OpenAITextProvider
 
         return OpenAITextProvider(config)
-    elif config.provider_type == "anthropic":
+    if config.provider_type == "anthropic":
         from .anthropic_provider import AnthropicTextProvider
 
         return AnthropicTextProvider(config)
-    elif config.provider_type == "google":
+    if config.provider_type == "google":
         from .google_provider import GoogleTextProvider
 
         return GoogleTextProvider(config)
-    elif config.provider_type == "openrouter":
+    if config.provider_type == "openrouter":
         from .openrouter_provider import OpenRouterTextProvider
 
         return OpenRouterTextProvider(config)
@@ -36,11 +36,11 @@ def create_tts_provider(config: ProviderConfig) -> TTSProvider:
         from .openai_provider import OpenAITTSProvider
 
         return OpenAITTSProvider(config)
-    elif config.provider_type == "google":
+    if config.provider_type == "google":
         from .google_provider import GoogleTTSProvider
 
         return GoogleTTSProvider(config)
-    elif config.provider_type == "openrouter":
+    if config.provider_type == "openrouter":
         from .openrouter_provider import OpenRouterTTSProvider
 
         return OpenRouterTTSProvider(config)
@@ -53,11 +53,11 @@ def create_image_provider(config: ProviderConfig) -> ImageProvider:
         from .openai_provider import OpenAIImageProvider
 
         return OpenAIImageProvider(config)
-    elif config.provider_type == "google":
+    if config.provider_type == "google":
         from .google_provider import GoogleImageProvider
 
         return GoogleImageProvider(config)
-    elif config.provider_type == "openrouter":
+    if config.provider_type == "openrouter":
         from .openrouter_provider import OpenRouterImageProvider
 
         return OpenRouterImageProvider(config)
@@ -101,11 +101,11 @@ def fetch_available_models(config: ProviderConfig, capability: str = "text") -> 
     """
     if config.provider_type == "openai":
         return _fetch_openai_models(config, capability)
-    elif config.provider_type == "anthropic":
+    if config.provider_type == "anthropic":
         return _fetch_anthropic_models(config, capability)
-    elif config.provider_type == "google":
+    if config.provider_type == "google":
         return _fetch_google_models(config, capability)
-    elif config.provider_type == "openrouter":
+    if config.provider_type == "openrouter":
         return _fetch_openrouter_models(config, capability)
     return []
 
@@ -322,11 +322,11 @@ def _classify_google_model(model: dict, methods: List[str]) -> str | None:
 
 
 __all__ = [
+    "_classify_google_model",
+    "_classify_openai_model",
+    "create_image_provider",
     "create_text_provider",
     "create_tts_provider",
-    "create_image_provider",
-    "test_provider_connection",
     "fetch_available_models",
-    "_classify_openai_model",
-    "_classify_google_model",
+    "test_provider_connection",
 ]

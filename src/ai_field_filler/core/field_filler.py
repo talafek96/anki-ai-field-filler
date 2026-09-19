@@ -16,10 +16,10 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar
 from aqt import mw
 from aqt.editor import Editor
 
-from .config_manager import ConfigManager, FieldInstruction
+from ..config.config_manager import ConfigManager, FieldInstruction
+from ..providers import create_image_provider, create_text_provider, create_tts_provider
+from ..providers.base import ProviderError
 from .media_handler import MediaHandler
-from .providers import create_image_provider, create_text_provider, create_tts_provider
-from .providers.base import ProviderError
 
 # ---------------------------------------------------------------------------
 # Retry helper for all generation calls
@@ -328,7 +328,7 @@ class FieldFiller:
         instructions = self._config.get_field_instructions(note_type_name)
 
         blank_fields = []
-        for name in note.keys():
+        for name in note.keys():  # noqa: SIM118 — Anki Note, not a dict
             value = note[name].strip()
             if not value:
                 instr = instructions.get(name)
@@ -417,9 +417,11 @@ class FieldFiller:
                 try:
                     data = json.loads(match.group())
                 except json.JSONDecodeError:
-                    raise ProviderError(f"Could not parse AI response as JSON:\n{text[:500]}")
+                    raise ProviderError(
+                        f"Could not parse AI response as JSON:\n{text[:500]}"
+                    ) from None
             else:
-                raise ProviderError(f"Could not find JSON in AI response:\n{text[:500]}")
+                raise ProviderError(f"Could not find JSON in AI response:\n{text[:500]}") from None
 
         return data.get("fields", data)
 
@@ -470,13 +472,13 @@ class FieldFiller:
                         img_bytes = with_retry(img_prov.generate_image, payload)
                         return MediaHandler.save_image(img_bytes, part_name)
                     return ""
-                else:  # AUDIO
-                    tts_config = self._config.get_active_tts_provider()
-                    if tts_config:
-                        tts = create_tts_provider(tts_config)
-                        audio_bytes = with_retry(tts.synthesize, payload, context=tts_context)
-                        return MediaHandler.save_audio(audio_bytes, part_name)
-                    return ""
+                # AUDIO
+                tts_config = self._config.get_active_tts_provider()
+                if tts_config:
+                    tts = create_tts_provider(tts_config)
+                    audio_bytes = with_retry(tts.synthesize, payload, context=tts_context)
+                    return MediaHandler.save_audio(audio_bytes, part_name)
+                return ""
             except Exception as e:
                 errors.append(f"{field_name} ({kind.lower()} flag, prompt: {payload!r}): {e}")
                 return ""
@@ -677,7 +679,7 @@ class BatchFiller:
 
             # Generate content (but don't write to note yet)
             try:
-                field_values = {name: note[name] for name in note.keys()}
+                field_values = {name: note[name] for name in note.keys()}  # noqa: SIM118 — Anki Note
                 tts_ctx = FieldFiller._build_tts_context(note_type_name, field_values)
                 user_message = self._filler._build_user_prompt(
                     note_type_name,
@@ -780,7 +782,7 @@ class BatchFiller:
         try:
             note = mw.col.get_note(note_id)
             note_type_name = note.note_type()["name"]
-            field_values = {name: note[name] for name in note.keys()}
+            field_values = {name: note[name] for name in note.keys()}  # noqa: SIM118 — Anki Note
             field_instructions = self._config.get_field_instructions(
                 note_type_name, deck_name=deck_name
             )
@@ -874,7 +876,7 @@ class BatchFiller:
     @staticmethod
     def _note_preview(note: Any) -> str:
         """Return a short preview string from the first non-empty field."""
-        for name in note.keys():
+        for name in note.keys():  # noqa: SIM118 — Anki Note, not a dict
             val = note[name].strip()
             if val:
                 return val[:60] + ("..." if len(val) > 60 else "")

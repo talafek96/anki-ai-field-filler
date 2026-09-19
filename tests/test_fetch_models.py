@@ -7,7 +7,7 @@ import urllib.error
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
-from ai_field_filler.config_manager import ProviderConfig
+from ai_field_filler.config.config_manager import ProviderConfig
 from ai_field_filler.providers import (
     fetch_available_models,
 )

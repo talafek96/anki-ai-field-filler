@@ -9,13 +9,13 @@ from aqt.editor import Editor, EditorWebView
 from aqt.qt import QDialog, QMenu, qconnect
 from aqt.utils import tooltip
 
-from .config_manager import ConfigManager, FieldInstruction
-from .field_filler import FieldFiller
-from .ui.error_dialog import show_error
-from .ui.field_instruction_dialog import FieldInstructionDialog
-from .ui.fill_dialog import FillDialog
-from .ui.generating_dialog import GeneratingDialog
-from .ui.quick_prompt_dialog import QuickPromptDialog
+from ..config.config_manager import ConfigManager, FieldInstruction
+from ..core.field_filler import FieldFiller
+from ..ui.error_dialog import show_error
+from ..ui.field_instruction_dialog import FieldInstructionDialog
+from ..ui.fill_dialog import FillDialog
+from ..ui.generating_dialog import GeneratingDialog
+from ..ui.quick_prompt_dialog import QuickPromptDialog
 
 
 def _current_deck_name(editor: Editor) -> Optional[str]:
@@ -178,7 +178,7 @@ class EditorIntegration:
         else:
             target_fields = [
                 n
-                for n in note.keys()
+                for n in note.keys()  # noqa: SIM118 — Anki Note, not a dict
                 if not note[n].strip() and field_instructions.get(n, FieldInstruction()).auto_fill
             ]
             user_prompt = general.default_user_prompt

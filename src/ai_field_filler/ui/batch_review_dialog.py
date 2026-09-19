@@ -2,19 +2,23 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import threading
 from html.parser import HTMLParser
+from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 from anki.sound import SoundOrVideoTag
 from aqt import mw
 from aqt.qt import *
 from aqt.sound import av_player
+from aqt.utils import getText, showWarning, tooltip
 
-from ..field_filler import BatchProposedChange
+from ..core.field_filler import BatchProposedChange
 from . import install_wheel_guard
+from .error_dialog import show_error
 from .styles import (
     ERROR_LABEL_STYLE,
     FIELD_ERROR_STYLE,
@@ -250,13 +254,11 @@ class _ImageTextEdit(QTextEdit):
             return super().loadResource(rtype, url)  # type: ignore[arg-type]
         url_str = url.toString() if hasattr(url, "toString") else str(url)
         basename = url_str.rsplit("/", 1)[-1] if "/" in url_str else url_str
-        filepath = os.path.join(self._media_dir, basename)
-        if not os.path.isfile(filepath):
+        filepath = str(Path(self._media_dir) / basename)
+        if not Path(filepath).is_file():
             return super().loadResource(rtype, url)  # type: ignore[arg-type]
         try:
-            from aqt.qt import QImage as _QImage
-
-            img = _QImage()
+            img = QImage()
             if not img.load(filepath):
                 return super().loadResource(rtype, url)  # type: ignore[arg-type]
             vp = self.viewport()
@@ -743,10 +745,8 @@ class BatchReviewDialog(QDialog):
         # overrides loadResource to handle JPEG files with .png extension
         # and to scale images to fit the viewport.
         media_dir = ""
-        try:
+        with contextlib.suppress(Exception):
             media_dir = mw.col.media.dir()
-        except Exception:
-            pass
         rendered = _ImageTextEdit(media_dir=media_dir)
         rendered.setStyleSheet(PREVIEW_RENDERED_STYLE())
         if value.strip():
@@ -1057,8 +1057,6 @@ class BatchReviewDialog(QDialog):
 
     def _ask_regen_prompt(self) -> Optional[str]:
         """Show an optional prompt dialog. Returns the prompt or None if cancelled."""
-        from aqt.utils import getText
-
         prompt, ok = getText(
             "Optional instructions for regeneration (leave empty for default):",
             parent=self,
@@ -1119,8 +1117,6 @@ class BatchReviewDialog(QDialog):
         """Regenerate all fields staged via the 'Stage' checkboxes."""
         selected = [(pi, fn) for (pi, fn), cb in self._regen_checks.items() if cb.isChecked()]
         if not selected:
-            from aqt.utils import tooltip
-
             tooltip("No fields marked for regeneration.", parent=self)
             return
 
@@ -1171,8 +1167,6 @@ class BatchReviewDialog(QDialog):
                         self._batch_regen_btn.setText("\u21bb Regenerate Marked")
 
         if error:
-            from .error_dialog import show_error
-
             show_error(
                 f"Regeneration failed for '{field_name}':\n\n{error}",
                 parent=self,
@@ -1185,8 +1179,6 @@ class BatchReviewDialog(QDialog):
         if key in self._edits:
             current_text = self._edits[key].toPlainText()
             if original_snapshot is not None and current_text != original_snapshot:
-                from aqt.utils import showWarning
-
                 showWarning(
                     f"'{field_name}' was edited during regeneration.\n"
                     f"Your edits have been preserved.",
@@ -1228,10 +1220,8 @@ class BatchReviewDialog(QDialog):
     # ------------------------------------------------------------------
 
     def closeEvent(self, event: object) -> None:
-        try:
+        with contextlib.suppress(RuntimeError, TypeError):
             self._regen_done_signal.disconnect()
-        except (RuntimeError, TypeError):
-            pass
         super().closeEvent(event)  # type: ignore[arg-type]
 
     # ------------------------------------------------------------------
