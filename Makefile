@@ -24,7 +24,7 @@ test: ## Run tests
 check: lint typecheck test ## Run all quality checks
 
 build: ## Build .ankiaddon package
-	python build_ankiaddon.py
+	uv run scripts/build_ankiaddon.py
 
 clean: ## Remove build artifacts and caches
 	rm -rf .pytest_cache .ruff_cache .mypy_cache

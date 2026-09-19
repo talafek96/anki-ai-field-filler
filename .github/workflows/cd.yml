@@ -46,7 +46,7 @@ jobs:
           python-version: "3.12"
 
       - name: Build .ankiaddon package
-        run: python build_ankiaddon.py
+        run: python scripts/build_ankiaddon.py
 
       - name: Create GitHub release
         env:

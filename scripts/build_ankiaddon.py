@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.9"
+# dependencies = []
+# ///
 """Package the AI Field Filler addon into a .ankiaddon file.
 
-Usage:
-    python build_ankiaddon.py          # creates ai_field_filler.ankiaddon
-    python build_ankiaddon.py --check  # dry-run: list files that would be included
+Standalone (stdlib-only) build script — run it via uv, no project install needed:
+    uv run scripts/build_ankiaddon.py          # creates ai_field_filler.ankiaddon
+    uv run scripts/build_ankiaddon.py --check  # dry-run: list files to be included
 """
 
 from __future__ import annotations
@@ -17,7 +21,7 @@ from pathlib import Path
 # The addon package is src/ai_field_filler/; its CONTENTS become the .ankiaddon
 # root (where Anki expects __init__.py and config.json). Project tooling, tests,
 # docs, and demo assets live above it in the repo and never ship.
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 ADDON_ROOT = REPO_ROOT / "src" / "ai_field_filler"
 
 # Paths relative to the addon root that should NOT be in the package.

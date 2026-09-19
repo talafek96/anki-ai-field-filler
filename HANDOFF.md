@@ -13,7 +13,7 @@ On branch `usr/tal-afek/claude-onboarding` (not yet merged):
 - **Claude Code onboarding** — root + nested `CLAUDE.md`, `.claude/rules/`, `.claude/commands/`,
   vendored `.claude/skills/`, `.claude/constitution.md` (@-imported into CLAUDE.md), this file.
 - **`src/` refactor** — the addon package moved to `src/ai_field_filler/` and split into
-  `core/`, `config/`, `providers/`, `ui/`, `hooks/`. `build_ankiaddon.py`, CI, and
+  `core/`, `config/`, `providers/`, `ui/`, `hooks/`. `scripts/build_ankiaddon.py`, CI, and
   `pyproject.toml` (`pythonpath`/`mypy_path=src`) updated; folder-name symlink hack removed.
 - **Static convention enforcement** — ruff now checks no-in-function-imports, signature type
   hints, naming, HTTP-only-through-`http.py`, and no blanket suppressions; violations fixed.

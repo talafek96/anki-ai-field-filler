@@ -122,7 +122,7 @@ another model — not a raw JSON body.
 
 ```bash
 make check    # lint + typecheck + test (390 tests)
-python build_ankiaddon.py --check   # confirm new files are packaged
+uv run scripts/build_ankiaddon.py --check   # confirm new files are packaged
 ```
 
 Tests import the package as `ai_field_filler` from `src/`; `pyproject.toml` sets

@@ -182,7 +182,7 @@ src/ai_field_filler/            # the addon package (contents = installed addon 
     └── browser_hooks.py        # Browser batch fill integration
 
 tests/                          # pytest suite (aqt mocked; never ships)
-build_ankiaddon.py              # packages src/ai_field_filler/ into the .ankiaddon
+scripts/build_ankiaddon.py      # packages src/ai_field_filler/ into the .ankiaddon
 pyproject.toml  Makefile  CLAUDE.md  .claude/   # tooling, agent context (never ship)
 ```
 

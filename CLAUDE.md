@@ -45,7 +45,7 @@ behavior, one way to do a thing.
   - `ui/` — Qt dialogs/tabs (own `CLAUDE.md`).
   - `hooks/` — Anki integration: `editor_hooks.py`, `browser_hooks.py`.
   - `__init__.py`, `config.json`, `config.md` stay at the package root (Anki loads them).
-  Above the package: `tests/` (own `CLAUDE.md`), `build_ankiaddon.py`, tooling and docs
+  Above the package: `tests/` (own `CLAUDE.md`), `scripts/` (e.g. `build_ankiaddon.py`), docs
   (these never ship). `pyproject.toml` sets `pythonpath`/`mypy_path` to `src`, so imports
   resolve as `ai_field_filler.*`.
 
@@ -57,7 +57,7 @@ uv run pytest                             # all tests (pythonpath=src)
 uv run pytest tests/test_http.py -v       # one file
 uv run ruff format && uv run ruff check   # format, then lint (--fix to auto-apply)
 uv run mypy --package ai_field_filler     # non-strict type check (mypy_path=src)
-python build_ankiaddon.py [--check]       # build the .ankiaddon (--check = dry run)
+uv run scripts/build_ankiaddon.py [--check]  # build the .ankiaddon (--check = dry run)
 ```
 
 `make check` runs lint + typecheck + test together.
