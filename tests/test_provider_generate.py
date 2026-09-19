@@ -344,3 +344,8 @@ class TestFinishReasonMessage:
 
     def test_recitation(self) -> None:
         assert "RECITATION" in _finish_reason_message("RECITATION", {})
+
+    def test_image_recitation(self) -> None:
+        msg = _finish_reason_message("IMAGE_RECITATION", {})
+        assert "IMAGE_RECITATION" in msg
+        assert "another image model" in msg.lower() or "gemini-2.5-flash-image" in msg

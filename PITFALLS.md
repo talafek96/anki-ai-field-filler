@@ -143,7 +143,10 @@ requires `<3.15`, while this addon targets 3.9+.
   Confirmed on Google's own dev forum (works in AI Studio, fails via the API;
   Google staff investigating, no fix). `OTHER` is a catch-all — it is *not* a
   safety block (that is `SAFETY`/`PROHIBITED_CONTENT`), and it also covers
-  copyright/IP refusals and content moderation.
+  copyright/IP refusals and content moderation. The same model also returns
+  `finishReason: IMAGE_RECITATION` (a recitation-style block) readily, even for
+  a prompt as generic as "a small red circle" — switching to
+  `gemini-2.5-flash-image` is the reliable workaround.
 - **Fix (ours):** `_finish_reason_message()` now maps each `finishReason` to
   accurate guidance instead of always saying "blocked by safety filters":
   `OTHER` → "preview model may be unstable — retry or pick another model";

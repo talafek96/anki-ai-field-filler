@@ -41,10 +41,12 @@ def _finish_reason_message(finish: str, candidate: dict) -> str:
             "spent before any output, which thinking models can do on their reasoning. "
             "Raise Max tokens or pick a non-thinking model."
         )
-    if reason == "RECITATION":
+    if reason in ("RECITATION", "IMAGE_RECITATION"):
         return (
-            "Google stopped the response for reciting protected content "
-            "(finishReason: RECITATION). Rephrase the prompt."
+            "Google blocked the output for reproducing recited/recognizable content "
+            f"(finishReason: {reason}) — the image models flag this readily, even for "
+            "generic prompts. Make the prompt more original/abstract, or switch to "
+            "another image model (e.g. gemini-2.5-flash-image)."
         )
     return (
         f"Google returned no content (finishReason: {reason}). This preview model may be "
