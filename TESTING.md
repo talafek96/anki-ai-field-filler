@@ -11,8 +11,36 @@ Most of it is driven from the built-in **Developer Tools** dialog.
 - set `"dev_mode": true` under `general` in the addon config to add
   **Tools → AI Field Filler → 🧪 Developer Tools...**
 
-The dialog has four groups of buttons on the left and a scrollable log on the
-right. **Buttons in groups 2–4 spend real API credits.**
+The dialog has a **Parameters** panel and five groups of buttons on the left,
+with a scrollable log on the right. **Buttons in groups 2–5 spend real API
+credits.**
+
+### Parameters
+
+Every run uses this panel rather than your saved settings, so a behaviour can
+be tried against different setups without touching the real configuration:
+
+| Field | Notes |
+|-------|-------|
+| Provider | `⟨use active providers⟩` follows your config; pick a specific one to override. TTS/image rows disable themselves for providers that lack the capability. |
+| Text / Image / TTS model | Editable, with a refresh button that fetches from the selected provider. Blank means "provider default". |
+| TTS voice | Pre-filled per provider, editable. |
+| Max tokens | Drop this to ~50 to watch a reasoning model spend its whole budget thinking and return no text — the error should say so, not appear empty. |
+| System / User / Image / TTS prompt | Edit to test your own prompts. |
+
+*Reset parameters* restores the defaults.
+
+### Stopping a run
+
+**⏹ Stop** aborts between items. The request already in flight cannot be
+cancelled — it completes and is billed, then the run stops. Closing the dialog
+mid-run does the same and discards the result.
+
+### Run all tests
+
+Group 5 runs every non-interactive check in sequence, streaming into the log
+and abortable at any point. The three error-dialog buttons are interactive and
+are excluded; run those by hand.
 
 ---
 
@@ -31,7 +59,13 @@ Also check both themes: Anki *Preferences → Appearance → Theme*, light and d
 | Button | What to look for |
 |--------|------------------|
 | List models (all providers) | Counts per provider × capability. **Anthropic tts/image and OpenRouter tts must report 0** — those providers have no such models. |
-| Show models filtered OUT | Every model the API returned that the dropdowns hide, e.g. `davinci-002`, `babbage-002`, `*-instruct`, `*-deep-research`, `lyria-*` (music), `*-robotics-*`, `*-transcribe`, `*-computer-use`. Selecting any of these could only ever fail. |
+| Show models filtered OUT | Every model the API returned that the dropdowns hide, e.g. `davinci-002`, `babbage-002`, `*-instruct`, `*-deep-research`, `lyria-*` (music), `*-robotics-*`, `*-transcribe`, `*-computer-use`, and OpenRouter's `*:batch` variants. Selecting any of these could only ever fail. |
+
+OpenRouter's `:batch` models deserve a specific look: they are half-price
+**asynchronous** jobs served only by `/api/v1/batches`, and a synchronous call
+returns `404 This model is only available through the Batch API`. There are 74
+of them, so they must not appear in the dropdown. Other suffixes (`:free`,
+`:online`, `:thinking`, `:nitro`) are normal models and must still be listed.
 
 Cross-check in the UI: **Settings → AI Providers**, click the refresh icon next
 to *Text model*. The dropdown should contain none of the names listed above.

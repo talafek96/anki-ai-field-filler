@@ -194,3 +194,42 @@ class TestModelListing:
         mock_get.return_value = json.loads(json.dumps(_models_payload()))
         models = _fetch_openrouter_models(_CFG, "text")
         assert models == sorted(models)
+
+
+class TestBatchVariantsExcluded:
+    """':batch' models are async-only and 404 on chat/completions."""
+
+    @staticmethod
+    def _payload() -> dict:
+        def entry(mid, outs):
+            return {"id": mid, "architecture": {"output_modalities": outs}}
+
+        return {
+            "data": [
+                entry("openai/gpt-6-astra", ["text"]),
+                entry("openai/gpt-6-astra:batch", ["text"]),
+                entry("anthropic/claude-fable-5.1:batch", ["text"]),
+                entry("google/gemini-3.1-flash-image:batch", ["image", "text"]),
+                entry("meta-llama/llama-4-maverick:free", ["text"]),
+                entry("perplexity/sonar:online", ["text"]),
+            ]
+        }
+
+    @patch(_HTTP_GET_JSON)
+    def test_batch_variants_are_hidden(self, mock_get) -> None:
+        mock_get.return_value = self._payload()
+        models = _fetch_openrouter_models(_CFG, "text")
+        assert "openai/gpt-6-astra" in models
+        assert not [m for m in models if m.endswith(":batch")]
+
+    @patch(_HTTP_GET_JSON)
+    def test_batch_variants_hidden_for_images_too(self, mock_get) -> None:
+        mock_get.return_value = self._payload()
+        assert _fetch_openrouter_models(_CFG, "image") == []
+
+    @patch(_HTTP_GET_JSON)
+    def test_other_suffixes_are_kept(self, mock_get) -> None:
+        mock_get.return_value = self._payload()
+        models = _fetch_openrouter_models(_CFG, "text")
+        assert "meta-llama/llama-4-maverick:free" in models
+        assert "perplexity/sonar:online" in models
