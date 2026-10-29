@@ -7,7 +7,8 @@ Update it at milestones; keep it current to reality (`git log` is the authoritat
 
 Prior product work (on `main`): OpenRouter streaming speech synthesis, a full
 model-capability audit across all four providers, Developer Tools made configurable/abortable.
-See `git log` and `PITFALLS.md` for details.
+See `git log` and `PITFALLS.md` for details. Issue #17 (Batch Fill buttons off-screen on
+scaled laptop screens) fixed on `main`; issue left open for the reporter to confirm.
 
 On branch `usr/tal-afek/claude-onboarding` (not yet merged):
 - **Claude Code onboarding** — root + nested `CLAUDE.md`, `.claude/rules/`, `.claude/commands/`,
