@@ -153,3 +153,19 @@ requires `<3.15`, while this addon targets 3.9+.
   `MAX_TOKENS` → raise the budget; `SAFETY`/etc → the real block, with the
   triggered categories. No payload change was applied because none is known to
   help; retry or a different image model is the only workaround.
+
+## UI: dialogs must fit a scaled laptop screen (issue #17)
+
+- **Symptom:** on a 14" 1080p screen at 150% scaling (~670 logical px usable),
+  the Batch Fill dialog ran past the taskbar and hid Cancel/Start Batch.
+- **Cause:** one checkbox per note field in an unbounded `QVBoxLayout`; a
+  12-field note type was enough. Nothing capped the dialog to the screen.
+- **Fix:** fields go in a two-column grid past 8 fields (column-major, so
+  field order reads down), inside a `QScrollArea` whose height is fitted to
+  `screen.availableGeometry()` (`field_list_height`). Buttons stay outside it.
+- **Trap:** the global stylesheet makes `QScrollArea` transparent, but not its
+  viewport — inside a `QGroupBox` it paints a palette-coloured slab. Give the
+  viewport/content widget an object name and a `#name { background:
+  transparent; }` rule (an ID selector, so it doesn't cascade).
+- **Verify layout** without Anki: render offscreen via `uv run --with PyQt6`
+  and a stub `aqt` package (`aqt.qt` re-exporting PyQt6 + `qconnect`).
