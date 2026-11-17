@@ -21,6 +21,7 @@ import tempfile
 import threading
 import time
 import traceback
+from dataclasses import replace
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
@@ -566,8 +567,8 @@ class DevToolsDialog(QDialog):
             "tts": self._tts_model,
         }[capability]
         ptype = self._selected_provider(capability)
-        cfg = self._config.get_provider_config(ptype)
-        if not cfg.api_key:
+        cfg = self._config.get_provider_config(ptype).for_capability(capability)
+        if not cfg.api_key and not cfg.has_dedicated_server(capability):
             self._log_line(f"No API key configured for {ptype}; cannot fetch models.")
             return
         combo.setRefreshing(True)
@@ -600,16 +601,14 @@ class DevToolsDialog(QDialog):
         """Build a config from the saved provider plus panel overrides."""
         ptype = self._selected_provider(capability)
         base = self._config.get_provider_config(ptype)
-        return ProviderConfig(
-            provider_type=ptype,
-            api_url=base.api_url,
-            api_key=base.api_key,
+        return replace(
+            base,
             text_model=self._text_model.currentText().strip() or base.text_model,
             max_tokens=self._max_tokens.value(),
             tts_model=self._tts_model.currentText().strip() or base.tts_model,
             tts_voice=self._tts_voice.currentText().strip() or base.tts_voice,
             image_model=self._image_model.currentText().strip() or base.image_model,
-        )
+        ).for_capability(capability)
 
     # ---- logging --------------------------------------------------------
 
@@ -847,7 +846,7 @@ class DevToolsDialog(QDialog):
             for cap in ("text", "tts", "image"):
                 ctx.check()
                 try:
-                    models = fetch_available_models(cfg, cap)
+                    models = fetch_available_models(cfg.for_capability(cap), cap)
                     preview = ", ".join(models[:3])
                     ctx.log(f"{ptype:12} {cap:6} {len(models):>4} models   {preview}")
                 except Exception as e:
