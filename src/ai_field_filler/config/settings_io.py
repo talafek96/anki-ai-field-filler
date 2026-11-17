@@ -83,25 +83,42 @@ def _decrypt_value(ciphertext: str, password: str, salt: bytes, context: str) ->
 # -- API-key encryption/decryption in config dicts --------------------------
 
 
+# Every provider field that holds a secret. Each is encrypted with its own
+# key-derivation context: two secrets of equal length under one context would
+# share a keystream. ``api_key`` keeps the bare provider name as its context so
+# files exported before the other fields existed still decrypt.
+_SECRET_FIELDS = ("api_key", "tts_api_key", "image_api_key")
+
+
+def _secret_context(ptype: str, field: str) -> str:
+    return ptype if field == "api_key" else f"{ptype}/{field}"
+
+
 def _encrypt_api_keys(config: Dict[str, Any], password: str, salt: bytes) -> Dict[str, Any]:
-    """Return a *copy* of *config* with all ``api_key`` values encrypted."""
+    """Return a *copy* of *config* with every API key (see ``_SECRET_FIELDS``) encrypted."""
     config = copy.deepcopy(config)
     providers = config.get("providers", {})
     for ptype, pdata in providers.items():
-        raw_key = pdata.get("api_key", "")
-        if raw_key:
-            pdata["api_key"] = _encrypt_value(raw_key, password, salt, ptype)
+        for field in _SECRET_FIELDS:
+            raw_key = pdata.get(field, "")
+            if raw_key:
+                pdata[field] = _encrypt_value(
+                    raw_key, password, salt, _secret_context(ptype, field)
+                )
     return config
 
 
 def _decrypt_api_keys(config: Dict[str, Any], password: str, salt: bytes) -> Dict[str, Any]:
-    """Return a *copy* of *config* with all ``api_key`` values decrypted."""
+    """Return a *copy* of *config* with every API key (see ``_SECRET_FIELDS``) decrypted."""
     config = copy.deepcopy(config)
     providers = config.get("providers", {})
     for ptype, pdata in providers.items():
-        enc_key = pdata.get("api_key", "")
-        if enc_key:
-            pdata["api_key"] = _decrypt_value(enc_key, password, salt, ptype)
+        for field in _SECRET_FIELDS:
+            enc_key = pdata.get(field, "")
+            if enc_key:
+                pdata[field] = _decrypt_value(
+                    enc_key, password, salt, _secret_context(ptype, field)
+                )
     return config
 
 

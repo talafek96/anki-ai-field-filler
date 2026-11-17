@@ -386,3 +386,65 @@ class TestConfigManagerExportImport:
         assert cfg.text_model == "gpt-4o"
         gs = cm.get_general_settings()
         assert gs.fill_all_shortcut == "Ctrl+Shift+G"
+
+
+# ---------------------------------------------------------------------------
+# Dedicated speech / image server keys (issue #18)
+# ---------------------------------------------------------------------------
+
+
+def _config_with_server_keys() -> dict:
+    config = copy.deepcopy(_SAMPLE_CONFIG)
+    config["providers"]["openai"].update(
+        {
+            "tts_api_url": "http://localhost:8880/v1",
+            "tts_api_key": "speech-secret",
+            "image_api_url": "http://localhost:7860/v1",
+            "image_api_key": "image-secret",
+        }
+    )
+    return config
+
+
+class TestServerKeyEncryption:
+    def test_server_keys_are_encrypted(self, tmp_path) -> None:
+        path = str(tmp_path / "settings.aiff-settings")
+        export_settings(_config_with_server_keys(), path, password="pw")
+        with open(path, encoding="utf-8") as fh:
+            openai = json.load(fh)["providers"]["openai"]
+        assert openai["tts_api_key"] not in ("", "speech-secret")
+        assert openai["image_api_key"] not in ("", "image-secret")
+        # URLs are not secrets.
+        assert openai["tts_api_url"] == "http://localhost:8880/v1"
+
+    def test_server_keys_roundtrip(self, tmp_path) -> None:
+        path = str(tmp_path / "settings.aiff-settings")
+        export_settings(_config_with_server_keys(), path, password="pw")
+        openai = import_settings(path, password="pw")["providers"]["openai"]
+        assert openai["api_key"] == "sk-test-key-openai"
+        assert openai["tts_api_key"] == "speech-secret"
+        assert openai["image_api_key"] == "image-secret"
+
+    def test_equal_keys_get_different_ciphertexts(self, tmp_path) -> None:
+        # Each secret has its own context, so equal keys never share a keystream.
+        config = _config_with_server_keys()
+        openai = config["providers"]["openai"]
+        openai["tts_api_key"] = openai["image_api_key"] = openai["api_key"]
+        path = str(tmp_path / "settings.aiff-settings")
+        export_settings(config, path, password="pw")
+        with open(path, encoding="utf-8") as fh:
+            exported = json.load(fh)["providers"]["openai"]
+        ciphertexts = {exported["api_key"], exported["tts_api_key"], exported["image_api_key"]}
+        assert len(ciphertexts) == 3
+
+    def test_api_key_context_unchanged_for_older_files(self, tmp_path) -> None:
+        # Files exported before the server keys existed encrypted api_key with
+        # the bare provider name as context; they must still import.
+        path = str(tmp_path / "settings.aiff-settings")
+        export_settings(_SAMPLE_CONFIG, path, password="pw")
+        with open(path, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        salt = bytes.fromhex(payload["_salt"])
+        assert payload["providers"]["openai"]["api_key"] == _encrypt_value(
+            "sk-test-key-openai", "pw", salt, "openai"
+        )
