@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import urllib.error
 from io import BytesIO
@@ -12,7 +13,13 @@ from ai_field_filler.providers import (
     fetch_available_models,
 )
 from ai_field_filler.providers import (
+    test_image_connection as _test_image_connection,
+)
+from ai_field_filler.providers import (
     test_provider_connection as _test_provider_connection,
+)
+from ai_field_filler.providers import (
+    test_tts_connection as _test_tts_connection,
 )
 
 _HTTP_URLOPEN = "ai_field_filler.providers.http.urllib.request.urlopen"
@@ -212,3 +219,90 @@ class TestTestProviderConnection:
         ok, msg, _detail = _test_provider_connection(cfg)
         assert ok is False
         assert "401" in msg
+
+
+# ---------------------------------------------------------------------------
+# Dedicated speech / image servers (issue #18)
+# ---------------------------------------------------------------------------
+
+
+def _speech_server_cfg(**extra: str) -> ProviderConfig:
+    """An OpenAI config whose speech goes to a local server, already resolved."""
+    return ProviderConfig(
+        provider_type="openai",
+        api_url="https://api.openai.com/v1",
+        api_key="main-key",
+        tts_model="kokoro",
+        tts_api_url="http://localhost:8880/v1",
+        **extra,
+    ).for_capability("tts")
+
+
+class TestDedicatedServerModels:
+    @patch(_HTTP_URLOPEN)
+    def test_lists_every_model_from_a_dedicated_server(self, mock_urlopen) -> None:
+        # Self-hosted model ids carry no "tts" signal; classifying would hide them.
+        mock_urlopen.return_value = _mock_urlopen(
+            json.dumps({"data": [{"id": "kokoro"}, {"id": "piper-en"}]})
+        )
+        result = fetch_available_models(_speech_server_cfg(), "tts")
+        assert result == ["kokoro", "piper-en"]
+        assert mock_urlopen.call_args[0][0].full_url == "http://localhost:8880/v1/models"
+
+    @patch(_HTTP_URLOPEN)
+    def test_main_server_is_still_classified(self, mock_urlopen) -> None:
+        mock_urlopen.return_value = _mock_urlopen(
+            json.dumps({"data": [{"id": "gpt-4o"}, {"id": "tts-1"}]})
+        )
+        cfg = ProviderConfig(provider_type="openai", api_url="https://api.test/v1", api_key="k")
+        assert fetch_available_models(cfg.for_capability("tts"), "tts") == ["tts-1"]
+
+
+class TestTestTTSConnection:
+    @patch(_HTTP_URLOPEN)
+    def test_success_hits_the_speech_server(self, mock_urlopen) -> None:
+        mock_urlopen.return_value = _mock_urlopen(b"ID3-fake-mp3-bytes")
+        ok, msg, _detail = _test_tts_connection(_speech_server_cfg())
+        assert ok is True
+        assert msg == "Speech works."
+        req = mock_urlopen.call_args[0][0]
+        assert req.full_url == "http://localhost:8880/v1/audio/speech"
+        # No speech key given, so the main key is reused.
+        assert req.get_header("Authorization") == "Bearer main-key"
+
+    @patch(_HTTP_URLOPEN)
+    def test_empty_audio_fails(self, mock_urlopen) -> None:
+        mock_urlopen.return_value = _mock_urlopen(b"")
+        ok, msg, _detail = _test_tts_connection(_speech_server_cfg())
+        assert ok is False
+        assert "no audio" in msg
+
+    @patch(_HTTP_URLOPEN)
+    def test_missing_endpoint_reports_provider_error(self, mock_urlopen) -> None:
+        mock_urlopen.side_effect = urllib.error.HTTPError(
+            "http://localhost:8880/v1/audio/speech", 404, "Not Found", {}, BytesIO(b"nope")
+        )
+        ok, msg, _detail = _test_tts_connection(_speech_server_cfg())
+        assert ok is False
+        assert "404" in msg
+
+
+class TestTestImageConnection:
+    @patch(_HTTP_URLOPEN)
+    def test_success_hits_the_image_server(self, mock_urlopen) -> None:
+        png = base64.b64encode(b"\x89PNG-fake").decode("ascii")
+        mock_urlopen.return_value = _mock_urlopen(json.dumps({"data": [{"b64_json": png}]}))
+        cfg = ProviderConfig(
+            provider_type="openai",
+            api_url="https://api.openai.com/v1",
+            api_key="main-key",
+            image_model="gpt-image-1",
+            image_api_url="http://localhost:7860/v1",
+            image_api_key="image-key",
+        ).for_capability("image")
+        ok, msg, _detail = _test_image_connection(cfg)
+        assert ok is True
+        assert msg == "Images work."
+        req = mock_urlopen.call_args[0][0]
+        assert req.full_url == "http://localhost:7860/v1/images/generations"
+        assert req.get_header("Authorization") == "Bearer image-key"

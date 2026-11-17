@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from ..config.config_manager import ProviderConfig
 from .base import ImageProvider, ProviderError, TextProvider, TTSProvider
@@ -71,13 +71,53 @@ def test_provider_connection(config: ProviderConfig) -> Tuple[bool, str, Optiona
     response body when one is available, for the error dialog's details
     pane.
     """
-    try:
-        provider = create_text_provider(config)
-        provider.generate(
+
+    def check() -> None:
+        create_text_provider(config).generate(
             "Reply with exactly the word OK and nothing else.",
             "Test connection.",
         )
-        return True, "Connection successful!", None
+
+    return _run_connection_test(check, "Connection successful!")
+
+
+def test_tts_connection(config: ProviderConfig) -> Tuple[bool, str, Optional[str]]:
+    """Synthesize a short phrase to check the speech server and TTS model.
+
+    *config* should already be resolved with ``for_capability("tts")``.
+    Returns ``(success, message, detail)`` like :func:`test_provider_connection`.
+    """
+
+    def check() -> None:
+        if not create_tts_provider(config).synthesize("This is a test."):
+            raise ProviderError("The speech server returned no audio. Check the TTS model.")
+
+    return _run_connection_test(check, "Speech works.")
+
+
+def test_image_connection(config: ProviderConfig) -> Tuple[bool, str, Optional[str]]:
+    """Generate one small image to check the image server and image model.
+
+    *config* should already be resolved with ``for_capability("image")``.
+    Returns ``(success, message, detail)`` like :func:`test_provider_connection`.
+    """
+
+    def check() -> None:
+        image = create_image_provider(config).generate_image(
+            "A plain red circle on a white background."
+        )
+        if not image:
+            raise ProviderError("The image server returned no image. Check the image model.")
+
+    return _run_connection_test(check, "Images work.")
+
+
+def _run_connection_test(
+    check: Callable[[], None], success_message: str
+) -> Tuple[bool, str, Optional[str]]:
+    try:
+        check()
+        return True, success_message, None
     except ProviderError as e:
         return False, str(e), e.detail
     except Exception as e:
@@ -100,6 +140,11 @@ def fetch_available_models(config: ProviderConfig, capability: str = "text") -> 
         Sorted list of model ID strings.
     """
     if config.provider_type == "openai":
+        if config.has_dedicated_server(capability):
+            # A dedicated speech/image server is usually self-hosted, and its
+            # model ids carry none of OpenAI's naming signals, so classifying
+            # by id would hide every model. It serves one capability: list all.
+            return sorted(_fetch_openai_model_ids(config))
         return _fetch_openai_models(config, capability)
     if config.provider_type == "anthropic":
         return _fetch_anthropic_models(config, capability)
@@ -110,12 +155,17 @@ def fetch_available_models(config: ProviderConfig, capability: str = "text") -> 
     return []
 
 
-def _fetch_openai_models(config: ProviderConfig, capability: str) -> List[str]:
-    """Fetch models from an OpenAI-compatible /models endpoint."""
+def _fetch_openai_model_ids(config: ProviderConfig) -> List[str]:
+    """Fetch every model id from an OpenAI-compatible /models endpoint."""
     url = f"{config.base_url}/models"
     headers = {"Authorization": f"Bearer {config.api_key}"}
     data = http_get_json(url, headers, label="OpenAI")
-    all_ids = [m["id"] for m in data.get("data", [])]
+    return [m["id"] for m in data.get("data", [])]
+
+
+def _fetch_openai_models(config: ProviderConfig, capability: str) -> List[str]:
+    """Fetch models from an OpenAI-compatible /models endpoint, filtered by capability."""
+    all_ids = _fetch_openai_model_ids(config)
     classified: dict[str, list[str]] = {"text": [], "tts": [], "image": []}
     for mid in all_ids:
         cap = _classify_openai_model(mid)
@@ -328,5 +378,7 @@ __all__ = [
     "create_text_provider",
     "create_tts_provider",
     "fetch_available_models",
+    "test_image_connection",
     "test_provider_connection",
+    "test_tts_connection",
 ]
