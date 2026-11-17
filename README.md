@@ -69,6 +69,8 @@ Configure credentials and models for each supported provider:
 
 **Using OpenAI-compatible APIs**: Change the API URL to point to your endpoint (e.g., Azure OpenAI, local LLM server, or any OpenAI-compatible API).
 
+**Separate speech or image server**: If text-to-speech or images come from a different server than text (for example a local OpenAI-compatible speech server), tick **Use a different server for speech** or **Use a different server for images** under Connection. The TTS or image model settings move into their own box with that server's URL, an optional key (empty uses the main API key), and a **Test Speech** / **Test Images** button. Text keeps using the main API URL.
+
 ### Note Types Tab
 
 For each note type, describe what each field should contain. This gives the AI rich context for generating appropriate content.

@@ -169,3 +169,29 @@ requires `<3.15`, while this addon targets 3.9+.
   transparent; }` rule (an ID selector, so it doesn't cascade).
 - **Verify layout** without Anki: render offscreen via `uv run --with PyQt6`
   and a stub `aqt` package (`aqt.qt` re-exporting PyQt6 + `qconnect`).
+
+## Config: one `api_url` served text, speech, and images (issue #18)
+
+- **Symptom:** a user with a local OpenAI-compatible TTS server set the OpenAI
+  provider's API URL to it; every fill failed with `/chat/completions` not
+  found, and TTS never ran.
+- **Cause:** settings are stored per provider type, with one `api_url`/`api_key`
+  shared by every capability. Every fill also starts with a text-generation
+  call (the model writes the words to speak), so text went to the TTS server.
+  Images had the same coupling.
+- **Fix:** optional `tts_api_url`/`tts_api_key`/`image_api_url`/`image_api_key`
+  per provider; empty means "use the main one". `ProviderConfig.for_capability()`
+  is the single place that swaps them in; `get_active_tts_provider()`/
+  `get_active_image_provider()` and Developer Tools go through it.
+- **Traps:**
+  - A config built field-by-field (`ProviderConfig(api_url=base.api_url, ...)`)
+    silently drops the new fields. Derive with `dataclasses.replace(base, ...)`.
+  - Settings export encrypts secrets with an XOR keystream derived per
+    *context*. Each secret field needs its own context, or two equal-length keys
+    share a keystream. `api_key` keeps the bare provider name for old files.
+  - Self-hosted servers name models freely (`kokoro`, `piper-en`), so OpenAI's
+    id-based classification hides them all. A dedicated server's `/models` is
+    listed unfiltered.
+  - Moving rows between `QFormLayout`s: `takeRow()` detaches without deleting
+    widgets; `removeRow()` deletes them.
+
