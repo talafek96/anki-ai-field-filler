@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, replace
+from typing import Any, Dict, List, Optional, Tuple
 
 from aqt import mw
 
@@ -21,11 +21,42 @@ class ProviderConfig:
     tts_model: str = ""
     tts_voice: str = ""
     image_model: str = ""
+    # Optional dedicated servers for speech and images (issue #18). Empty means
+    # "use api_url / api_key", so configs written before these existed behave
+    # exactly as before.
+    tts_api_url: str = ""
+    tts_api_key: str = ""
+    image_api_url: str = ""
+    image_api_key: str = ""
 
     @property
     def base_url(self) -> str:
         """API URL with trailing slashes stripped."""
         return self.api_url.rstrip("/")
+
+    def has_dedicated_server(self, capability: str) -> bool:
+        """Whether *capability* ("tts"/"image") has its own server configured."""
+        return bool(self._server_override(capability)[0])
+
+    def for_capability(self, capability: str) -> ProviderConfig:
+        """Return this config with ``api_url``/``api_key`` pointed at *capability*'s server.
+
+        When a dedicated URL is set for "tts" or "image", it replaces
+        ``api_url``; its key replaces ``api_key`` only if one was given, so a
+        separate server can reuse the main key. Every other capability, or one
+        without a dedicated URL, gets this config unchanged.
+        """
+        url, key = self._server_override(capability)
+        if not url:
+            return self
+        return replace(self, api_url=url, api_key=key or self.api_key)
+
+    def _server_override(self, capability: str) -> Tuple[str, str]:
+        if capability == "tts":
+            return self.tts_api_url.strip(), self.tts_api_key.strip()
+        if capability == "image":
+            return self.image_api_url.strip(), self.image_api_key.strip()
+        return "", ""
 
 
 FIELD_TYPES = ("auto", "text", "audio", "image", "rich")
@@ -115,6 +146,10 @@ class ConfigManager:
             tts_model=p.get("tts_model", ""),
             tts_voice=p.get("tts_voice", ""),
             image_model=p.get("image_model", ""),
+            tts_api_url=p.get("tts_api_url", ""),
+            tts_api_key=p.get("tts_api_key", ""),
+            image_api_url=p.get("image_api_url", ""),
+            image_api_key=p.get("image_api_key", ""),
         )
 
     def set_provider_config(self, provider_type: str, config: ProviderConfig) -> None:
@@ -128,6 +163,10 @@ class ConfigManager:
             "tts_model": config.tts_model,
             "tts_voice": config.tts_voice,
             "image_model": config.image_model,
+            "tts_api_url": config.tts_api_url,
+            "tts_api_key": config.tts_api_key,
+            "image_api_url": config.image_api_url,
+            "image_api_key": config.image_api_key,
         }
 
     def get_active_provider_type(self, capability: str = "text") -> str:
@@ -150,7 +189,7 @@ class ConfigManager:
         if ptype == "disabled":
             return None
         cfg = self.get_provider_config(ptype)
-        return cfg if cfg.tts_model else None
+        return cfg.for_capability("tts") if cfg.tts_model else None
 
     def get_active_image_provider(self) -> Optional[ProviderConfig]:
         """Get the active image provider config, or None if disabled."""
@@ -158,7 +197,7 @@ class ConfigManager:
         if ptype == "disabled":
             return None
         cfg = self.get_provider_config(ptype)
-        return cfg if cfg.image_model else None
+        return cfg.for_capability("image") if cfg.image_model else None
 
     def get_all_provider_types(self) -> List[str]:
         """Get all configured provider type names.

@@ -18,6 +18,14 @@ API credentials and model settings for each supported AI provider.
 | `tts_model` | Model for text-to-speech (OpenAI / Google / OpenRouter) |
 | `tts_voice` | Voice for TTS (OpenAI / Google / OpenRouter) |
 | `image_model` | Model for image generation (OpenAI / Google / OpenRouter) |
+| `tts_api_url` | Optional separate server for text-to-speech. Empty: use `api_url` |
+| `tts_api_key` | Key for `tts_api_url`. Empty: use `api_key` |
+| `image_api_url` | Optional separate server for images. Empty: use `api_url` |
+| `image_api_key` | Key for `image_api_url`. Empty: use `api_key` |
+
+Set a separate server when speech or images come from somewhere other than
+`api_url`, for example a local OpenAI-compatible text-to-speech server. In the
+Settings dialog, tick **Use a different server for speech** (or **images**).
 
 ## `active_providers`
 

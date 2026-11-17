@@ -490,3 +490,118 @@ class TestModelCache:
         config["_model_cache"] = {"openai": {"text": ["gpt-4o", "gpt-5.4"]}}
         cm, _ = _make_config_manager(config=config)
         assert cm.get_cached_models("openai", "text") == ["gpt-4o", "gpt-5.4"]
+
+
+# ---------------------------------------------------------------------------
+# Dedicated speech / image servers (issue #18)
+# ---------------------------------------------------------------------------
+
+
+def _with_openai(**overrides: str) -> dict:
+    """_SAMPLE_CONFIG with extra keys merged into the openai provider."""
+    config = copy.deepcopy(_SAMPLE_CONFIG)
+    config["providers"]["openai"].update(overrides)
+    return config
+
+
+class TestProviderConfigDedicatedServers:
+    def test_defaults_are_empty(self) -> None:
+        pc = ProviderConfig()
+        assert pc.tts_api_url == ""
+        assert pc.tts_api_key == ""
+        assert pc.image_api_url == ""
+        assert pc.image_api_key == ""
+        assert not pc.has_dedicated_server("tts")
+        assert not pc.has_dedicated_server("image")
+
+    def test_without_dedicated_server_config_is_unchanged(self) -> None:
+        pc = ProviderConfig(api_url="https://main/v1", api_key="main-key")
+        assert pc.for_capability("tts") is pc
+        assert pc.for_capability("image") is pc
+
+    def test_tts_server_replaces_url_and_key(self) -> None:
+        pc = ProviderConfig(
+            api_url="https://main/v1",
+            api_key="main-key",
+            tts_api_url="http://localhost:8880/v1/",
+            tts_api_key="speech-key",
+        )
+        resolved = pc.for_capability("tts")
+        assert resolved.base_url == "http://localhost:8880/v1"
+        assert resolved.api_key == "speech-key"
+        # The original is left alone.
+        assert pc.api_url == "https://main/v1"
+
+    def test_dedicated_server_without_key_reuses_main_key(self) -> None:
+        pc = ProviderConfig(
+            api_url="https://main/v1", api_key="main-key", image_api_url="http://img/v1"
+        )
+        resolved = pc.for_capability("image")
+        assert resolved.api_url == "http://img/v1"
+        assert resolved.api_key == "main-key"
+
+    def test_text_never_uses_a_dedicated_server(self) -> None:
+        pc = ProviderConfig(
+            api_url="https://main/v1",
+            tts_api_url="http://speech/v1",
+            image_api_url="http://img/v1",
+        )
+        assert pc.for_capability("text").api_url == "https://main/v1"
+        assert not pc.has_dedicated_server("text")
+
+    def test_servers_are_independent(self) -> None:
+        pc = ProviderConfig(api_url="https://main/v1", tts_api_url="http://speech/v1")
+        assert pc.for_capability("tts").api_url == "http://speech/v1"
+        assert pc.for_capability("image").api_url == "https://main/v1"
+
+    def test_key_without_url_is_ignored(self) -> None:
+        pc = ProviderConfig(api_url="https://main/v1", api_key="main", tts_api_key="orphan")
+        assert pc.for_capability("tts").api_key == "main"
+
+    def test_whitespace_only_url_is_not_a_server(self) -> None:
+        pc = ProviderConfig(api_url="https://main/v1", tts_api_url="   ")
+        assert not pc.has_dedicated_server("tts")
+        assert pc.for_capability("tts").api_url == "https://main/v1"
+
+
+class TestConfigManagerDedicatedServers:
+    def test_set_and_get_roundtrip(self) -> None:
+        cm, _ = _make_config_manager()
+        cfg = cm.get_provider_config("openai")
+        cfg.tts_api_url = "http://localhost:8880/v1"
+        cfg.tts_api_key = "speech-key"
+        cfg.image_api_url = "http://localhost:7860/v1"
+        cfg.image_api_key = "image-key"
+        cm.set_provider_config("openai", cfg)
+        result = cm.get_provider_config("openai")
+        assert result.tts_api_url == "http://localhost:8880/v1"
+        assert result.tts_api_key == "speech-key"
+        assert result.image_api_url == "http://localhost:7860/v1"
+        assert result.image_api_key == "image-key"
+
+    def test_config_from_before_the_keys_existed_uses_main_server(self) -> None:
+        cm, _ = _make_config_manager()
+        tts = cm.get_active_tts_provider()
+        image = cm.get_active_image_provider()
+        assert tts is not None and image is not None
+        assert tts.api_url == "https://api.openai.com/v1"
+        assert image.api_url == "https://api.openai.com/v1"
+
+    def test_active_tts_provider_points_at_speech_server(self) -> None:
+        cm, _ = _make_config_manager(config=_with_openai(tts_api_url="http://localhost:8880/v1"))
+        tts = cm.get_active_tts_provider()
+        assert tts is not None
+        assert tts.api_url == "http://localhost:8880/v1"
+        assert tts.api_key == "sk-test"
+        # Text generation keeps the main server: the bug in issue #18.
+        assert cm.get_active_text_provider().api_url == "https://api.openai.com/v1"
+
+    def test_active_image_provider_points_at_image_server(self) -> None:
+        cm, _ = _make_config_manager(
+            config=_with_openai(image_api_url="http://localhost:7860/v1", image_api_key="ik")
+        )
+        image = cm.get_active_image_provider()
+        assert image is not None
+        assert image.api_url == "http://localhost:7860/v1"
+        assert image.api_key == "ik"
+        assert cm.get_active_text_provider().api_url == "https://api.openai.com/v1"

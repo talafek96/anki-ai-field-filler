@@ -7,7 +7,11 @@
             "tts_model": "gpt-4o-mini-tts",
             "tts_voice": "alloy",
             "image_model": "gpt-image-1",
-            "max_tokens": 4096
+            "max_tokens": 4096,
+            "tts_api_url": "",
+            "tts_api_key": "",
+            "image_api_url": "",
+            "image_api_key": ""
         },
         "anthropic": {
             "api_url": "https://api.anthropic.com/v1",
@@ -22,7 +26,11 @@
             "tts_model": "",
             "tts_voice": "Kore",
             "image_model": "gemini-2.5-flash-image",
-            "max_tokens": 4096
+            "max_tokens": 4096,
+            "tts_api_url": "",
+            "tts_api_key": "",
+            "image_api_url": "",
+            "image_api_key": ""
         },
         "openrouter": {
             "api_url": "https://openrouter.ai/api/v1",
@@ -31,7 +39,11 @@
             "tts_model": "openai/gpt-audio-mini",
             "tts_voice": "alloy",
             "image_model": "google/gemini-3.1-flash-image",
-            "max_tokens": 4096
+            "max_tokens": 4096,
+            "tts_api_url": "",
+            "tts_api_key": "",
+            "image_api_url": "",
+            "image_api_key": ""
         }
     },
     "active_providers": {
