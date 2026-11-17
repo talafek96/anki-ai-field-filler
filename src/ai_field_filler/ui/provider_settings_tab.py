@@ -17,6 +17,7 @@ from ..providers import (
     test_tts_connection,
 )
 from .error_dialog import show_error
+from .provider_icons import provider_icon
 
 PROVIDER_CAPABILITIES = {
     "openai": {"text": True, "tts": True, "image": True},
@@ -211,8 +212,11 @@ class ProviderSettingsTab(QWidget):
         sel.addWidget(lbl)
         self._provider_combo = QComboBox()
         self._provider_combo.setMinimumWidth(180)
+        icon_color = self._provider_combo.palette().color(QPalette.ColorRole.Text)
         for ptype in self._config.get_all_provider_types():
-            self._provider_combo.addItem(PROVIDER_LABELS.get(ptype, ptype), ptype)
+            self._provider_combo.addItem(
+                provider_icon(ptype, icon_color), PROVIDER_LABELS.get(ptype, ptype), ptype
+            )
         qconnect(
             self._provider_combo.currentIndexChanged,
             self._on_provider_changed,

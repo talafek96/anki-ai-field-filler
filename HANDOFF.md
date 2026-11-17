@@ -29,7 +29,8 @@ Full gate is green: `make check` → ruff + mypy + 390 tests.
 `usr/tal-afek/separate-media-servers` (not yet merged). Each provider gets optional
 `tts_api_url`/`tts_api_key`/`image_api_url`/`image_api_key`; the settings tab has opt-in
 checkboxes under Connection that move the TTS/image model rows into their own server box
-with a Test Speech / Test Images button. Gate green; layout verified offscreen with real
+with a Test Speech / Test Images button. The provider picker also shows each provider's logo
+(`ui/icons/providers/`, MIT, LobeHub; notice ships beside them). Gate green; layout verified offscreen with real
 PyQt6. Still to do: try it in live Anki, merge, release, reply on issue #18.
 
 ## Next steps
